@@ -1,0 +1,24 @@
+{
+  "tabWidth": 2,
+  "printWidth": 90,
+  "useTabs": false,
+  "arrowParens": "always",
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "es5",
+  "parser": "babel-ts",
+  "overrides": [
+    {
+      "files": "*.json",
+      "options": {
+        "parser": "json"
+      }
+    },
+    {
+      "files": "*.css",
+      "options": {
+        "parser": "css"
+      }
+    }
+  ]
+}
