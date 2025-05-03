@@ -1,7 +1,11 @@
+import { useState } from 'react'
+
 import dayjs from 'dayjs'
+
 import { useHabits } from './shared/api/hooks/useHabits'
 import { useSleepRecords } from './shared/api/hooks/useSleepRecords'
 import { TimePicker } from './components/ui/time-picker'
+import { Button } from '@/components/ui/button'
 
 const getLastNDays = (n = 7): string[] => {
   return Array.from({ length: n })
@@ -9,19 +13,11 @@ const getLastNDays = (n = 7): string[] => {
     .reverse()
 }
 
-const combineDateWithTime = (date: string, time: string): string => {
-  const [hour, minute] = time.split(':').map(Number)
-  const base = new Date(date)
-  base.setHours(hour)
-  base.setMinutes(minute)
-  base.setSeconds(0)
-  base.setMilliseconds(0)
-  return base.toISOString()
-}
-
 export const App = () => {
-  const { habitsQuery } = useHabits()
+  const { habitsQuery, addHabit } = useHabits()
   const { sleepRecordsQuery, updateHabit, removeHabit } = useSleepRecords()
+
+  const [newHabitLabel, setNewHabitLabel] = useState<string>('')
 
   const { updateSleep } = useSleepRecords()
 
@@ -54,7 +50,7 @@ export const App = () => {
       <table className="min-w-max border border-gray-300 text-sm text-center">
         <thead>
           <tr className="bg-gray-100">
-            <th className="border px-2 py-1 text-left">Привычка</th>
+            <th className="border px-2 py-1 text-left"></th>
             {days.map((date) => (
               <th key={date} className="border px-2 py-1">
                 {dayjs(date).format('DD.MM')}
@@ -63,7 +59,6 @@ export const App = () => {
           </tr>
         </thead>
         <tbody>
-          {/* Сон: отбой */}
           <tr>
             <td className="border px-2 py-1 text-left font-medium">Отбой</td>
             {days.map((date) => {
@@ -74,16 +69,25 @@ export const App = () => {
               const defaultTime = '23:00'
 
               const handleChange = (newTime: string) => {
-                const bedtimeIso = combineDateWithTime(
-                  dayjs(date).subtract(1, 'day').format('YYYY-MM-DD'),
-                  newTime
-                )
+                // 1) Собираем обе даты на тот же день
+                const bed = dayjs(date)
+                  .set('hour', Number(newTime.slice(0, 2)))
+                  .set('minute', Number(newTime.slice(3, 5)))
+                const wake = entry?.sleep?.wakeTime ? dayjs(entry.sleep.wakeTime) : null
+
+                // 2) Если «лежим в кровати» позже «проснулись» → значит, отбой был накануне
+                const adjustedBed =
+                  wake && bed.isAfter(wake) ? bed.subtract(1, 'day') : bed
+
+                // 3) Собираем ISO и пушим в базу
+                const bedtimeIso = adjustedBed.toISOString()
+                const wakeIso = wake?.toISOString() ?? null
 
                 updateSleep.mutate({
                   id: date,
                   sleep: {
                     bedtime: bedtimeIso,
-                    wakeTime: entry?.sleep?.wakeTime ?? null,
+                    wakeTime: wakeIso,
                     napDurationMin: entry?.sleep?.napDurationMin ?? 0,
                   },
                 })
@@ -108,27 +112,61 @@ export const App = () => {
               )
             })}
           </tr>
-          {/* Сон: подъём */}
+
           <tr>
             <td className="border px-2 py-1 text-left font-medium">Подъём</td>
             {days.map((date) => {
               const entry = getEntryByDate(date)
-              const wakeTime = entry?.sleep?.wakeTime
-              const time = wakeTime
-                ? new Date(wakeTime).toLocaleTimeString('ru-RU', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                : '—'
+              const current = entry?.sleep?.wakeTime
+                ? dayjs(entry.sleep.wakeTime).format('HH:mm')
+                : null
+
+              const handleWakeChange = (newTime: string) => {
+                const wake = dayjs(date)
+                  .set('hour', Number(newTime.slice(0, 2)))
+                  .set('minute', Number(newTime.slice(3, 5)))
+
+                // получаем прошлый bedtime, уже скорректированный
+                const bed = entry?.sleep?.bedtime ? dayjs(entry.sleep.bedtime) : null
+
+                // если вдруг wake < bed (редкий случай) → можно скорректировать дальше,
+                // но обычно не требуется.
+
+                updateSleep.mutate({
+                  id: date,
+                  sleep: {
+                    bedtime: bed?.toISOString() ?? null,
+                    wakeTime: wake.toISOString(),
+                    napDurationMin: entry?.sleep?.napDurationMin ?? 0,
+                  },
+                })
+              }
+              //
+              //const handleWakeChange = (newTime: string) => {
+              //  const wakeIso = combineDateWithTime(date, newTime)
+              //  updateSleep.mutate({
+              //    id: date,
+              //    sleep: {
+              //      bedtime: entry?.sleep?.bedtime ?? null,
+              //      wakeTime: wakeIso,
+              //      napDurationMin: entry?.sleep?.napDurationMin ?? 0,
+              //    },
+              //  })
+              //}
+              //
               return (
                 <td key={date} className="border px-2 py-1">
-                  {time}
+                  <TimePicker
+                    value={current}
+                    defaultValue="08:00"
+                    onChange={handleWakeChange}
+                  />
                 </td>
               )
             })}
           </tr>
 
-          {/* Сон: дневной сон */}
+          {/* Дневной сон - пока не отображаем
           <tr>
             <td className="border px-2 py-1 text-left font-medium">Дневной сон (мин)</td>
             {days.map((date) => {
@@ -141,12 +179,10 @@ export const App = () => {
               )
             })}
           </tr>
+*/}
 
-          {/* Сон: общее время сна */}
           <tr>
-            <td className="border px-2 py-1 text-left font-medium">
-              Общее время сна (мин)
-            </td>
+            <td className="border px-2 py-1 text-left font-medium">Время сна</td>
             {days.map((date) => {
               const entry = getEntryByDate(date)
               const sleep = entry?.sleep
@@ -157,16 +193,15 @@ export const App = () => {
                   </td>
                 )
 
-              const bedtimeMs = new Date(sleep.bedtime).getTime()
-              const wakeTimeMs = new Date(sleep.wakeTime).getTime()
-
-              const totalMinutes = (wakeTimeMs - bedtimeMs) / 60000 + sleep.napDurationMin
-              const hours = Math.floor(totalMinutes / 60)
-              const minutes = Math.round(totalMinutes % 60)
+              const bed = dayjs(sleep.bedtime)
+              const wake = dayjs(sleep.wakeTime)
+              const minutesDiff = wake.diff(bed, 'minute') + sleep.napDurationMin
+              const hours = Math.floor(minutesDiff / 60)
+              const minutes = minutesDiff % 60
 
               return (
                 <td key={date} className="border px-2 py-1">
-                  {`${hours}:${minutes}`}
+                  {`${hours}ч${minutes > 0 ? ` ${minutes}м` : ''}`}
                 </td>
               )
             })}
@@ -204,6 +239,26 @@ export const App = () => {
           ))}
         </tbody>
       </table>
+      <div className="mt-6 flex items-center space-x-2">
+        {/* Инпут для названия */}
+        <input
+          type="text"
+          placeholder="Новая привычка"
+          value={newHabitLabel}
+          onChange={(e) => setNewHabitLabel(e.target.value)} // обновляем стейт
+          className="flex-1 rounded border px-3 py-2 focus:outline-none"
+        />
+        {/* Кнопка «Добавить» */}
+        <Button
+          onClick={() => {
+            addHabit.mutate(newHabitLabel) // запускаем мутацию
+            setNewHabitLabel('') // очищаем инпут
+          }}
+          disabled={!newHabitLabel.trim() || addHabit.isPending} // блокируем при пустом или загрузке
+        >
+          {addHabit.isPending ? 'Добавление...' : 'Добавить'}
+        </Button>
+      </div>
     </div>
   )
 }
