@@ -39,7 +39,7 @@ export const TimePicker = ({ value, defaultValue, onChange }: TimePickerProps) =
     <div className="w-full max-w-xs">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="w-full text-left">
+          <Button variant="ghost" className="w-full text-left px-1">
             {value ?? '—'}
           </Button>
         </PopoverTrigger>

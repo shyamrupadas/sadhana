@@ -50,9 +50,9 @@ export const App = () => {
       <table className="min-w-max border border-gray-300 text-sm text-center">
         <thead>
           <tr className="bg-gray-100">
-            <th className="border px-2 py-1 text-left"></th>
+            <th className="border px-1 py-1 text-left"></th>
             {days.map((date) => (
-              <th key={date} className="border px-2 py-1">
+              <th key={date} className="border px-1 py-1">
                 {dayjs(date).format('DD.MM')}
               </th>
             ))}
@@ -69,17 +69,14 @@ export const App = () => {
               const defaultTime = '23:00'
 
               const handleChange = (newTime: string) => {
-                // 1) Собираем обе даты на тот же день
                 const bed = dayjs(date)
                   .set('hour', Number(newTime.slice(0, 2)))
                   .set('minute', Number(newTime.slice(3, 5)))
                 const wake = entry?.sleep?.wakeTime ? dayjs(entry.sleep.wakeTime) : null
 
-                // 2) Если «лежим в кровати» позже «проснулись» → значит, отбой был накануне
                 const adjustedBed =
                   wake && bed.isAfter(wake) ? bed.subtract(1, 'day') : bed
 
-                // 3) Собираем ISO и пушим в базу
                 const bedtimeIso = adjustedBed.toISOString()
                 const wakeIso = wake?.toISOString() ?? null
 
@@ -94,7 +91,7 @@ export const App = () => {
               }
 
               return (
-                <td key={date} className="border px-2 py-1">
+                <td key={date} className="border px-0 py-0">
                   {value ? (
                     <TimePicker
                       value={value}
@@ -126,11 +123,7 @@ export const App = () => {
                   .set('hour', Number(newTime.slice(0, 2)))
                   .set('minute', Number(newTime.slice(3, 5)))
 
-                // получаем прошлый bedtime, уже скорректированный
                 const bed = entry?.sleep?.bedtime ? dayjs(entry.sleep.bedtime) : null
-
-                // если вдруг wake < bed (редкий случай) → можно скорректировать дальше,
-                // но обычно не требуется.
 
                 updateSleep.mutate({
                   id: date,
@@ -141,21 +134,9 @@ export const App = () => {
                   },
                 })
               }
-              //
-              //const handleWakeChange = (newTime: string) => {
-              //  const wakeIso = combineDateWithTime(date, newTime)
-              //  updateSleep.mutate({
-              //    id: date,
-              //    sleep: {
-              //      bedtime: entry?.sleep?.bedtime ?? null,
-              //      wakeTime: wakeIso,
-              //      napDurationMin: entry?.sleep?.napDurationMin ?? 0,
-              //    },
-              //  })
-              //}
-              //
+
               return (
-                <td key={date} className="border px-2 py-1">
+                <td key={date} className="border px-0 py-0">
                   <TimePicker
                     value={current}
                     defaultValue="08:00"
@@ -182,13 +163,13 @@ export const App = () => {
 */}
 
           <tr>
-            <td className="border px-2 py-1 text-left font-medium">Время сна</td>
+            <td className="border px-1 py-1 text-left font-medium">Время сна</td>
             {days.map((date) => {
               const entry = getEntryByDate(date)
               const sleep = entry?.sleep
               if (!sleep?.bedtime || !sleep?.wakeTime)
                 return (
-                  <td key={date} className="border px-2 py-1">
+                  <td key={date} className="border px-1 py-1">
                     —
                   </td>
                 )
@@ -196,18 +177,20 @@ export const App = () => {
               const bed = dayjs(sleep.bedtime)
               const wake = dayjs(sleep.wakeTime)
               const minutesDiff = wake.diff(bed, 'minute') + sleep.napDurationMin
-              const hours = Math.floor(minutesDiff / 60)
+              const hours =
+                minutesDiff > 0
+                  ? Math.floor(minutesDiff / 60)
+                  : Math.floor(minutesDiff / 60) + 24
               const minutes = minutesDiff % 60
 
               return (
-                <td key={date} className="border px-2 py-1">
-                  {`${hours}ч${minutes > 0 ? ` ${minutes}м` : ''}`}
+                <td key={date} className="border px-0 py-1">
+                  {`${hours}:${minutes || '00'}`}
                 </td>
               )
             })}
           </tr>
 
-          {/* Строки с привычками */}
           {habits.map((habit) => (
             <tr key={habit.key}>
               <td className="border px-2 py-1 text-left">{habit.label}</td>
