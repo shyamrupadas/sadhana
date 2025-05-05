@@ -2,10 +2,10 @@ import { useState } from 'react'
 
 import dayjs from 'dayjs'
 
-import { useHabits } from './shared/api/hooks/useHabits'
-import { useSleepRecords } from './shared/api/hooks/useSleepRecords'
-import { TimePicker } from './components/ui/time-picker'
+import { TimePicker } from '@/components/ui/time-picker'
 import { Button } from '@/components/ui/button'
+import { useHabits } from '@/shared/api/hooks/useHabits'
+import { useSleepRecords } from '@/shared/api/hooks/useSleepRecords'
 
 const getLastNDays = (n = 7): string[] => {
   return Array.from({ length: n })
