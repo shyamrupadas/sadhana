@@ -5,7 +5,7 @@ function generateHabitKey(label: string): string {
     .toLowerCase()
     .trim()
     .replace(/\s+/g, '-')
-    .replace(/[^a-zа-яё0-9\-]/gi, '')
+    .replace(/[^a-zа-яё0-9-]/gi, '')
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
 }
