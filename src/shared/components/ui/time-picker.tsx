@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
-import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Popover, PopoverContent, PopoverTrigger } from '@radix-ui/react-popover'
+import { ScrollArea } from '@radix-ui/react-scroll-area'
+import { Button } from './button'
 
 type TimePickerProps = {
   value: string | null
