@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef } from 'react'
-import { Popover, PopoverContent, PopoverTrigger } from '@radix-ui/react-popover'
-import { ScrollArea } from '@radix-ui/react-scroll-area'
-import { Button } from './button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover'
+import { ScrollArea } from '@/shared/components/ui/scroll-area'
+import { Button } from './ui/button'
+import { cn } from '@/shared/lib/utils'
 
 type TimePickerProps = {
   value: string | null
@@ -36,17 +37,18 @@ export const TimePicker = ({ value, defaultValue, onChange }: TimePickerProps) =
   const itemRefs = useRef<HTMLButtonElement | null>(null)
 
   return (
-    <div className="w-full max-w-xs">
+    <div className="w-full">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" className="w-full text-left px-1">
+          <Button variant="ghost" className="w-full text-left px-1 font-normal">
             {value ?? '—'}
           </Button>
         </PopoverTrigger>
 
         <PopoverContent
-          className="w-[120px] p-0"
-          onOpenAutoFocus={() => {
+          className="w-24 p-0"
+          onOpenAutoFocus={(event) => {
+            event.preventDefault()
             itemRefs.current?.scrollIntoView({ block: 'center' })
           }}
         >
@@ -62,11 +64,10 @@ export const TimePicker = ({ value, defaultValue, onChange }: TimePickerProps) =
                     ref={(el) => {
                       if (isMiddle) itemRefs.current = el
                     }}
-                    style={{ scrollSnapAlign: 'center' }}
-                    className={`
-        w-full px-3 py-2 text-sm text-left hover:bg-gray-100
-        ${isActive ? 'bg-gray-200 font-semibold' : ''}
-      `}
+                    className={cn(
+                      'w-full px-3 py-2 text-sm text-left hover:bg-gray-100',
+                      isActive && 'bg-gray-200'
+                    )}
                     onClick={() => {
                       onChange(time)
                       setOpen(false)

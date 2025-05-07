@@ -4,7 +4,7 @@ import dayjs from 'dayjs'
 
 import { useHabits } from '@/shared/api/hooks/useHabits'
 import { useSleepRecords } from '@/shared/api/hooks/useSleepRecords'
-import { TimePicker } from '@/shared/components/ui/time-picker'
+import { TimePicker } from '@/shared/components/time-picker'
 import { Button } from '@/shared/components/ui/button'
 
 const getLastNDays = (n = 7): string[] => {
@@ -45,14 +45,14 @@ const MainPage = () => {
 
   return (
     <div className="p-4 overflow-x-auto max-w-full">
-      <h2 className="text-xl font-bold mb-4">Трекер за последнюю неделю</h2>
+      <h2 className="text-xl font-medium mb-4">Трекер за последнюю неделю</h2>
 
       <table className="min-w-max border border-gray-300 text-sm text-center">
         <thead>
           <tr className="bg-gray-100">
             <th className="border px-1 py-1 text-left"></th>
             {days.map((date) => (
-              <th key={date} className="border px-1 py-1">
+              <th key={date} className="border px-1 py-1 font-normal">
                 {dayjs(date).format('DD.MM')}
               </th>
             ))}
@@ -60,7 +60,7 @@ const MainPage = () => {
         </thead>
         <tbody>
           <tr>
-            <td className="border px-2 py-1 text-left font-medium">Отбой</td>
+            <td className="border px-2 py-1 text-left">Отбой</td>
             {days.map((date) => {
               const entry = getEntryByDate(date)
               const bedtime = entry?.sleep?.bedtime
@@ -111,7 +111,7 @@ const MainPage = () => {
           </tr>
 
           <tr>
-            <td className="border px-2 py-1 text-left font-medium">Подъём</td>
+            <td className="border px-2 py-1 text-left">Подъём</td>
             {days.map((date) => {
               const entry = getEntryByDate(date)
               const current = entry?.sleep?.wakeTime
@@ -163,7 +163,7 @@ const MainPage = () => {
 */}
 
           <tr>
-            <td className="border px-1 py-1 text-left font-medium">Время сна</td>
+            <td className="border px-2 py-1 text-left">Время сна</td>
             {days.map((date) => {
               const entry = getEntryByDate(date)
               const sleep = entry?.sleep
@@ -185,7 +185,7 @@ const MainPage = () => {
 
               return (
                 <td key={date} className="border px-0 py-1">
-                  {`${hours}:${minutes || '00'}`}
+                  {`${String(hours)}:${String(Math.abs(minutes)).padStart(2, '0')}`}
                 </td>
               )
             })}
