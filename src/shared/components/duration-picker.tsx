@@ -1,41 +1,39 @@
 import { useState, useMemo, useRef } from 'react'
-
-import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover'
+import { Popover, PopoverTrigger, PopoverContent } from '@/shared/components/ui/popover'
 import { ScrollArea } from '@/shared/components/ui/scroll-area'
-import { Button } from './ui/button'
 import { cn } from '@/shared/lib/utils'
+import { Button } from './ui/button'
 
-type TimePickerProps = {
+type DurationPickerProps = {
   value: string | null
   defaultValue: string
   onChange: (val: string) => void
+  maxHours?: number
 }
 
-export const TimePicker = ({ value, defaultValue, onChange }: TimePickerProps) => {
+const MAX_HOURS = 8
+
+export const DurationPicker = ({
+  value,
+  defaultValue,
+  onChange,
+}: DurationPickerProps) => {
   const [open, setOpen] = useState(false)
 
-  const baseOptions = useMemo(() => {
+  const options = useMemo(() => {
     const arr: string[] = []
-    for (let h = 0; h < 24; h++) {
+    for (let h = 0; h <= MAX_HOURS; h++) {
       for (let m = 0; m < 60; m += 15) {
-        arr.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+        if (h === MAX_HOURS && m > 0) break
+        arr.push(`${h}:${String(m).padStart(2, '0')}`)
       }
     }
     return arr
   }, [])
 
-  const options = useMemo(
-    () => [...baseOptions, ...baseOptions, ...baseOptions],
-    [baseOptions]
-  )
-
   const selected = value ?? defaultValue
 
-  const block = baseOptions.length
-  const selectedIdx = baseOptions.indexOf(selected)
-  const middleIdx = selectedIdx + block
-
-  const itemRefs = useRef<HTMLButtonElement | null>(null)
+  const itemRef = useRef<HTMLButtonElement | null>(null)
 
   return (
     <div className="w-full">
@@ -48,33 +46,31 @@ export const TimePicker = ({ value, defaultValue, onChange }: TimePickerProps) =
 
         <PopoverContent
           className="w-24 p-0"
-          onOpenAutoFocus={(event) => {
-            event.preventDefault()
-            itemRefs.current?.scrollIntoView({ block: 'center' })
+          onOpenAutoFocus={(e) => {
+            e.preventDefault()
+            itemRef.current?.scrollIntoView({ block: 'center' })
           }}
         >
-          <ScrollArea className="h-64">
+          <ScrollArea className="h-48">
             <div className="flex flex-col">
-              {options.map((time, i) => {
-                const isMiddle = i === middleIdx
-                const isActive = time === selected && isMiddle
-
+              {options.map((dur, i) => {
+                const isActive = dur === selected
                 return (
                   <button
-                    key={`${time}-${i}`}
+                    key={`${dur}-${i}`}
                     ref={(el) => {
-                      if (isMiddle) itemRefs.current = el
+                      if (isActive) itemRef.current = el
                     }}
                     className={cn(
                       'w-full px-3 py-2 text-sm text-left hover:bg-gray-100',
                       isActive && 'bg-gray-200'
                     )}
                     onClick={() => {
-                      onChange(time)
+                      onChange(dur)
                       setOpen(false)
                     }}
                   >
-                    {time}
+                    {dur}
                   </button>
                 )
               })}

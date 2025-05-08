@@ -1,3 +1,4 @@
+import dayjs from 'dayjs'
 import { DailyEntry, sadhanaDB, SleepData } from './db/sadhanaDB'
 
 export const sleepApi = {
@@ -8,14 +9,25 @@ export const sleepApi = {
   async getById(id: string): Promise<DailyEntry | undefined> {
     return await sadhanaDB.sleepRecords.get(id)
   },
+  async updateSleepForDay(
+    id: string,
+    data: Omit<SleepData, 'durationMin'>
+  ): Promise<void> {
+    const bed = data.bedtime ? dayjs(data.bedtime) : null
+    const wake = data.wakeTime ? dayjs(data.wakeTime) : null
 
-  async updateSleepForDay(id: string, data: SleepData): Promise<void> {
+    const diff = bed && wake ? wake.diff(bed, 'minute') : 0
+    const nightMinutes = diff >= 0 ? diff : diff + 24 * 60
+
+    const durationMin = data.napDurationMin + nightMinutes
+
+    const sleep: SleepData = { ...data, durationMin }
+
     const entry = await sadhanaDB.sleepRecords.get(id)
-
     const updated: DailyEntry = {
       id,
       date: id,
-      sleep: data,
+      sleep,
       habits: entry?.habits ?? [],
     }
 
@@ -37,7 +49,12 @@ export const sleepApi = {
     const updated: DailyEntry = {
       id,
       date: id,
-      sleep: entry?.sleep ?? { bedtime: null, wakeTime: null, napDurationMin: 0 },
+      sleep: entry?.sleep ?? {
+        bedtime: null,
+        wakeTime: null,
+        napDurationMin: 0,
+        durationMin: 0,
+      },
       habits,
     }
 

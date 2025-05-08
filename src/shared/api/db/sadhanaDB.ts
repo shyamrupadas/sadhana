@@ -1,4 +1,5 @@
 import Dexie, { Table } from 'dexie'
+import dayjs from 'dayjs'
 
 export type HabitDefinition = {
   key: string
@@ -15,7 +16,10 @@ export type SleepData = {
   bedtime: string | null
   wakeTime: string | null
   napDurationMin: number
+  durationMin: number
 }
+
+export type SleepDataInput = Omit<SleepData, 'durationMin'>
 
 export type DailyEntry = {
   id: string
@@ -34,6 +38,25 @@ class SadhanaDatabase extends Dexie {
       sleepRecords: 'id, date',
       habitDefinitions: 'key',
     })
+
+    this.version(2)
+      .stores({
+        sleepRecords: 'id, date, durationMin',
+        habitDefinitions: 'key',
+      })
+      .upgrade((tx) => {
+        return tx
+          .table<DailyEntry>('sleepRecords')
+          .toCollection()
+          .modify((entry: DailyEntry) => {
+            const bed = entry.sleep.bedtime ? dayjs(entry.sleep.bedtime) : null
+            const wake = entry.sleep.wakeTime ? dayjs(entry.sleep.wakeTime) : null
+            entry.sleep.durationMin =
+              bed && wake
+                ? wake.diff(bed, 'minute') + entry.sleep.napDurationMin
+                : entry.sleep.napDurationMin
+          })
+      })
   }
 }
 

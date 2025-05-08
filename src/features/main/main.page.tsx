@@ -5,6 +5,7 @@ import dayjs from 'dayjs'
 import { useHabits } from '@/shared/api/hooks/useHabits'
 import { useSleepRecords } from '@/shared/api/hooks/useSleepRecords'
 import { TimePicker } from '@/shared/components/time-picker'
+import { DurationPicker } from '@/shared/components/duration-picker'
 import { Button } from '@/shared/components/ui/button'
 
 const getLastNDays = (n = 7): string[] => {
@@ -92,19 +93,11 @@ const MainPage = () => {
 
               return (
                 <td key={date} className="border px-0 py-0">
-                  {value ? (
-                    <TimePicker
-                      value={value}
-                      defaultValue={defaultTime}
-                      onChange={handleChange}
-                    />
-                  ) : (
-                    <TimePicker
-                      value={null}
-                      defaultValue={defaultTime}
-                      onChange={handleChange}
-                    />
-                  )}
+                  <TimePicker
+                    value={value}
+                    defaultValue={defaultTime}
+                    onChange={handleChange}
+                  />
                 </td>
               )
             })}
@@ -147,45 +140,62 @@ const MainPage = () => {
             })}
           </tr>
 
-          {/* Дневной сон - пока не отображаем
           <tr>
-            <td className="border px-2 py-1 text-left font-medium">Дневной сон (мин)</td>
+            <td className="border px-2 py-1 text-left">Дневной сон</td>
             {days.map((date) => {
               const entry = getEntryByDate(date)
-              const value = entry?.sleep?.napDurationMin ?? null
+
+              const napMin: number | null = entry?.sleep?.napDurationMin ?? null
+
+              const napValue: string | null = napMin
+                ? `${Math.floor(napMin / 60)}:${String(napMin % 60).padStart(2, '0')}`
+                : null
+
+              const handleDailySleepChange = (dur: string): void => {
+                const [h, m] = dur.split(':').map(Number)
+                const newNapMin = h * 60 + m
+                updateSleep.mutate({
+                  id: date,
+                  sleep: {
+                    bedtime: entry?.sleep?.bedtime ?? null,
+                    wakeTime: entry?.sleep?.wakeTime ?? null,
+                    napDurationMin: newNapMin,
+                  },
+                })
+              }
+
               return (
-                <td key={date} className="border px-2 py-1">
-                  {value !== null ? value : '—'}
+                <td key={date} className="border px-0 py-0">
+                  <DurationPicker
+                    value={napValue}
+                    defaultValue="0:15"
+                    onChange={handleDailySleepChange}
+                  />
                 </td>
               )
             })}
           </tr>
-*/}
 
           <tr>
             <td className="border px-2 py-1 text-left">Время сна</td>
             {days.map((date) => {
               const entry = getEntryByDate(date)
-              const sleep = entry?.sleep
-              if (!sleep?.bedtime || !sleep?.wakeTime)
+              const duration = entry?.sleep?.durationMin
+
+              if (!duration) {
                 return (
                   <td key={date} className="border px-1 py-1">
                     —
                   </td>
                 )
+              }
 
-              const bed = dayjs(sleep.bedtime)
-              const wake = dayjs(sleep.wakeTime)
-              const minutesDiff = wake.diff(bed, 'minute') + sleep.napDurationMin
-              const hours =
-                minutesDiff > 0
-                  ? Math.floor(minutesDiff / 60)
-                  : Math.floor(minutesDiff / 60) + 24
-              const minutes = minutesDiff % 60
+              const hours = Math.floor(duration / 60)
+              const minutes = duration % 60
 
               return (
-                <td key={date} className="border px-0 py-1">
-                  {`${String(hours)}:${String(Math.abs(minutes)).padStart(2, '0')}`}
+                <td key={date} className="border px-0 py-0">
+                  {`${hours}:${String(minutes).padStart(2, '0')}`}
                 </td>
               )
             })}

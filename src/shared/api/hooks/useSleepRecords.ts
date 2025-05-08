@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { sleepApi } from '../sleepApi'
-import { SleepData } from '../db/sadhanaDB'
+import { SleepDataInput } from '../db/sadhanaDB'
 
 const QUERY_KEY = ['sleepRecords']
 
@@ -14,7 +14,7 @@ export const useSleepRecords = () => {
   })
 
   const updateSleep = useMutation({
-    mutationFn: async ({ id, sleep }: { id: string; sleep: SleepData }) => {
+    mutationFn: async ({ id, sleep }: { id: string; sleep: SleepDataInput }) => {
       await sleepApi.updateSleepForDay(id, sleep)
     },
     onSuccess: () => {
