@@ -8,7 +8,7 @@ import { TimePicker } from '@/shared/components/time-picker'
 import { DurationPicker } from '@/shared/components/duration-picker'
 import { Button } from '@/shared/components/ui/button'
 
-const getLastNDays = (n = 7): string[] => {
+const getLastNDays = (n = 5): string[] => {
   return Array.from({ length: n })
     .map((_, i) => dayjs().subtract(i, 'day').format('YYYY-MM-DD'))
     .reverse()
@@ -46,7 +46,7 @@ const MainPage = () => {
 
   return (
     <div className="p-4 overflow-x-auto max-w-full">
-      <h2 className="text-xl font-medium mb-4">Трекер за последнюю неделю</h2>
+      <h2 className="text-xl font-medium mb-4">Садхана</h2>
 
       <table className="min-w-max border border-gray-300 text-sm text-center">
         <thead>
@@ -59,6 +59,7 @@ const MainPage = () => {
             ))}
           </tr>
         </thead>
+
         <tbody>
           <tr>
             <td className="border px-2 py-1 text-left">Отбой</td>
@@ -232,22 +233,21 @@ const MainPage = () => {
           ))}
         </tbody>
       </table>
+
       <div className="mt-6 flex items-center space-x-2">
-        {/* Инпут для названия */}
         <input
           type="text"
           placeholder="Новая привычка"
           value={newHabitLabel}
-          onChange={(e) => setNewHabitLabel(e.target.value)} // обновляем стейт
+          onChange={(e) => setNewHabitLabel(e.target.value)}
           className="flex-1 rounded border px-3 py-2 focus:outline-none"
         />
-        {/* Кнопка «Добавить» */}
         <Button
           onClick={() => {
-            addHabit.mutate(newHabitLabel) // запускаем мутацию
-            setNewHabitLabel('') // очищаем инпут
+            addHabit.mutate(newHabitLabel)
+            setNewHabitLabel('')
           }}
-          disabled={!newHabitLabel.trim() || addHabit.isPending} // блокируем при пустом или загрузке
+          disabled={!newHabitLabel.trim() || addHabit.isPending}
         >
           {addHabit.isPending ? 'Добавление...' : 'Добавить'}
         </Button>
