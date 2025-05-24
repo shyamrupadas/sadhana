@@ -48,7 +48,7 @@ const MainPage = () => {
     <div className="p-4 overflow-x-auto max-w-full">
       <h2 className="text-xl font-medium mb-4">Садхана</h2>
 
-      <table className="min-w-max border border-gray-300 text-sm text-center">
+      <table className="min-w-max border border-gray-300 text-sm text-center w-full max-w-[400px]">
         <thead>
           <tr className="bg-gray-100">
             <th className="border px-1 py-1 text-left"></th>
