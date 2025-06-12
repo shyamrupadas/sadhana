@@ -1,5 +1,4 @@
-import { useState } from 'react'
-
+import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
 
 import { useHabits } from '@/shared/api/hooks/useHabits'
@@ -7,12 +6,15 @@ import { useSleepRecords } from '@/shared/api/hooks/useSleepRecords'
 import { TimePicker } from '@/shared/components/time-picker'
 import { DurationPicker } from '@/shared/components/duration-picker'
 import { Button } from '@/shared/components/ui/button'
+import { sleepApi } from '@/shared/api/sleepApi'
 
 const getLastNDays = (n = 5): string[] => {
   return Array.from({ length: n })
     .map((_, i) => dayjs().subtract(i, 'day').format('YYYY-MM-DD'))
     .reverse()
 }
+
+const REMINDER_TIME = 10
 
 const MainPage = () => {
   const { habitsQuery, addHabit } = useHabits()
@@ -21,6 +23,41 @@ const MainPage = () => {
   const [newHabitLabel, setNewHabitLabel] = useState<string>('')
 
   const { updateSleep } = useSleepRecords()
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission !== 'denied') {
+      Notification.requestPermission()
+    }
+
+    const checkTime = () => {
+      const now = dayjs().add(3, 'hour')
+      let targetTime = now.hour(REMINDER_TIME).minute(0).second(0)
+
+      if (now.isAfter(targetTime)) {
+        targetTime = targetTime.add(1, 'day')
+      }
+
+      const msToNextCheck = targetTime.diff(now)
+
+      const timer = setTimeout(async () => {
+        const hasData = await sleepApi.checkYesterdaySleep()
+        if (!hasData && 'serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then((registration) => {
+            registration.active?.postMessage({
+              type: 'SHOW_NOTIFICATION',
+              title: 'Садхана',
+              body: 'Не забудьте отметить время отбоя и подъема за прошедшую ночь',
+            })
+          })
+        }
+      }, msToNextCheck)
+
+      return timer
+    }
+
+    const initialTimer = checkTime()
+    return () => clearTimeout(initialTimer)
+  }, [])
 
   const days = getLastNDays()
   const habits = habitsQuery.data ?? []

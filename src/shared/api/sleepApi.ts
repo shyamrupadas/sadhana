@@ -2,6 +2,14 @@ import dayjs from 'dayjs'
 import { DailyEntry, sadhanaDB, SleepData } from './db/sadhanaDB'
 
 export const sleepApi = {
+  async checkYesterdaySleep(): Promise<boolean> {
+    // Moscow time is UTC+3, calculate yesterday's date in MSK
+    // Calculate yesterday's date in Moscow time (UTC+3)
+    const yesterday = dayjs().add(3, 'hour').subtract(1, 'day').format('YYYY-MM-DD')
+    const entry = await sadhanaDB.sleepRecords.get(yesterday)
+    return !!entry?.sleep?.bedtime && !!entry?.sleep?.wakeTime
+  },
+
   async getAll(): Promise<DailyEntry[]> {
     return await sadhanaDB.sleepRecords.toArray()
   },
