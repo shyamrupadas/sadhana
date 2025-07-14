@@ -298,10 +298,10 @@ const MainPage = () => {
               {days.map((date) => {
                 const value = getHabitValue(date, habit.key)
                 return (
-                  <td key={date} className="border px-2 py-1">
+                  <td key={date} className="border p-2">
                     <button
                       onClick={() => handleToggleHabit(date, habit.key, value)}
-                      className={`w-6 h-6 rounded border ${
+                      className={`w-6 h-6 rounded border align-middle ${
                         value === true
                           ? 'bg-green-400'
                           : value === false
