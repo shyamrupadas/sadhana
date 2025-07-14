@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
+import { PenIcon, XIcon } from 'lucide-react'
 
 import { useHabits } from '@/shared/api/hooks/useHabits'
 import { useSleepRecords } from '@/shared/api/hooks/useSleepRecords'
@@ -17,10 +18,11 @@ const getLastNDays = (n = 5): string[] => {
 const REMINDER_TIME = 10
 
 const MainPage = () => {
-  const { habitsQuery, addHabit } = useHabits()
+  const { habitsQuery, addHabit, deleteHabit, renameHabit } = useHabits()
   const { sleepRecordsQuery, updateHabit, removeHabit } = useSleepRecords()
 
   const [newHabitLabel, setNewHabitLabel] = useState<string>('')
+  const [editMode, setEditMode] = useState<boolean>(false)
 
   const { updateSleep } = useSleepRecords()
 
@@ -81,9 +83,37 @@ const MainPage = () => {
     }
   }
 
+  const handleEditModeToggle = () => {
+    setEditMode(!editMode)
+  }
+
+  const handleDeleteHabit = (habitKey: string, habitLabel: string) => {
+    const confirmed = window.confirm(`Удалить привычку "${habitLabel}"?`)
+    if (confirmed) {
+      deleteHabit.mutate(habitKey)
+    }
+  }
+
+  const handleRenameHabit = (habitKey: string, habitLabel: string) => {
+    const newLabel = window.prompt(`Переименовать привычку "${habitLabel}":`, habitLabel)
+    if (newLabel && newLabel.trim() && newLabel.trim() !== habitLabel) {
+      renameHabit.mutate({ key: habitKey, newLabel: newLabel.trim() })
+    }
+  }
+
   return (
     <div className="p-4 overflow-x-auto max-w-full">
-      <h2 className="text-xl font-medium mb-4">Садхана</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-medium">Садхана</h2>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleEditModeToggle}
+          className="text-gray-600 hover:text-gray-800"
+        >
+          <PenIcon className="h-4 w-4" />
+        </Button>
+      </div>
 
       <table className="min-w-max border border-gray-300 text-sm text-center w-full max-w-[400px]">
         <thead>
@@ -241,7 +271,29 @@ const MainPage = () => {
 
           {habits.map((habit) => (
             <tr key={habit.key}>
-              <td className="border px-2 py-1 text-left">{habit.label}</td>
+              <td className="border px-2 py-1 text-left relative">
+                <span>{habit.label}</span>
+                {editMode && (
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-white/90 rounded px-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRenameHabit(habit.key, habit.label)}
+                      className="h-6 w-6 text-gray-600 hover:text-blue-600"
+                    >
+                      <PenIcon className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteHabit(habit.key, habit.label)}
+                      className="h-6 w-6 text-gray-600 hover:text-red-600"
+                    >
+                      <XIcon className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </td>
               {days.map((date) => {
                 const value = getHabitValue(date, habit.key)
                 return (

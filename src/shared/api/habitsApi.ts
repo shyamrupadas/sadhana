@@ -31,6 +31,18 @@ export const habitApi = {
     await sadhanaDB.habitDefinitions.put(habit)
   },
 
+  async rename(key: string, newLabel: string): Promise<void> {
+    const existing = await sadhanaDB.habitDefinitions.get(key)
+    if (!existing) return
+
+    const updated: HabitDefinition = {
+      ...existing,
+      label: newLabel,
+    }
+
+    await sadhanaDB.habitDefinitions.put(updated)
+  },
+
   async delete(key: string): Promise<void> {
     await sadhanaDB.habitDefinitions.delete(key)
   },

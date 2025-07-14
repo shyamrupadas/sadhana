@@ -30,9 +30,19 @@ export const useHabits = () => {
     },
   })
 
+  const renameHabit = useMutation({
+    mutationFn: async ({ key, newLabel }: { key: string; newLabel: string }) => {
+      await habitApi.rename(key, newLabel)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY })
+    },
+  })
+
   return {
     habitsQuery,
     addHabit,
     deleteHabit,
+    renameHabit,
   }
 }
