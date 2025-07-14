@@ -110,6 +110,7 @@ const MainPage = () => {
           size="icon"
           onClick={handleEditModeToggle}
           className="text-gray-600 hover:text-gray-800"
+          title="Режим редактирования"
         >
           <PenIcon className="h-4 w-4" />
         </Button>
