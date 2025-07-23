@@ -354,28 +354,37 @@ const MainPage = () => {
       )}
 
       <div className="mt-8 mb-6">
-        <h3 className="text-lg font-medium mb-3">Статистика сна</h3>
+        <h3 className="text-lg font-medium mb-3">Статистика</h3>
         <table className="border border-gray-300 text-sm w-full max-w-md">
           <thead>
             <tr className="bg-gray-100">
               <th className="border px-3 py-2 text-left font-normal"></th>
               <th className="border px-3 py-2 text-center font-normal">Год</th>
               <th className="border px-3 py-2 text-center font-normal">30 дней</th>
-              <th className="border px-3 py-2 text-center font-normal">Разница</th>
+              <th className="border px-3 py-2 text-center font-normal">7 дней</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td className="border px-3 py-2">Отбой</td>
               <td className="border px-3 py-2 text-center">{sleepStats.bedtime.year}</td>
-              <td className="border px-3 py-2 text-center">{sleepStats.bedtime.month}</td>
               <td className="border px-3 py-2 text-center">
                 <div className="flex items-center justify-center gap-1">
-                  <span className="text-gray-600">{sleepStats.bedtime.difference}</span>
-                  {sleepStats.bedtime.arrow === ArrowDown ? (
-                    <ArrowDown className={`h-4 w-4 ${sleepStats.bedtime.color}`} />
+                  <span>{sleepStats.bedtime.month}</span>
+                  {sleepStats.bedtime.monthArrow === ArrowDown ? (
+                    <ArrowDown className={`h-3 w-3 ${sleepStats.bedtime.monthColor}`} />
                   ) : (
-                    <ArrowUp className={`h-4 w-4 ${sleepStats.bedtime.color}`} />
+                    <ArrowUp className={`h-3 w-3 ${sleepStats.bedtime.monthColor}`} />
+                  )}
+                </div>
+              </td>
+              <td className="border px-3 py-2 text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <span>{sleepStats.bedtime.week}</span>
+                  {sleepStats.bedtime.weekArrow === ArrowDown ? (
+                    <ArrowDown className={`h-3 w-3 ${sleepStats.bedtime.weekColor}`} />
+                  ) : (
+                    <ArrowUp className={`h-3 w-3 ${sleepStats.bedtime.weekColor}`} />
                   )}
                 </div>
               </td>
@@ -384,15 +393,22 @@ const MainPage = () => {
               <td className="border px-3 py-2">Подъем</td>
               <td className="border px-3 py-2 text-center">{sleepStats.wakeTime.year}</td>
               <td className="border px-3 py-2 text-center">
-                {sleepStats.wakeTime.month}
+                <div className="flex items-center justify-center gap-1">
+                  <span>{sleepStats.wakeTime.month}</span>
+                  {sleepStats.wakeTime.monthArrow === ArrowDown ? (
+                    <ArrowDown className={`h-3 w-3 ${sleepStats.wakeTime.monthColor}`} />
+                  ) : (
+                    <ArrowUp className={`h-3 w-3 ${sleepStats.wakeTime.monthColor}`} />
+                  )}
+                </div>
               </td>
               <td className="border px-3 py-2 text-center">
                 <div className="flex items-center justify-center gap-1">
-                  <span className="text-gray-600">{sleepStats.wakeTime.difference}</span>
-                  {sleepStats.wakeTime.arrow === ArrowDown ? (
-                    <ArrowDown className={`h-4 w-4 ${sleepStats.wakeTime.color}`} />
+                  <span>{sleepStats.wakeTime.week}</span>
+                  {sleepStats.wakeTime.weekArrow === ArrowDown ? (
+                    <ArrowDown className={`h-3 w-3 ${sleepStats.wakeTime.weekColor}`} />
                   ) : (
-                    <ArrowUp className={`h-4 w-4 ${sleepStats.wakeTime.color}`} />
+                    <ArrowUp className={`h-3 w-3 ${sleepStats.wakeTime.weekColor}`} />
                   )}
                 </div>
               </td>
@@ -400,14 +416,23 @@ const MainPage = () => {
             <tr>
               <td className="border px-3 py-2">Сон</td>
               <td className="border px-3 py-2 text-center">{sleepStats.sleep.year}</td>
-              <td className="border px-3 py-2 text-center">{sleepStats.sleep.month}</td>
               <td className="border px-3 py-2 text-center">
                 <div className="flex items-center justify-center gap-1">
-                  <span className="text-gray-600">{sleepStats.sleep.difference}</span>
-                  {sleepStats.sleep.arrow === ArrowDown ? (
-                    <ArrowDown className={`h-4 w-4 ${sleepStats.sleep.color}`} />
+                  <span>{sleepStats.sleep.month}</span>
+                  {sleepStats.sleep.monthArrow === ArrowDown ? (
+                    <ArrowDown className={`h-3 w-3 ${sleepStats.sleep.monthColor}`} />
                   ) : (
-                    <ArrowUp className={`h-4 w-4 ${sleepStats.sleep.color}`} />
+                    <ArrowUp className={`h-3 w-3 ${sleepStats.sleep.monthColor}`} />
+                  )}
+                </div>
+              </td>
+              <td className="border px-3 py-2 text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <span>{sleepStats.sleep.week}</span>
+                  {sleepStats.sleep.weekArrow === ArrowDown ? (
+                    <ArrowDown className={`h-3 w-3 ${sleepStats.sleep.weekColor}`} />
+                  ) : (
+                    <ArrowUp className={`h-3 w-3 ${sleepStats.sleep.weekColor}`} />
                   )}
                 </div>
               </td>

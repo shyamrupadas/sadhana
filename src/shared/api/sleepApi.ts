@@ -84,9 +84,16 @@ export const sleepApi = {
   },
 
   async getSleepStats(): Promise<{
+    week: { bedtime: string | null; wakeTime: string | null; duration: string | null }
     month: { bedtime: string | null; wakeTime: string | null; duration: string | null }
     year: { bedtime: string | null; wakeTime: string | null; duration: string | null }
   }> {
+    const getLast7Days = (): string[] => {
+      return Array.from({ length: 7 }).map((_, i) =>
+        dayjs().subtract(i, 'day').format('YYYY-MM-DD')
+      )
+    }
+
     const getLast30Days = (): string[] => {
       return Array.from({ length: 30 }).map((_, i) =>
         dayjs().subtract(i, 'day').format('YYYY-MM-DD')
@@ -159,13 +166,20 @@ export const sleepApi = {
         }))
     }
 
+    const last7Days = getLast7Days()
     const last30Days = getLast30Days()
     const lastYearDates = getLastYearDates()
 
+    const weekData = await getValidSleepData(last7Days)
     const monthData = await getValidSleepData(last30Days)
     const yearData = await getValidSleepData(lastYearDates)
 
     return {
+      week: {
+        bedtime: calculateAverageTime(weekData.map((d) => d.bedtime)),
+        wakeTime: calculateAverageTime(weekData.map((d) => d.wakeTime)),
+        duration: calculateAverageDuration(weekData.map((d) => d.duration)),
+      },
       month: {
         bedtime: calculateAverageTime(monthData.map((d) => d.bedtime)),
         wakeTime: calculateAverageTime(monthData.map((d) => d.wakeTime)),

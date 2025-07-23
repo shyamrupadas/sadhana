@@ -5,14 +5,6 @@ import { sleepApi } from '../sleepApi'
 
 const QUERY_KEY = ['sleepStats']
 
-const formatTimeDifference = (minutes: number): string => {
-  const absMinutes = Math.abs(minutes)
-  const hours = Math.floor(absMinutes / 60)
-  const mins = absMinutes % 60
-
-  return `${hours}:${String(mins).padStart(2, '0')}`
-}
-
 const getMinutesDifference = (time1: string | null, time2: string | null): number => {
   if (!time1 || !time2) return 0
 
@@ -39,34 +31,61 @@ export const useSleepStats = () => {
     queryKey: QUERY_KEY,
     queryFn: sleepApi.getSleepStats,
     select: (data) => {
-      const bedtimeDiff = getMinutesDifference(data.year.bedtime, data.month.bedtime)
-      const wakeDiff = getMinutesDifference(data.year.wakeTime, data.month.wakeTime)
-      const sleepDiff = getDurationDifference(data.year.duration, data.month.duration)
+      // Сравнение месяца с годом (для стрелок в столбце "30 дней")
+      const monthVsYearBedtime = getMinutesDifference(
+        data.year.bedtime,
+        data.month.bedtime
+      )
+      const monthVsYearWake = getMinutesDifference(
+        data.year.wakeTime,
+        data.month.wakeTime
+      )
+      const monthVsYearSleep = getDurationDifference(
+        data.year.duration,
+        data.month.duration
+      )
+
+      // Сравнение недели с месяцем (для стрелок в столбце "Неделя")
+      const weekVsMonthBedtime = getMinutesDifference(
+        data.month.bedtime,
+        data.week.bedtime
+      )
+      const weekVsMonthWake = getMinutesDifference(
+        data.month.wakeTime,
+        data.week.wakeTime
+      )
+      const weekVsMonthSleep = getDurationDifference(
+        data.month.duration,
+        data.week.duration
+      )
 
       return {
         bedtime: {
           year: data.year.bedtime || '—',
           month: data.month.bedtime || '—',
-          difference: formatTimeDifference(bedtimeDiff),
-          isImprovement: bedtimeDiff < 0,
-          arrow: bedtimeDiff < 0 ? ArrowDown : ArrowUp,
-          color: bedtimeDiff < 0 ? 'text-green-600' : 'text-red-600',
+          monthArrow: monthVsYearBedtime < 0 ? ArrowDown : ArrowUp,
+          monthColor: monthVsYearBedtime < 0 ? 'text-green-600' : 'text-red-600',
+          week: data.week.bedtime || '—',
+          weekArrow: weekVsMonthBedtime < 0 ? ArrowDown : ArrowUp,
+          weekColor: weekVsMonthBedtime < 0 ? 'text-green-600' : 'text-red-600',
         },
         wakeTime: {
           year: data.year.wakeTime || '—',
           month: data.month.wakeTime || '—',
-          difference: formatTimeDifference(wakeDiff),
-          isImprovement: wakeDiff < 0,
-          arrow: wakeDiff < 0 ? ArrowDown : ArrowUp,
-          color: wakeDiff < 0 ? 'text-green-600' : 'text-red-600',
+          monthArrow: monthVsYearWake < 0 ? ArrowDown : ArrowUp,
+          monthColor: monthVsYearWake < 0 ? 'text-green-600' : 'text-red-600',
+          week: data.week.wakeTime || '—',
+          weekArrow: weekVsMonthWake < 0 ? ArrowDown : ArrowUp,
+          weekColor: weekVsMonthWake < 0 ? 'text-green-600' : 'text-red-600',
         },
         sleep: {
           year: data.year.duration || '—',
           month: data.month.duration || '—',
-          difference: formatTimeDifference(sleepDiff),
-          isImprovement: sleepDiff > 0,
-          arrow: sleepDiff > 0 ? ArrowUp : ArrowDown,
-          color: sleepDiff > 0 ? 'text-green-600' : 'text-red-600',
+          monthArrow: monthVsYearSleep > 0 ? ArrowUp : ArrowDown,
+          monthColor: monthVsYearSleep > 0 ? 'text-green-600' : 'text-red-600',
+          week: data.week.duration || '—',
+          weekArrow: weekVsMonthSleep > 0 ? ArrowUp : ArrowDown,
+          weekColor: weekVsMonthSleep > 0 ? 'text-green-600' : 'text-red-600',
         },
       }
     },
@@ -76,4 +95,3 @@ export const useSleepStats = () => {
     sleepStatsQuery,
   }
 }
-
