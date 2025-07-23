@@ -82,4 +82,100 @@ export const sleepApi = {
 
     await sadhanaDB.sleepRecords.put(updated)
   },
+
+  async getSleepStats(): Promise<{
+    month: { bedtime: string | null; wakeTime: string | null; duration: string | null }
+    year: { bedtime: string | null; wakeTime: string | null; duration: string | null }
+  }> {
+    const getLast30Days = (): string[] => {
+      return Array.from({ length: 30 }).map((_, i) =>
+        dayjs().subtract(i, 'day').format('YYYY-MM-DD')
+      )
+    }
+
+    const getLastYearDates = (): string[] => {
+      const startOfCurrentMonth = dayjs().startOf('month')
+      const startDate = startOfCurrentMonth.subtract(12, 'month')
+      const endDate = startOfCurrentMonth.subtract(1, 'day')
+
+      const dates: string[] = []
+      let current = startDate
+
+      while (current.isBefore(endDate) || current.isSame(endDate)) {
+        dates.push(current.format('YYYY-MM-DD'))
+        current = current.add(1, 'day')
+      }
+
+      return dates
+    }
+
+    const calculateAverageTime = (times: string[]): string | null => {
+      if (times.length === 0) return null
+
+      let totalMinutes = 0
+      times.forEach((time) => {
+        const [hours, minutes] = time.split(':').map(Number)
+        // Время отбоя может быть после полуночи - нужна корректировка
+        const adjustedMinutes =
+          hours < 12 ? (hours + 24) * 60 + minutes : hours * 60 + minutes
+        totalMinutes += adjustedMinutes
+      })
+
+      const avgMinutes = Math.round(totalMinutes / times.length)
+      const hours = Math.floor(avgMinutes / 60) % 24
+      const mins = avgMinutes % 60
+
+      return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
+    }
+
+    const calculateAverageDuration = (durations: number[]): string | null => {
+      if (durations.length === 0) return null
+
+      const avgMinutes = Math.round(
+        durations.reduce((sum, dur) => sum + dur, 0) / durations.length
+      )
+      const hours = Math.floor(avgMinutes / 60)
+      const mins = avgMinutes % 60
+
+      return `${hours}:${String(mins).padStart(2, '0')}`
+    }
+
+    const getValidSleepData = async (dates: string[]) => {
+      const entries = await Promise.all(
+        dates.map((date) => sadhanaDB.sleepRecords.get(date))
+      )
+
+      return entries
+        .filter(
+          (entry): entry is DailyEntry =>
+            !!entry?.sleep?.bedtime &&
+            !!entry?.sleep?.wakeTime &&
+            !!entry?.sleep?.durationMin
+        )
+        .map((entry) => ({
+          bedtime: dayjs(entry.sleep.bedtime).format('HH:mm'),
+          wakeTime: dayjs(entry.sleep.wakeTime).format('HH:mm'),
+          duration: entry.sleep.durationMin,
+        }))
+    }
+
+    const last30Days = getLast30Days()
+    const lastYearDates = getLastYearDates()
+
+    const monthData = await getValidSleepData(last30Days)
+    const yearData = await getValidSleepData(lastYearDates)
+
+    return {
+      month: {
+        bedtime: calculateAverageTime(monthData.map((d) => d.bedtime)),
+        wakeTime: calculateAverageTime(monthData.map((d) => d.wakeTime)),
+        duration: calculateAverageDuration(monthData.map((d) => d.duration)),
+      },
+      year: {
+        bedtime: calculateAverageTime(yearData.map((d) => d.bedtime)),
+        wakeTime: calculateAverageTime(yearData.map((d) => d.wakeTime)),
+        duration: calculateAverageDuration(yearData.map((d) => d.duration)),
+      },
+    }
+  },
 }

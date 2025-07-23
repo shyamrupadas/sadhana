@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
-import { PenIcon, XIcon } from 'lucide-react'
+import { PenIcon, XIcon, ArrowUp, ArrowDown } from 'lucide-react'
 
 import { useHabits } from '@/shared/api/hooks/useHabits'
 import { useSleepRecords } from '@/shared/api/hooks/useSleepRecords'
+import { useSleepStats } from '@/shared/api/hooks/useSleepStats'
 import { TimePicker } from '@/shared/components/time-picker'
 import { DurationPicker } from '@/shared/components/duration-picker'
 import { Button } from '@/shared/components/ui/button'
@@ -20,6 +21,7 @@ const REMINDER_TIME = 10
 const MainPage = () => {
   const { habitsQuery, addHabit, deleteHabit, renameHabit } = useHabits()
   const { sleepRecordsQuery, updateHabit, removeHabit } = useSleepRecords()
+  const { sleepStatsQuery } = useSleepStats()
 
   const [newHabitLabel, setNewHabitLabel] = useState<string>('')
   const [editMode, setEditMode] = useState<boolean>(false)
@@ -66,6 +68,12 @@ const MainPage = () => {
   const entries = sleepRecordsQuery.data ?? []
 
   const getEntryByDate = (date: string) => entries.find((e) => e.id === date)
+
+  const sleepStats = sleepStatsQuery.data
+
+  if (sleepStatsQuery.isLoading || !sleepStats) {
+    return <div>Загрузка...</div>
+  }
 
   const getHabitValue = (date: string, habitKey: string): boolean | null => {
     const entry = getEntryByDate(date)
@@ -324,23 +332,88 @@ const MainPage = () => {
         </tbody>
       </table>
 
-      <div className="mt-6 flex items-center space-x-2">
-        <input
-          type="text"
-          placeholder="Новая привычка"
-          value={newHabitLabel}
-          onChange={(e) => setNewHabitLabel(e.target.value)}
-          className="flex-1 rounded border px-3 py-2 focus:outline-none"
-        />
-        <Button
-          onClick={() => {
-            addHabit.mutate(newHabitLabel)
-            setNewHabitLabel('')
-          }}
-          disabled={!newHabitLabel.trim() || addHabit.isPending}
-        >
-          {addHabit.isPending ? 'Добавление...' : 'Добавить'}
-        </Button>
+      {editMode && (
+        <div className="mt-6 flex items-center space-x-2">
+          <input
+            type="text"
+            placeholder="Новая привычка"
+            value={newHabitLabel}
+            onChange={(e) => setNewHabitLabel(e.target.value)}
+            className="flex-1 rounded border px-3 py-2 focus:outline-none"
+          />
+          <Button
+            onClick={() => {
+              addHabit.mutate(newHabitLabel)
+              setNewHabitLabel('')
+            }}
+            disabled={!newHabitLabel.trim() || addHabit.isPending}
+          >
+            {addHabit.isPending ? 'Добавление...' : 'Добавить'}
+          </Button>
+        </div>
+      )}
+
+      <div className="mt-8 mb-6">
+        <h3 className="text-lg font-medium mb-3">Статистика сна</h3>
+        <table className="border border-gray-300 text-sm w-full max-w-md">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border px-3 py-2 text-left font-normal"></th>
+              <th className="border px-3 py-2 text-center font-normal">Год</th>
+              <th className="border px-3 py-2 text-center font-normal">30 дней</th>
+              <th className="border px-3 py-2 text-center font-normal">Разница</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="border px-3 py-2">Отбой</td>
+              <td className="border px-3 py-2 text-center">{sleepStats.bedtime.year}</td>
+              <td className="border px-3 py-2 text-center">{sleepStats.bedtime.month}</td>
+              <td className="border px-3 py-2 text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <span className="text-gray-600">{sleepStats.bedtime.difference}</span>
+                  {sleepStats.bedtime.arrow === ArrowDown ? (
+                    <ArrowDown className={`h-4 w-4 ${sleepStats.bedtime.color}`} />
+                  ) : (
+                    <ArrowUp className={`h-4 w-4 ${sleepStats.bedtime.color}`} />
+                  )}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td className="border px-3 py-2">Подъем</td>
+              <td className="border px-3 py-2 text-center">{sleepStats.wakeTime.year}</td>
+              <td className="border px-3 py-2 text-center">
+                {sleepStats.wakeTime.month}
+              </td>
+              <td className="border px-3 py-2 text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <span className="text-gray-600">{sleepStats.wakeTime.difference}</span>
+                  {sleepStats.wakeTime.arrow === ArrowDown ? (
+                    <ArrowDown className={`h-4 w-4 ${sleepStats.wakeTime.color}`} />
+                  ) : (
+                    <ArrowUp className={`h-4 w-4 ${sleepStats.wakeTime.color}`} />
+                  )}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td className="border px-3 py-2">Сон</td>
+              <td className="border px-3 py-2 text-center">{sleepStats.sleep.year}</td>
+              <td className="border px-3 py-2 text-center">{sleepStats.sleep.month}</td>
+              <td className="border px-3 py-2 text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <span className="text-gray-600">{sleepStats.sleep.difference}</span>
+                  {sleepStats.sleep.arrow === ArrowDown ? (
+                    <ArrowDown className={`h-4 w-4 ${sleepStats.sleep.color}`} />
+                  ) : (
+                    <ArrowUp className={`h-4 w-4 ${sleepStats.sleep.color}`} />
+                  )}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   )
