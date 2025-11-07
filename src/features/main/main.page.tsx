@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
-import { PenIcon, XIcon, ArrowUp, ArrowDown } from 'lucide-react'
+import { PenIcon, XIcon, ArrowUp, ArrowDown, Download, Upload } from 'lucide-react'
 
 import { useHabits } from '@/shared/api/hooks/useHabits'
 import { useSleepRecords } from '@/shared/api/hooks/useSleepRecords'
@@ -9,6 +9,7 @@ import { TimePicker } from '@/shared/components/time-picker'
 import { DurationPicker } from '@/shared/components/duration-picker'
 import { Button } from '@/shared/components/ui/button'
 import { sleepApi } from '@/shared/api/sleepApi'
+import { exportData, importData } from '@/shared/api/dataExportImport'
 
 const getLastNDays = (n = 5): string[] => {
   return Array.from({ length: n })
@@ -109,19 +110,70 @@ const MainPage = () => {
     }
   }
 
+  const handleExport = async () => {
+    const data = await exportData()
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `sadhana-backup-${dayjs().format('YYYY-MM-DD')}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImport = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (file) {
+        const text = await file.text()
+        const data = JSON.parse(text)
+        await importData(data)
+        window.location.reload()
+      }
+    }
+    input.click()
+  }
+
   return (
     <div className="p-4 overflow-x-auto max-w-full">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-medium">Садхана</h2>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleEditModeToggle}
-          className="text-gray-600 hover:text-gray-800"
-          title="Режим редактирования"
-        >
-          <PenIcon className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {editMode && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleExport}
+                className="text-gray-600 hover:text-gray-800"
+                title="Экспорт данных"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleImport}
+                className="text-gray-600 hover:text-gray-800"
+                title="Импорт данных"
+              >
+                <Upload className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleEditModeToggle}
+            className="text-gray-600 hover:text-gray-800"
+            title="Режим редактирования"
+          >
+            <PenIcon className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <table className="min-w-max border border-gray-300 text-sm text-center w-full max-w-[400px]">
