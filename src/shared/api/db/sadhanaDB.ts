@@ -57,6 +57,46 @@ class SadhanaDatabase extends Dexie {
                 : entry.sleep.napDurationMin
           })
       })
+
+    this.version(3)
+      .stores({
+        sleepRecords: 'id, date, durationMin',
+        habitDefinitions: 'key',
+      })
+      .upgrade((tx) => {
+        return tx
+          .table<DailyEntry>('sleepRecords')
+          .toCollection()
+          .modify((entry: DailyEntry) => {
+            if (entry.sleep.bedtime && entry.sleep.bedtime.includes('T')) {
+              const date = new Date(entry.sleep.bedtime)
+              const adjustedMs = date.getTime() + 3 * 60 * 60 * 1000
+              const adjusted = new Date(adjustedMs)
+
+              const year = adjusted.getUTCFullYear()
+              const month = String(adjusted.getUTCMonth() + 1).padStart(2, '0')
+              const day = String(adjusted.getUTCDate()).padStart(2, '0')
+              const hours = String(adjusted.getUTCHours()).padStart(2, '0')
+              const minutes = String(adjusted.getUTCMinutes()).padStart(2, '0')
+
+              entry.sleep.bedtime = `${year}-${month}-${day} ${hours}:${minutes}`
+            }
+
+            if (entry.sleep.wakeTime && entry.sleep.wakeTime.includes('T')) {
+              const date = new Date(entry.sleep.wakeTime)
+              const adjustedMs = date.getTime() + 3 * 60 * 60 * 1000
+              const adjusted = new Date(adjustedMs)
+
+              const year = adjusted.getUTCFullYear()
+              const month = String(adjusted.getUTCMonth() + 1).padStart(2, '0')
+              const day = String(adjusted.getUTCDate()).padStart(2, '0')
+              const hours = String(adjusted.getUTCHours()).padStart(2, '0')
+              const minutes = String(adjusted.getUTCMinutes()).padStart(2, '0')
+
+              entry.sleep.wakeTime = `${year}-${month}-${day} ${hours}:${minutes}`
+            }
+          })
+      })
   }
 }
 

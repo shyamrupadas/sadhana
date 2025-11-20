@@ -21,8 +21,8 @@ export const sleepApi = {
     id: string,
     data: Omit<SleepData, 'durationMin'>
   ): Promise<void> {
-    const bed = data.bedtime ? dayjs(data.bedtime) : null
-    const wake = data.wakeTime ? dayjs(data.wakeTime) : null
+    const bed = data.bedtime ? dayjs(data.bedtime, 'YYYY-MM-DD HH:mm') : null
+    const wake = data.wakeTime ? dayjs(data.wakeTime, 'YYYY-MM-DD HH:mm') : null
 
     const diff = bed && wake ? wake.diff(bed, 'minute') : 0
     const nightMinutes = diff >= 0 ? diff : diff + 24 * 60
@@ -160,8 +160,8 @@ export const sleepApi = {
             !!entry?.sleep?.durationMin
         )
         .map((entry) => ({
-          bedtime: dayjs(entry.sleep.bedtime).format('HH:mm'),
-          wakeTime: dayjs(entry.sleep.wakeTime).format('HH:mm'),
+          bedtime: dayjs(entry.sleep.bedtime, 'YYYY-MM-DD HH:mm').format('HH:mm'),
+          wakeTime: dayjs(entry.sleep.wakeTime, 'YYYY-MM-DD HH:mm').format('HH:mm'),
           duration: entry.sleep.durationMin,
         }))
     }

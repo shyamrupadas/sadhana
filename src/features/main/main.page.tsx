@@ -143,26 +143,26 @@ const MainPage = () => {
               const entry = getEntryByDate(date)
               const bedtime = entry?.sleep?.bedtime
 
-              const value = bedtime ? dayjs(bedtime).format('HH:mm') : null
+              const value = bedtime ? dayjs(bedtime, 'YYYY-MM-DD HH:mm').format('HH:mm') : null
               const defaultTime = '23:00'
 
               const handleChange = (newTime: string) => {
                 const bed = dayjs(date)
                   .set('hour', Number(newTime.slice(0, 2)))
                   .set('minute', Number(newTime.slice(3, 5)))
-                const wake = entry?.sleep?.wakeTime ? dayjs(entry.sleep.wakeTime) : null
+                const wake = entry?.sleep?.wakeTime ? dayjs(entry.sleep.wakeTime, 'YYYY-MM-DD HH:mm') : null
 
                 const adjustedBed =
                   wake && bed.isAfter(wake) ? bed.subtract(1, 'day') : bed
 
-                const bedtimeIso = adjustedBed.toISOString()
-                const wakeIso = wake?.toISOString() ?? null
+                const bedtime = adjustedBed.format('YYYY-MM-DD HH:mm')
+                const wakeTime = entry?.sleep?.wakeTime ?? null
 
                 updateSleep.mutate({
                   id: date,
                   sleep: {
-                    bedtime: bedtimeIso,
-                    wakeTime: wakeIso,
+                    bedtime: bedtime,
+                    wakeTime: wakeTime,
                     napDurationMin: entry?.sleep?.napDurationMin ?? 0,
                   },
                 })
@@ -185,7 +185,7 @@ const MainPage = () => {
             {days.map((date) => {
               const entry = getEntryByDate(date)
               const current = entry?.sleep?.wakeTime
-                ? dayjs(entry.sleep.wakeTime).format('HH:mm')
+                ? dayjs(entry.sleep.wakeTime, 'YYYY-MM-DD HH:mm').format('HH:mm')
                 : null
 
               const handleWakeChange = (newTime: string) => {
@@ -193,13 +193,13 @@ const MainPage = () => {
                   .set('hour', Number(newTime.slice(0, 2)))
                   .set('minute', Number(newTime.slice(3, 5)))
 
-                const bed = entry?.sleep?.bedtime ? dayjs(entry.sleep.bedtime) : null
+                const bed = entry?.sleep?.bedtime ?? null
 
                 updateSleep.mutate({
                   id: date,
                   sleep: {
-                    bedtime: bed?.toISOString() ?? null,
-                    wakeTime: wake.toISOString(),
+                    bedtime: bed,
+                    wakeTime: wake.format('YYYY-MM-DD HH:mm'),
                     napDurationMin: entry?.sleep?.napDurationMin ?? 0,
                   },
                 })
