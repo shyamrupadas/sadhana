@@ -1480,6 +1480,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@hookform/resolvers@npm:^5.2.2":
+  version: 5.2.2
+  resolution: "@hookform/resolvers@npm:5.2.2"
+  dependencies:
+    "@standard-schema/utils": "npm:^0.3.0"
+  peerDependencies:
+    react-hook-form: ^7.55.0
+  checksum: 10c9/7eeb93ee697f7de744f0b9ede86ff7858e16455aff13ac6e8c3a8f7463a0f58767b609c7dc398474a0b1be1dd1c9b6647074411e6b47edf6ca91e6c391213e87
+  languageName: node
+  linkType: hard
+
 "@humanfs/core@npm:^0.19.1":
   version: 0.19.1
   resolution: "@humanfs/core@npm:0.19.1"
@@ -1804,6 +1815,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@radix-ui/react-label@npm:^2.1.8":
+  version: 2.1.8
+  resolution: "@radix-ui/react-label@npm:2.1.8"
+  dependencies:
+    "@radix-ui/react-primitive": "npm:2.1.4"
+  peerDependencies:
+    "@types/react": "*"
+    "@types/react-dom": "*"
+    react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    "@types/react-dom":
+      optional: true
+  checksum: 10c9/3c01d1ac184adff050931f0092a1b10e6f4cb15749dbd98ee8fb954af6b241c7cf5d39ea40775c27113d120ba672fd611951e3afaa9b09eb608ef3989a1ab1b2
+  languageName: node
+  linkType: hard
+
 "@radix-ui/react-popover@npm:^1.1.11":
   version: 1.1.11
   resolution: "@radix-ui/react-popover@npm:1.1.11"
@@ -1924,6 +1954,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@radix-ui/react-primitive@npm:2.1.4":
+  version: 2.1.4
+  resolution: "@radix-ui/react-primitive@npm:2.1.4"
+  dependencies:
+    "@radix-ui/react-slot": "npm:1.2.4"
+  peerDependencies:
+    "@types/react": "*"
+    "@types/react-dom": "*"
+    react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    "@types/react-dom":
+      optional: true
+  checksum: 10c9/a718537c2e66d541e72cc6b92bcf8ba6a7a0b4a30072efadeac0a517eb36f8acc55f2983cc1e345dc0eae18166ebcace4dab0299ed87a79e8ac3f653df9ee437
+  languageName: node
+  linkType: hard
+
 "@radix-ui/react-scroll-area@npm:^1.2.6":
   version: 1.2.6
   resolution: "@radix-ui/react-scroll-area@npm:1.2.6"
@@ -1951,7 +2000,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@radix-ui/react-slot@npm:1.2.0, @radix-ui/react-slot@npm:^1.2.0":
+"@radix-ui/react-slot@npm:1.2.0":
   version: 1.2.0
   resolution: "@radix-ui/react-slot@npm:1.2.0"
   dependencies:
@@ -1963,6 +2012,21 @@ __metadata:
     "@types/react":
       optional: true
   checksum: 10c9/6ce4fcf416de56928e9df8b8a6f30536b24c29e9d39db16873a065d62e5f009d47eee33b936cbe1da51dd39644bbd65b8c6ba05f6b6bbdc4070f5d94b8cd6c44
+  languageName: node
+  linkType: hard
+
+"@radix-ui/react-slot@npm:1.2.4, @radix-ui/react-slot@npm:^1.2.4":
+  version: 1.2.4
+  resolution: "@radix-ui/react-slot@npm:1.2.4"
+  dependencies:
+    "@radix-ui/react-compose-refs": "npm:1.1.2"
+  peerDependencies:
+    "@types/react": "*"
+    react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+  checksum: 10c9/b37e37455b92789758980359d73ab5a5f5d1c12af480c775519bd15c556b891642d472accf05b30d520751489ca74cdb8fd7866064abc7942f0437371be28e51
   languageName: node
   linkType: hard
 
@@ -2304,6 +2368,13 @@ __metadata:
   version: 4.40.1
   resolution: "@rollup/rollup-win32-x64-msvc@npm:4.40.1"
   conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@standard-schema/utils@npm:^0.3.0":
+  version: 0.3.0
+  resolution: "@standard-schema/utils@npm:0.3.0"
+  checksum: 10c9/7084f875d322792f2e0a5904009434c8374b9345b09ba89828b68fd56fa3c2b366d35bf340d9e8c72736ef01793c2f70d350c372ed79845dc3566c58d34b4b51
   languageName: node
   linkType: hard
 
@@ -5652,6 +5723,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-hook-form@npm:^7.67.0":
+  version: 7.67.0
+  resolution: "react-hook-form@npm:7.67.0"
+  peerDependencies:
+    react: ^16.8.0 || ^17 || ^18 || ^19
+  checksum: 10c9/5eac0cc953e18a1705e12a3c7f2c9477beec64b80188289d79f3177b33ec0fe692408066c8b649a99eb621b1e82ce90e57060564357df2a26d71daee50462b82
+  languageName: node
+  linkType: hard
+
 "react-refresh@npm:^0.17.0":
   version: 0.17.0
   resolution: "react-refresh@npm:0.17.0"
@@ -5976,9 +6056,11 @@ __metadata:
   resolution: "sadhana@workspace:."
   dependencies:
     "@eslint/js": "npm:^9.22.0"
+    "@hookform/resolvers": "npm:^5.2.2"
+    "@radix-ui/react-label": "npm:^2.1.8"
     "@radix-ui/react-popover": "npm:^1.1.11"
     "@radix-ui/react-scroll-area": "npm:^1.2.6"
-    "@radix-ui/react-slot": "npm:^1.2.0"
+    "@radix-ui/react-slot": "npm:^1.2.4"
     "@tailwindcss/vite": "npm:^4.1.5"
     "@tanstack/react-query": "npm:^5.75.1"
     "@types/node": "npm:^22.15.3"
@@ -6001,6 +6083,7 @@ __metadata:
     prettier: "npm:^3.5.3"
     react: "npm:^19.0.0"
     react-dom: "npm:^19.0.0"
+    react-hook-form: "npm:^7.67.0"
     react-router: "npm:^7.5.3"
     tailwind-merge: "npm:^3.2.0"
     tailwindcss: "npm:^4.1.5"
@@ -6011,6 +6094,7 @@ __metadata:
     vite: "npm:^6.3.1"
     vite-plugin-pwa: "npm:^1.0.0"
     vite-tsconfig-paths: "npm:^5.1.4"
+    zod: "npm:^4.1.13"
   languageName: unknown
   linkType: soft
 
@@ -7351,5 +7435,12 @@ __metadata:
   version: 0.1.0
   resolution: "yocto-queue@npm:0.1.0"
   checksum: 10c9/f77b3d8d00310def622123df93d4ee654fc6a0096182af8bd60679ddcdfb3474c56c6c7190817c84a2785648cdee9d721c0154eb45698c62176c322fb46fc700
+  languageName: node
+  linkType: hard
+
+"zod@npm:^4.1.13":
+  version: 4.1.13
+  resolution: "zod@npm:4.1.13"
+  checksum: 10c9/152e29435c3b47053867c60a02954eb9ecdfa15bea8a147af25b2d36595fff6a9b81c6fd98f98f65f6f394da93e1e2ac825e891786c09b8cf2d60695ed6d62d8
   languageName: node
   linkType: hard

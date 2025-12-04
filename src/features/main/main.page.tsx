@@ -143,14 +143,18 @@ const MainPage = () => {
               const entry = getEntryByDate(date)
               const bedtime = entry?.sleep?.bedtime
 
-              const value = bedtime ? dayjs(bedtime, 'YYYY-MM-DD HH:mm').format('HH:mm') : null
+              const value = bedtime
+                ? dayjs(bedtime, 'YYYY-MM-DD HH:mm').format('HH:mm')
+                : null
               const defaultTime = '23:00'
 
               const handleChange = (newTime: string) => {
                 const bed = dayjs(date)
                   .set('hour', Number(newTime.slice(0, 2)))
                   .set('minute', Number(newTime.slice(3, 5)))
-                const wake = entry?.sleep?.wakeTime ? dayjs(entry.sleep.wakeTime, 'YYYY-MM-DD HH:mm') : null
+                const wake = entry?.sleep?.wakeTime
+                  ? dayjs(entry.sleep.wakeTime, 'YYYY-MM-DD HH:mm')
+                  : null
 
                 const adjustedBed =
                   wake && bed.isAfter(wake) ? bed.subtract(1, 'day') : bed
