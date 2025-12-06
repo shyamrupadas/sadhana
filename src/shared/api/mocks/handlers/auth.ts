@@ -1,12 +1,8 @@
-import { HttpResponse } from 'msw'
+import { delay, HttpResponse } from 'msw'
 import { http } from '../http'
 import { ApiShemas } from '../../schema'
 
 const mockUsers: ApiShemas['User'][] = [{ id: '1', email: 'admin@gmail.com' }]
-const user: ApiShemas['User'] = {
-  id: '01',
-  email: 'my@email.ru',
-}
 
 const userPasswords = new Map<string, string>()
 userPasswords.set('admin@gmail.com', '123456')
@@ -19,6 +15,8 @@ export const authHandlers = [
 
     const user = mockUsers.find(({ email }) => email === body.email)
     const storedPassword = userPasswords.get(body.email)
+
+    await delay()
 
     if (!user || !storedPassword || storedPassword !== body.password) {
       return HttpResponse.json(
@@ -37,6 +35,8 @@ export const authHandlers = [
 
   http.post('/auth/register', async ({ request }) => {
     const body = await request.json()
+
+    await delay()
 
     if (mockUsers.some(({ email }) => email === body.email)) {
       return HttpResponse.json(

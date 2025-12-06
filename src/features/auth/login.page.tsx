@@ -1,8 +1,8 @@
 import { Button } from '@/shared/components/ui/button'
 import { ROUTES } from '@/shared/model/routes'
 import { Link } from 'react-router'
-import { AuthLayout } from './auth-layout'
-import { LoginForm } from './login-form'
+import { AuthLayout } from './ui/auth-layout'
+import { LoginForm } from './ui/login-form'
 
 const LoginPage = () => {
   return (

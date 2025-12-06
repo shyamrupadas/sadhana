@@ -1,8 +1,8 @@
 import { Button } from '@/shared/components/ui/button'
-import { AuthLayout } from './auth-layout'
 import { Link } from 'react-router'
 import { ROUTES } from '@/shared/model/routes'
-import { RegisterForm } from './register-form'
+import { AuthLayout } from './ui/auth-layout'
+import { RegisterForm } from './ui/register-form'
 
 const RegisterPage = () => {
   return (

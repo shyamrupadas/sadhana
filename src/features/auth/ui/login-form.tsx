@@ -1,4 +1,6 @@
 import { useForm } from 'react-hook-form'
+import { z } from 'zod'
+import { zodResolver } from '@hookform/resolvers/zod'
 
 import {
   Form,
@@ -10,26 +12,19 @@ import {
 } from '@/shared/components/ui/form'
 import { Input } from '@/shared/components/ui/input'
 import { Button } from '@/shared/components/ui/button'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { useLogin } from '../model/use-login'
 
-const registerShema = z
-  .object({
-    email: z.string().pipe(z.email('Некорректный email')),
-    password: z.string().min(6, 'Пароль должен бытьне менее 6 символов'),
-    confirmPassword: z.string().optional(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    path: ['confirmPassword'],
-    message: 'Пароли не совпадают',
-  })
+const loginShema = z.object({
+  email: z.string().pipe(z.email('Некорректный email')),
+  password: z.string().min(6, 'Пароль должен бытьне менее 6 символов'),
+})
 
-export const RegisterForm = () => {
-  const form = useForm({ resolver: zodResolver(registerShema) })
+export const LoginForm = () => {
+  const form = useForm({ resolver: zodResolver(loginShema) })
 
-  const onSubmit = form.handleSubmit((data) => {
-    console.log(data)
-  })
+  const { login, errorMessage, isPending } = useLogin()
+
+  const onSubmit = form.handleSubmit(login)
 
   return (
     <Form {...form}>
@@ -62,21 +57,11 @@ export const RegisterForm = () => {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="confirmPassword"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Подтвердите пароль</FormLabel>
-              <FormControl>
-                <Input type="password" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {errorMessage && <p className="text-destructive text-sm">{errorMessage}</p>}
 
-        <Button type="submit">Зарегистрироваться</Button>
+        <Button type="submit" disabled={isPending}>
+          Войти
+        </Button>
       </form>
     </Form>
   )
