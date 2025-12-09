@@ -26,7 +26,13 @@ const registerShema = z
   })
 
 export const RegisterForm = () => {
-  const form = useForm({ resolver: zodResolver(registerShema) })
+  const form = useForm({
+    resolver: zodResolver(registerShema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  })
 
   const { register, errorMessage, isPending } = useRegister()
 

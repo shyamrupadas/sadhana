@@ -20,7 +20,13 @@ const loginShema = z.object({
 })
 
 export const LoginForm = () => {
-  const form = useForm({ resolver: zodResolver(loginShema) })
+  const form = useForm({
+    resolver: zodResolver(loginShema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  })
 
   const { login, errorMessage, isPending } = useLogin()
 
