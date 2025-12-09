@@ -9,6 +9,7 @@ import { TimePicker } from '@/shared/components/time-picker'
 import { DurationPicker } from '@/shared/components/duration-picker'
 import { Button } from '@/shared/components/ui/button'
 import { sleepApi } from '@/shared/api/sleepApi'
+import { useSession } from '@/shared/model/session'
 
 const getLastNDays = (n = 5): string[] => {
   return Array.from({ length: n })
@@ -22,6 +23,7 @@ const MainPage = () => {
   const { habitsQuery, addHabit, deleteHabit, renameHabit } = useHabits()
   const { sleepRecordsQuery, updateHabit, removeHabit } = useSleepRecords()
   const { sleepStatsQuery } = useSleepStats()
+  const { logout } = useSession()
 
   const [newHabitLabel, setNewHabitLabel] = useState<string>('')
   const [editMode, setEditMode] = useState<boolean>(false)
@@ -113,15 +115,20 @@ const MainPage = () => {
     <div className="p-4 overflow-x-auto max-w-full">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-medium">Садхана</h2>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleEditModeToggle}
-          className="text-gray-600 hover:text-gray-800"
-          title="Режим редактирования"
-        >
-          <PenIcon className="h-4 w-4" />
-        </Button>
+        <div className="flex flex-row">
+          <Button variant="ghost" onClick={logout}>
+            выйти
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleEditModeToggle}
+            className="text-gray-600 hover:text-gray-800"
+            title="Режим редактирования"
+          >
+            <PenIcon className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <table className="min-w-max border border-gray-300 text-sm text-center w-full max-w-[400px]">

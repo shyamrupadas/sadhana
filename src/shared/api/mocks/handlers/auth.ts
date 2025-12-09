@@ -87,6 +87,7 @@ export const authHandlers = [
 
     try {
       const session = await verifyToken(refreshToken)
+
       const user = mockUsers.find((u) => u.id === session.userId)
 
       if (!user) {

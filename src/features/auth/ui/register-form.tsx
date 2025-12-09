@@ -17,7 +17,7 @@ import { useRegister } from '../model/use-register'
 const registerShema = z
   .object({
     email: z.string().pipe(z.email('Некорректный email')),
-    password: z.string().min(6, 'Пароль должен бытьне менее 6 символов'),
+    password: z.string().min(6, 'Пароль должен быть не менее 6 символов'),
     confirmPassword: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {

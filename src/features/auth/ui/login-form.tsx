@@ -16,7 +16,7 @@ import { useLogin } from '../model/use-login'
 
 const loginShema = z.object({
   email: z.string().pipe(z.email('Некорректный email')),
-  password: z.string().min(6, 'Пароль должен бытьне менее 6 символов'),
+  password: z.string().min(6, 'Пароль должен быть не менее 6 символов'),
 })
 
 export const LoginForm = () => {
