@@ -1,5 +1,7 @@
+import { CONFIG } from '@/shared/model/config'
+
 export const enableMocking = async () => {
-  if (import.meta.env.PROD) {
+  if (import.meta.env.PROD || !CONFIG.USE_MOCKS) {
     return
   }
 

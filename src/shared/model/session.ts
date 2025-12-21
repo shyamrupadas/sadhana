@@ -10,9 +10,22 @@ type Session = {
   iat: number
 }
 
+type RefreshData = { accessToken?: string }
+
 const TOKEN_KEY = 'token'
 
+const isInvalidRefreshStatus = (status: number): boolean =>
+  status === 401 || status === 403
+
 let refreshTokenPromise: Promise<string | null> | null = null
+
+const decodeSession = (token: string): Session | null => {
+  try {
+    return jwtDecode<Session>(token)
+  } catch {
+    return null
+  }
+}
 
 export const useSession = createGStore(() => {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY))
@@ -27,42 +40,60 @@ export const useSession = createGStore(() => {
     setToken(null)
   }
 
-  const session = token ? jwtDecode<Session>(token) : null
+  const session = token ? decodeSession(token) : null
 
-  const refreshToken = async () => {
-    if (!token) return null
+  const performRefresh = async (): Promise<string | null> => {
+    try {
+      const { data, error, response } = await publicFetchClient.POST('/auth/refresh')
 
-    const session = jwtDecode<Session>(token)
+      const status = response?.status ?? 0
 
-    if (session.exp < Date.now() / 1000 + 1) {
-      if (!refreshTokenPromise) {
-        refreshTokenPromise = publicFetchClient
-          .POST('/auth/refresh')
-          .then(({ data }) => data?.accessToken ?? null)
-          .then((newToken) => {
-            if (newToken) {
-              login(newToken)
-              return newToken
-            } else {
-              logout()
-              return null
-            }
-          })
-          .finally(() => {
-            refreshTokenPromise = null
-          })
-      }
+      if (error || status >= 400) {
+        if (isInvalidRefreshStatus(status)) {
+          logout()
+          return null
+        }
 
-      const newToken = await refreshTokenPromise
-
-      if (newToken) {
-        return newToken
-      } else {
         return null
       }
+
+      const newToken = (data as RefreshData | undefined)?.accessToken ?? null
+
+      if (newToken) {
+        login(newToken)
+        return newToken
+      }
+
+      logout()
+      return null
+    } catch (e) {
+      return null
     }
-    return token
   }
 
-  return { login, logout, session, refreshToken }
+  const refreshToken = async (): Promise<string | null> => {
+    if (!token) return null
+
+    try {
+      const session = jwtDecode<Session>(token)
+      const nowSec = Date.now() / 1000
+
+      if (session.exp > nowSec) {
+        return token
+      }
+    } catch {
+      logout()
+      return null
+    }
+
+    if (refreshTokenPromise) return await refreshTokenPromise
+
+    refreshTokenPromise = performRefresh().finally(() => {
+      refreshTokenPromise = null
+    })
+
+    return await refreshTokenPromise
+  }
+
+  return { login, logout, session, refreshToken, token }
 })

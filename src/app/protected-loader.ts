@@ -7,9 +7,15 @@ import { enableMocking } from '@/shared/api/mocks'
 export const protectedLoader = async () => {
   await enableMocking()
 
-  const token = await useSession.getState().refreshToken()
+  const session = useSession.getState()
+  const token = await session.refreshToken()
+
   if (!token) {
-    return redirect(ROUTES.LOGIN)
+    if (!session.token) {
+      return redirect(ROUTES.LOGIN)
+    }
+
+    return null
   }
 
   return null
