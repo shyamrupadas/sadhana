@@ -24,3 +24,39 @@ paths:
   /auth/refresh:
     post:
       $ref: "./endpoints/auth.yaml#/refresh"
+
+  /habits:
+    get:
+      $ref: "./endpoints/habits.yaml#/getAll"
+    post:
+      $ref: "./endpoints/habits.yaml#/create"
+
+  /habits/{key}:
+    patch:
+      $ref: "./endpoints/habits.yaml#/update"
+    delete:
+      $ref: "./endpoints/habits.yaml#/delete"
+
+  /sleep-records:
+    get:
+      $ref: "./endpoints/sleep-records.yaml#/getAll"
+
+  /sleep-records/{date}:
+    get:
+      $ref: "./endpoints/sleep-records.yaml#/getByDate"
+    put:
+      $ref: "./endpoints/sleep-records.yaml#/update"
+
+  /sleep-records/{date}/habits/{habitKey}:
+    patch:
+      $ref: "./endpoints/sleep-records.yaml#/updateHabit"
+    delete:
+      $ref: "./endpoints/sleep-records.yaml#/removeHabit"
+
+  /sleep-records/yesterday/check:
+    get:
+      $ref: "./endpoints/sleep-records.yaml#/checkYesterday"
+
+  /sleep-stats:
+    get:
+      $ref: "./endpoints/sleep-stats.yaml#/getStats"

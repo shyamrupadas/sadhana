@@ -1,0 +1,48 @@
+schemas:
+  SleepStatsPeriod:
+    type: object
+    required:
+      - bedtime
+      - wakeTime
+      - duration
+    properties:
+      bedtime:
+        type: string
+        nullable: true
+        pattern: '^\d{2}:\d{2}$'
+      wakeTime:
+        type: string
+        nullable: true
+        pattern: '^\d{2}:\d{2}$'
+      duration:
+        type: string
+        nullable: true
+        pattern: '^\d+:\d{2}$'
+
+  SleepStatsResponse:
+    type: object
+    required:
+      - week
+      - month
+      - year
+    properties:
+      week:
+        $ref: '#/schemas/SleepStatsPeriod'
+      month:
+        $ref: '#/schemas/SleepStatsPeriod'
+      year:
+        $ref: '#/schemas/SleepStatsPeriod'
+
+getStats:
+  summary: Get sleep statistics
+  security:
+    - bearerAuth: []
+  responses:
+    '200':
+      description: Sleep statistics
+      content:
+        application/json:
+          schema:
+            $ref: '#/schemas/SleepStatsResponse'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'

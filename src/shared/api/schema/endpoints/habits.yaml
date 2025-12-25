@@ -1,0 +1,117 @@
+schemas:
+  HabitDefinition:
+    type: object
+    required:
+      - key
+      - label
+      - createdAt
+    properties:
+      key:
+        type: string
+      label:
+        type: string
+      createdAt:
+        type: string
+        format: date-time
+
+  CreateHabitRequest:
+    type: object
+    required:
+      - label
+    properties:
+      label:
+        type: string
+
+  UpdateHabitRequest:
+    type: object
+    required:
+      - label
+    properties:
+      label:
+        type: string
+
+getAll:
+  summary: Get all habits
+  security:
+    - bearerAuth: []
+  responses:
+    '200':
+      description: List of habits
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/schemas/HabitDefinition'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'
+
+create:
+  summary: Create a new habit
+  security:
+    - bearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '#/schemas/CreateHabitRequest'
+  responses:
+    '201':
+      description: Habit created successfully
+      content:
+        application/json:
+          schema:
+            $ref: '#/schemas/HabitDefinition'
+    '400':
+      $ref: '../shared/responses.yaml#/BadRequestError'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'
+
+update:
+  summary: Rename a habit
+  security:
+    - bearerAuth: []
+  parameters:
+    - in: path
+      name: key
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '#/schemas/UpdateHabitRequest'
+  responses:
+    '200':
+      description: Habit updated successfully
+      content:
+        application/json:
+          schema:
+            $ref: '#/schemas/HabitDefinition'
+    '400':
+      $ref: '../shared/responses.yaml#/BadRequestError'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'
+    '404':
+      $ref: '../shared/responses.yaml#/NotFoundError'
+
+delete:
+  summary: Delete a habit
+  security:
+    - bearerAuth: []
+  parameters:
+    - in: path
+      name: key
+      required: true
+      schema:
+        type: string
+  responses:
+    '204':
+      description: Habit deleted successfully
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'
+    '404':
+      $ref: '../shared/responses.yaml#/NotFoundError'

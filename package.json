@@ -23,7 +23,6 @@
     "clsx": "^2.1.1",
     "create-gstore": "^0.2.0",
     "dayjs": "^1.11.13",
-    "dexie": "^4.0.11",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.506.0",
     "openapi-fetch": "^0.15.0",

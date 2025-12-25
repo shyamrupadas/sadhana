@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
 import { PenIcon, XIcon, ArrowUp, ArrowDown } from 'lucide-react'
 
-import { useHabits } from '@/shared/api/hooks/useHabits'
-import { useSleepRecords } from '@/shared/api/hooks/useSleepRecords'
-import { useSleepStats } from '@/shared/api/hooks/useSleepStats'
+import { useHabits } from '@/features/main/model/use-habits'
+import { useSleepRecords } from '@/features/main/model/use-sleep-records'
+import { useSleepStats } from '@/features/main/model/use-sleep-stats'
+import { useCheckYesterday } from '@/features/main/model/use-check-yesterday'
 import { TimePicker } from '@/shared/components/time-picker'
 import { DurationPicker } from '@/shared/components/duration-picker'
 import { Button } from '@/shared/components/ui/button'
-import { sleepApi } from '@/shared/api/sleepApi'
 import { useSession } from '@/shared/model/session'
 
 const getLastNDays = (n = 5): string[] => {
@@ -21,14 +21,13 @@ const REMINDER_TIME = 10
 
 const MainPage = () => {
   const { habitsQuery, addHabit, deleteHabit, renameHabit } = useHabits()
-  const { sleepRecordsQuery, updateHabit, removeHabit } = useSleepRecords()
+  const { sleepRecordsQuery, updateSleep, updateHabit, removeHabit } = useSleepRecords()
   const { sleepStatsQuery } = useSleepStats()
+  const { checkYesterdaySleep } = useCheckYesterday()
   const { logout } = useSession()
 
   const [newHabitLabel, setNewHabitLabel] = useState<string>('')
   const [editMode, setEditMode] = useState<boolean>(false)
-
-  const { updateSleep } = useSleepRecords()
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission !== 'denied') {
@@ -46,7 +45,7 @@ const MainPage = () => {
       const msToNextCheck = targetTime.diff(now)
 
       const timer = setTimeout(async () => {
-        const hasData = await sleepApi.checkYesterdaySleep()
+        const hasData = await checkYesterdaySleep()
         if (!hasData && 'serviceWorker' in navigator) {
           navigator.serviceWorker.ready.then((registration) => {
             registration.active?.postMessage({
@@ -63,7 +62,7 @@ const MainPage = () => {
 
     const initialTimer = checkTime()
     return () => clearTimeout(initialTimer)
-  }, [])
+  }, [checkYesterdaySleep])
 
   const days = getLastNDays()
   const habits = habitsQuery.data ?? []

@@ -1,0 +1,236 @@
+schemas:
+  SleepData:
+    type: object
+    required:
+      - bedtime
+      - wakeTime
+      - napDurationMin
+      - durationMin
+    properties:
+      bedtime:
+        type: string
+        nullable: true
+        pattern: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$'
+      wakeTime:
+        type: string
+        nullable: true
+        pattern: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$'
+      napDurationMin:
+        type: integer
+        minimum: 0
+      durationMin:
+        type: integer
+        minimum: 0
+
+  SleepDataInput:
+    type: object
+    required:
+      - bedtime
+      - wakeTime
+      - napDurationMin
+    properties:
+      bedtime:
+        type: string
+        nullable: true
+        pattern: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$'
+      wakeTime:
+        type: string
+        nullable: true
+        pattern: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$'
+      napDurationMin:
+        type: integer
+        minimum: 0
+
+  HabitCheck:
+    type: object
+    required:
+      - key
+      - value
+    properties:
+      key:
+        type: string
+      value:
+        type: boolean
+
+  DailyEntry:
+    type: object
+    required:
+      - id
+      - date
+      - sleep
+      - habits
+    properties:
+      id:
+        type: string
+        pattern: '^\d{4}-\d{2}-\d{2}$'
+      date:
+        type: string
+        pattern: '^\d{4}-\d{2}-\d{2}$'
+      sleep:
+        $ref: '#/schemas/SleepData'
+      habits:
+        type: array
+        items:
+          $ref: '#/schemas/HabitCheck'
+
+  UpdateHabitValueRequest:
+    type: object
+    required:
+      - value
+    properties:
+      value:
+        type: boolean
+
+  CheckYesterdayResponse:
+    type: object
+    required:
+      - hasData
+    properties:
+      hasData:
+        type: boolean
+
+getAll:
+  summary: Get all sleep records
+  security:
+    - bearerAuth: []
+  responses:
+    '200':
+      description: List of all sleep records
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/schemas/DailyEntry'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'
+
+getByDate:
+  summary: Get sleep record by date
+  security:
+    - bearerAuth: []
+  parameters:
+    - in: path
+      name: date
+      required: true
+      schema:
+        type: string
+        pattern: '^\d{4}-\d{2}-\d{2}$'
+  responses:
+    '200':
+      description: Sleep record found
+      content:
+        application/json:
+          schema:
+            $ref: '#/schemas/DailyEntry'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'
+    '404':
+      $ref: '../shared/responses.yaml#/NotFoundError'
+
+update:
+  summary: Create or update sleep record for a day
+  security:
+    - bearerAuth: []
+  parameters:
+    - in: path
+      name: date
+      required: true
+      schema:
+        type: string
+        pattern: '^\d{4}-\d{2}-\d{2}$'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '#/schemas/SleepDataInput'
+  responses:
+    '200':
+      description: Sleep record updated successfully
+      content:
+        application/json:
+          schema:
+            $ref: '#/schemas/DailyEntry'
+    '400':
+      $ref: '../shared/responses.yaml#/BadRequestError'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'
+
+updateHabit:
+  summary: Update habit value for a specific day
+  security:
+    - bearerAuth: []
+  parameters:
+    - in: path
+      name: date
+      required: true
+      schema:
+        type: string
+        pattern: '^\d{4}-\d{2}-\d{2}$'
+    - in: path
+      name: habitKey
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '#/schemas/UpdateHabitValueRequest'
+  responses:
+    '200':
+      description: Habit value updated successfully
+      content:
+        application/json:
+          schema:
+            $ref: '#/schemas/DailyEntry'
+    '400':
+      $ref: '../shared/responses.yaml#/BadRequestError'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'
+    '404':
+      $ref: '../shared/responses.yaml#/NotFoundError'
+
+removeHabit:
+  summary: Remove habit from a specific day
+  security:
+    - bearerAuth: []
+  parameters:
+    - in: path
+      name: date
+      required: true
+      schema:
+        type: string
+        pattern: '^\d{4}-\d{2}-\d{2}$'
+    - in: path
+      name: habitKey
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Habit removed successfully
+      content:
+        application/json:
+          schema:
+            $ref: '#/schemas/DailyEntry'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'
+    '404':
+      $ref: '../shared/responses.yaml#/NotFoundError'
+
+checkYesterday:
+  summary: Check if yesterday's sleep data exists
+  security:
+    - bearerAuth: []
+  responses:
+    '200':
+      description: Check result
+      content:
+        application/json:
+          schema:
+            $ref: '#/schemas/CheckYesterdayResponse'
+    '401':
+      $ref: '../shared/responses.yaml#/UnauthorizedError'

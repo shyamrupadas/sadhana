@@ -3712,13 +3712,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dexie@npm:^4.0.11":
-  version: 4.0.11
-  resolution: "dexie@npm:4.0.11"
-  checksum: 10c9/52011f03655ce90aa6701f1e0724a10a3fd6b33d6e1ec72ba27b4392f500df54788e6ed23fd692a62eb50a21ab4fe146e08a85ceca19bbeb62e12269b124b4e2
-  languageName: node
-  linkType: hard
-
 "dunder-proto@npm:^1.0.0, dunder-proto@npm:^1.0.1":
   version: 1.0.1
   resolution: "dunder-proto@npm:1.0.1"
@@ -6468,7 +6461,6 @@ __metadata:
     clsx: "npm:^2.1.1"
     create-gstore: "npm:^0.2.0"
     dayjs: "npm:^1.11.13"
-    dexie: "npm:^4.0.11"
     eslint: "npm:^9.22.0"
     eslint-config-prettier: "npm:^10.1.2"
     eslint-import-resolver-typescript: "npm:^4.3.4"
