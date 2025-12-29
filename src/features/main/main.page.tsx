@@ -144,53 +144,6 @@ const MainPage = () => {
 
         <tbody>
           <tr>
-            <td className="border px-2 py-1 text-left">Отбой</td>
-            {days.map((date) => {
-              const entry = getEntryByDate(date)
-              const bedtime = entry?.sleep?.bedtime
-
-              const value = bedtime
-                ? dayjs(bedtime, 'YYYY-MM-DD HH:mm').format('HH:mm')
-                : null
-              const defaultTime = '23:00'
-
-              const handleChange = (newTime: string) => {
-                const bed = dayjs(date)
-                  .set('hour', Number(newTime.slice(0, 2)))
-                  .set('minute', Number(newTime.slice(3, 5)))
-                const wake = entry?.sleep?.wakeTime
-                  ? dayjs(entry.sleep.wakeTime, 'YYYY-MM-DD HH:mm')
-                  : null
-
-                const adjustedBed =
-                  wake && bed.isAfter(wake) ? bed.subtract(1, 'day') : bed
-
-                const bedtime = adjustedBed.format('YYYY-MM-DD HH:mm')
-                const wakeTime = entry?.sleep?.wakeTime ?? null
-
-                updateSleep.mutate({
-                  id: date,
-                  sleep: {
-                    bedtime: bedtime,
-                    wakeTime: wakeTime,
-                    napDurationMin: entry?.sleep?.napDurationMin ?? 0,
-                  },
-                })
-              }
-
-              return (
-                <td key={date} className="border px-0 py-0">
-                  <TimePicker
-                    value={value}
-                    defaultValue={defaultTime}
-                    onChange={handleChange}
-                  />
-                </td>
-              )
-            })}
-          </tr>
-
-          <tr>
             <td className="border px-2 py-1 text-left">Подъём</td>
             {days.map((date) => {
               const entry = getEntryByDate(date)
@@ -264,7 +217,7 @@ const MainPage = () => {
           </tr>
 
           <tr>
-            <td className="border px-2 py-1 text-left">Время сна</td>
+            <td className="border px-2 py-1 text-left">Сон (итого)</td>
             {days.map((date) => {
               const entry = getEntryByDate(date)
               const duration = entry?.sleep?.durationMin
@@ -283,6 +236,53 @@ const MainPage = () => {
               return (
                 <td key={date} className="border px-0 py-0">
                   {`${hours}:${String(minutes).padStart(2, '0')}`}
+                </td>
+              )
+            })}
+          </tr>
+
+          <tr>
+            <td className="border px-2 py-1 text-left">Отбой</td>
+            {days.map((date) => {
+              const entry = getEntryByDate(date)
+              const bedtime = entry?.sleep?.bedtime
+
+              const value = bedtime
+                ? dayjs(bedtime, 'YYYY-MM-DD HH:mm').format('HH:mm')
+                : null
+              const defaultTime = '23:00'
+
+              const handleChange = (newTime: string) => {
+                const bed = dayjs(date)
+                  .set('hour', Number(newTime.slice(0, 2)))
+                  .set('minute', Number(newTime.slice(3, 5)))
+                const wake = entry?.sleep?.wakeTime
+                  ? dayjs(entry.sleep.wakeTime, 'YYYY-MM-DD HH:mm')
+                  : null
+
+                const adjustedBed =
+                  wake && bed.isAfter(wake) ? bed.subtract(1, 'day') : bed
+
+                const bedtime = adjustedBed.format('YYYY-MM-DD HH:mm')
+                const wakeTime = entry?.sleep?.wakeTime ?? null
+
+                updateSleep.mutate({
+                  id: date,
+                  sleep: {
+                    bedtime: bedtime,
+                    wakeTime: wakeTime,
+                    napDurationMin: entry?.sleep?.napDurationMin ?? 0,
+                  },
+                })
+              }
+
+              return (
+                <td key={date} className="border px-0 py-0">
+                  <TimePicker
+                    value={value}
+                    defaultValue={defaultTime}
+                    onChange={handleChange}
+                  />
                 </td>
               )
             })}
