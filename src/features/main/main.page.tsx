@@ -319,13 +319,12 @@ const MainPage = () => {
                   <td key={date} className="border p-2">
                     <button
                       onClick={() => handleToggleHabit(date, habit.key, value)}
-                      className={`w-6 h-6 rounded border align-middle ${
-                        value === true
-                          ? 'bg-green-400'
-                          : value === false
-                            ? 'bg-red-400'
-                            : 'bg-gray-200'
-                      }`}
+                      className={`w-6 h-6 rounded border align-middle ${value === true
+                        ? 'bg-green-400'
+                        : value === false
+                          ? 'bg-red-400'
+                          : 'bg-gray-200'
+                        }`}
                       title={
                         value === true
                           ? 'Выполнено'
