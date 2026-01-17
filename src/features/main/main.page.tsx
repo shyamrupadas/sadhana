@@ -113,365 +113,381 @@ const MainPage = () => {
   return (
     <main className="grow flex flex-col items-center">
       <div className="w-full max-w-100 p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-medium">Садхана</h2>
-        <div className="flex flex-row">
-          <Button variant="ghost" onClick={logout}>
-            выйти
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleEditModeToggle}
-            className="text-gray-600 hover:text-gray-800"
-            title="Режим редактирования"
-          >
-            <PenIcon className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-medium">Садхана</h2>
+          <div className="flex flex-row">
+            <Button variant="ghost" onClick={logout}>
+              выйти
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleEditModeToggle}
+              className="text-gray-600 hover:text-gray-800"
+              title="Режим редактирования"
+            >
+              <PenIcon className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </div>
 
-      <div className="overflow-x-auto">
-        <div className="w-full max-w-md mx-auto rounded-[4px] overflow-hidden border border-gray-200">
-          <table className="min-w-max text-sm text-center w-full border-collapse [&_tr>th:first-child]:border-l-0 [&_tr>td:first-child]:border-l-0 [&_tr>th:last-child]:border-r-0 [&_tr>td:last-child]:border-r-0 [&_tr:first-child>th]:border-t-0 [&_tr:first-child>td]:border-t-0 [&_tbody>tr:last-child>td]:border-b-0">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border px-1 py-1 text-left"></th>
-              {days.map((date) => (
-                <th key={date} className="border px-1 py-1 font-normal">
-                  {dayjs(date).format('DD.MM')}
-                </th>
-              ))}
-            </tr>
-          </thead>
+        <div className="overflow-x-auto">
+          <div className="w-full max-w-md mx-auto rounded-[4px] overflow-hidden border border-gray-200">
+            <table className="min-w-max text-sm text-center w-full border-collapse [&_tr>th:first-child]:max-w-26 [&_tr>td:first-child]:max-w-26 [&_tr>th:first-child]:border-l-0 [&_tr>td:first-child]:border-l-0 [&_tr>th:last-child]:border-r-0 [&_tr>td:last-child]:border-r-0 [&_tr:first-child>th]:border-t-0 [&_tr:first-child>td]:border-t-0 [&_tbody>tr:last-child>td]:border-b-0">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border px-1 py-1 text-left"></th>
+                  {days.map((date) => (
+                    <th key={date} className="border px-1 py-1 font-normal">
+                      {dayjs(date).format('DD.MM')}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
 
-          <tbody>
-            <tr>
-            <td className="border px-2 py-1 text-left max-w-28">
-              <span className="block w-full truncate">Подъём</span>
-            </td>
-              {days.map((date) => {
-                const entry = getEntryByDate(date)
-                const current = entry?.sleep?.wakeTime
-                  ? dayjs(entry.sleep.wakeTime, 'YYYY-MM-DD HH:mm').format('HH:mm')
-                  : null
-
-                const handleWakeChange = (newTime: string) => {
-                  const wake = dayjs(date)
-                    .set('hour', Number(newTime.slice(0, 2)))
-                    .set('minute', Number(newTime.slice(3, 5)))
-
-                  const bed = entry?.sleep?.bedtime ?? null
-
-                  updateSleep.mutate({
-                    id: date,
-                    sleep: {
-                      bedtime: bed,
-                      wakeTime: wake.format('YYYY-MM-DD HH:mm'),
-                      napDurationMin: entry?.sleep?.napDurationMin ?? 0,
-                    },
-                  })
-                }
-
-                return (
-                  <td key={date} className="border px-0 py-0">
-                    <TimePicker
-                      value={current}
-                      defaultValue="08:00"
-                      onChange={handleWakeChange}
-                    />
+              <tbody>
+                <tr>
+                  <td className="border px-2 py-1 text-left">
+                    <span className="block w-full truncate">Подъём</span>
                   </td>
-                )
-              })}
-            </tr>
+                  {days.map((date) => {
+                    const entry = getEntryByDate(date)
+                    const current = entry?.sleep?.wakeTime
+                      ? dayjs(entry.sleep.wakeTime, 'YYYY-MM-DD HH:mm').format('HH:mm')
+                      : null
 
-            <tr>
-            <td className="border px-2 py-1 text-left max-w-28">
-              <span className="block w-full truncate">Дневной сон</span>
-            </td>
-              {days.map((date) => {
-                const entry = getEntryByDate(date)
+                    const handleWakeChange = (newTime: string) => {
+                      const wake = dayjs(date)
+                        .set('hour', Number(newTime.slice(0, 2)))
+                        .set('minute', Number(newTime.slice(3, 5)))
 
-                const napMin: number | null = entry?.sleep?.napDurationMin ?? null
+                      const bed = entry?.sleep?.bedtime ?? null
 
-                const napValue: string | null = napMin
-                  ? `${Math.floor(napMin / 60)}:${String(napMin % 60).padStart(2, '0')}`
-                  : null
+                      updateSleep.mutate({
+                        id: date,
+                        sleep: {
+                          bedtime: bed,
+                          wakeTime: wake.format('YYYY-MM-DD HH:mm'),
+                          napDurationMin: entry?.sleep?.napDurationMin ?? 0,
+                        },
+                      })
+                    }
 
-                const handleDailySleepChange = (dur: string): void => {
-                  const [h, m] = dur.split(':').map(Number)
-                  const newNapMin = h * 60 + m
-                  updateSleep.mutate({
-                    id: date,
-                    sleep: {
-                      bedtime: entry?.sleep?.bedtime ?? null,
-                      wakeTime: entry?.sleep?.wakeTime ?? null,
-                      napDurationMin: newNapMin,
-                    },
-                  })
-                }
+                    return (
+                      <td key={date} className="border px-0 py-0">
+                        <TimePicker
+                          value={current}
+                          defaultValue="08:00"
+                          onChange={handleWakeChange}
+                        />
+                      </td>
+                    )
+                  })}
+                </tr>
 
-                return (
-                  <td key={date} className="border px-0 py-0">
-                    <DurationPicker
-                      value={napValue}
-                      defaultValue="0:15"
-                      onChange={handleDailySleepChange}
-                    />
+                <tr>
+                  <td className="border px-2 py-1 text-left">
+                    <span className="block w-full truncate">Дневной сон</span>
                   </td>
-                )
-              })}
-            </tr>
+                  {days.map((date) => {
+                    const entry = getEntryByDate(date)
 
-            <tr>
-            <td className="border px-2 py-1 text-left max-w-28">
-              <span className="block w-full truncate">Сон (итого)</span>
-            </td>
-              {days.map((date) => {
-                const entry = getEntryByDate(date)
-                const duration = entry?.sleep?.durationMin
+                    const napMin: number | null = entry?.sleep?.napDurationMin ?? null
 
-                if (!duration) {
-                  return (
-                    <td key={date} className="border px-1 py-1">
-                      —
+                    const napValue: string | null = napMin
+                      ? `${Math.floor(napMin / 60)}:${String(napMin % 60).padStart(2, '0')}`
+                      : null
+
+                    const handleDailySleepChange = (dur: string): void => {
+                      const [h, m] = dur.split(':').map(Number)
+                      const newNapMin = h * 60 + m
+                      updateSleep.mutate({
+                        id: date,
+                        sleep: {
+                          bedtime: entry?.sleep?.bedtime ?? null,
+                          wakeTime: entry?.sleep?.wakeTime ?? null,
+                          napDurationMin: newNapMin,
+                        },
+                      })
+                    }
+
+                    return (
+                      <td key={date} className="border px-0 py-0">
+                        <DurationPicker
+                          value={napValue}
+                          defaultValue="0:15"
+                          onChange={handleDailySleepChange}
+                        />
+                      </td>
+                    )
+                  })}
+                </tr>
+
+                <tr>
+                  <td className="border px-2 py-1 text-left">
+                    <span className="block w-full truncate">Сон (итого)</span>
+                  </td>
+                  {days.map((date) => {
+                    const entry = getEntryByDate(date)
+                    const duration = entry?.sleep?.durationMin
+
+                    if (!duration) {
+                      return (
+                        <td key={date} className="border px-1 py-1">
+                          —
+                        </td>
+                      )
+                    }
+
+                    const hours = Math.floor(duration / 60)
+                    const minutes = duration % 60
+
+                    return (
+                      <td key={date} className="border px-0 py-0">
+                        {`${hours}:${String(minutes).padStart(2, '0')}`}
+                      </td>
+                    )
+                  })}
+                </tr>
+
+                <tr>
+                  <td className="border px-2 py-1 text-left">
+                    <span className="block w-full truncate">Отбой</span>
+                  </td>
+                  {days.map((date) => {
+                    const entry = getEntryByDate(date)
+                    const bedtime = entry?.sleep?.bedtime
+
+                    const value = bedtime
+                      ? dayjs(bedtime, 'YYYY-MM-DD HH:mm').format('HH:mm')
+                      : null
+                    const defaultTime = '23:00'
+
+                    const handleChange = (newTime: string) => {
+                      const bed = dayjs(date)
+                        .set('hour', Number(newTime.slice(0, 2)))
+                        .set('minute', Number(newTime.slice(3, 5)))
+                      const wake = entry?.sleep?.wakeTime
+                        ? dayjs(entry.sleep.wakeTime, 'YYYY-MM-DD HH:mm')
+                        : null
+
+                      const adjustedBed =
+                        wake && bed.isAfter(wake) ? bed.subtract(1, 'day') : bed
+
+                      const bedtime = adjustedBed.format('YYYY-MM-DD HH:mm')
+                      const wakeTime = entry?.sleep?.wakeTime ?? null
+
+                      updateSleep.mutate({
+                        id: date,
+                        sleep: {
+                          bedtime: bedtime,
+                          wakeTime: wakeTime,
+                          napDurationMin: entry?.sleep?.napDurationMin ?? 0,
+                        },
+                      })
+                    }
+
+                    return (
+                      <td key={date} className="border px-0 py-0">
+                        <TimePicker
+                          value={value}
+                          defaultValue={defaultTime}
+                          onChange={handleChange}
+                        />
+                      </td>
+                    )
+                  })}
+                </tr>
+
+                {habits.map((habit) => (
+                  <tr key={habit.key}>
+                    <td className="border px-2 py-1 text-left relative">
+                      <span className="block w-full truncate">{habit.label}</span>
+                      {editMode && (
+                        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-white/90 rounded px-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRenameHabit(habit.key, habit.label)}
+                            className="h-6 w-6 text-gray-600 hover:text-blue-600"
+                          >
+                            <PenIcon className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteHabit(habit.key, habit.label)}
+                            className="h-6 w-6 text-gray-600 hover:text-red-600"
+                          >
+                            <XIcon className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                     </td>
-                  )
-                }
+                    {days.map((date) => {
+                      const value = getHabitValue(date, habit.key)
+                      return (
+                        <td key={date} className="border p-2">
+                          <button
+                            onClick={() => handleToggleHabit(date, habit.key, value)}
+                            className={`w-6 h-6 rounded border align-middle ${
+                              value === true
+                                ? 'bg-green-400'
+                                : value === false
+                                  ? 'bg-red-400'
+                                  : 'bg-gray-200'
+                            }`}
+                            title={
+                              value === true
+                                ? 'Выполнено'
+                                : value === false
+                                  ? 'Не выполнено'
+                                  : 'Не отмечено'
+                            }
+                          />
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-                const hours = Math.floor(duration / 60)
-                const minutes = duration % 60
+        {editMode && (
+          <div className="mt-6 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+            <input
+              type="text"
+              placeholder="Новая привычка"
+              value={newHabitLabel}
+              onChange={(e) => setNewHabitLabel(e.target.value)}
+              className="min-w-0 flex-1 rounded border px-3 py-2 focus:outline-none"
+            />
+            <Button
+              onClick={() => {
+                addHabit.mutate(newHabitLabel)
+                setNewHabitLabel('')
+              }}
+              disabled={!newHabitLabel.trim() || addHabit.isPending}
+              className="w-full sm:w-auto"
+            >
+              {addHabit.isPending ? 'Добавление...' : 'Добавить'}
+            </Button>
+          </div>
+        )}
 
-                return (
-                  <td key={date} className="border px-0 py-0">
-                    {`${hours}:${String(minutes).padStart(2, '0')}`}
+        <div className="mt-8 mb-6">
+          <h3 className="text-lg font-medium mb-3">Статистика</h3>
+          <div className="w-full max-w-md mx-auto rounded-[4px] overflow-hidden border border-gray-200">
+            <table className="text-sm w-full border-collapse [&_tr>th:first-child]:max-w-28 [&_tr>td:first-child]:max-w-28 [&_tr>th:first-child]:border-l-0 [&_tr>td:first-child]:border-l-0 [&_tr>th:last-child]:border-r-0 [&_tr>td:last-child]:border-r-0 [&_tr:first-child>th]:border-t-0 [&_tr:first-child>td]:border-t-0 [&_tbody>tr:last-child>td]:border-b-0">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border px-3 py-2 text-left font-normal"></th>
+                  <th className="border px-3 py-2 text-center font-normal">Год</th>
+                  <th className="border px-3 py-2 text-center font-normal">30 дней</th>
+                  <th className="border px-3 py-2 text-center font-normal">7 дней</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="border px-3 py-2">
+                    <span className="block w-full truncate">Отбой</span>
                   </td>
-                )
-              })}
-            </tr>
-
-            <tr>
-            <td className="border px-2 py-1 text-left max-w-28">
-              <span className="block w-full truncate">Отбой</span>
-            </td>
-              {days.map((date) => {
-                const entry = getEntryByDate(date)
-                const bedtime = entry?.sleep?.bedtime
-
-                const value = bedtime
-                  ? dayjs(bedtime, 'YYYY-MM-DD HH:mm').format('HH:mm')
-                  : null
-                const defaultTime = '23:00'
-
-                const handleChange = (newTime: string) => {
-                  const bed = dayjs(date)
-                    .set('hour', Number(newTime.slice(0, 2)))
-                    .set('minute', Number(newTime.slice(3, 5)))
-                  const wake = entry?.sleep?.wakeTime
-                    ? dayjs(entry.sleep.wakeTime, 'YYYY-MM-DD HH:mm')
-                    : null
-
-                  const adjustedBed =
-                    wake && bed.isAfter(wake) ? bed.subtract(1, 'day') : bed
-
-                  const bedtime = adjustedBed.format('YYYY-MM-DD HH:mm')
-                  const wakeTime = entry?.sleep?.wakeTime ?? null
-
-                  updateSleep.mutate({
-                    id: date,
-                    sleep: {
-                      bedtime: bedtime,
-                      wakeTime: wakeTime,
-                      napDurationMin: entry?.sleep?.napDurationMin ?? 0,
-                    },
-                  })
-                }
-
-                return (
-                  <td key={date} className="border px-0 py-0">
-                    <TimePicker
-                      value={value}
-                      defaultValue={defaultTime}
-                      onChange={handleChange}
-                    />
+                  <td className="border px-3 py-2 text-center">
+                    {sleepStats.bedtime.year}
                   </td>
-                )
-              })}
-            </tr>
-
-            {habits.map((habit) => (
-              <tr key={habit.key}>
-              <td className="border px-2 py-1 text-left relative max-w-28">
-                <span className="block w-full truncate">{habit.label}</span>
-                  {editMode && (
-                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-white/90 rounded px-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRenameHabit(habit.key, habit.label)}
-                        className="h-6 w-6 text-gray-600 hover:text-blue-600"
-                      >
-                        <PenIcon className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteHabit(habit.key, habit.label)}
-                        className="h-6 w-6 text-gray-600 hover:text-red-600"
-                      >
-                        <XIcon className="h-3 w-3" />
-                      </Button>
+                  <td className="border px-3 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{sleepStats.bedtime.month}</span>
+                      {sleepStats.bedtime.monthArrow === ArrowDown ? (
+                        <ArrowDown
+                          className={`h-3 w-3 ${sleepStats.bedtime.monthColor}`}
+                        />
+                      ) : (
+                        <ArrowUp className={`h-3 w-3 ${sleepStats.bedtime.monthColor}`} />
+                      )}
                     </div>
-                  )}
-                </td>
-                {days.map((date) => {
-                  const value = getHabitValue(date, habit.key)
-                  return (
-                    <td key={date} className="border p-2">
-                      <button
-                        onClick={() => handleToggleHabit(date, habit.key, value)}
-                        className={`w-6 h-6 rounded border align-middle ${
-                          value === true
-                            ? 'bg-green-400'
-                            : value === false
-                              ? 'bg-red-400'
-                              : 'bg-gray-200'
-                        }`}
-                        title={
-                          value === true
-                            ? 'Выполнено'
-                            : value === false
-                              ? 'Не выполнено'
-                              : 'Не отмечено'
-                        }
-                      />
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-          </table>
+                  </td>
+                  <td className="border px-3 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{sleepStats.bedtime.week}</span>
+                      {sleepStats.bedtime.weekArrow === ArrowDown ? (
+                        <ArrowDown
+                          className={`h-3 w-3 ${sleepStats.bedtime.weekColor}`}
+                        />
+                      ) : (
+                        <ArrowUp className={`h-3 w-3 ${sleepStats.bedtime.weekColor}`} />
+                      )}
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border px-3 py-2">
+                    <span className="block w-full truncate">Подъем</span>
+                  </td>
+                  <td className="border px-3 py-2 text-center">
+                    {sleepStats.wakeTime.year}
+                  </td>
+                  <td className="border px-3 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{sleepStats.wakeTime.month}</span>
+                      {sleepStats.wakeTime.monthArrow === ArrowDown ? (
+                        <ArrowDown
+                          className={`h-3 w-3 ${sleepStats.wakeTime.monthColor}`}
+                        />
+                      ) : (
+                        <ArrowUp
+                          className={`h-3 w-3 ${sleepStats.wakeTime.monthColor}`}
+                        />
+                      )}
+                    </div>
+                  </td>
+                  <td className="border px-3 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{sleepStats.wakeTime.week}</span>
+                      {sleepStats.wakeTime.weekArrow === ArrowDown ? (
+                        <ArrowDown
+                          className={`h-3 w-3 ${sleepStats.wakeTime.weekColor}`}
+                        />
+                      ) : (
+                        <ArrowUp className={`h-3 w-3 ${sleepStats.wakeTime.weekColor}`} />
+                      )}
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border px-3 py-2">
+                    <span className="block w-full truncate">Сон</span>
+                  </td>
+                  <td className="border px-3 py-2 text-center">
+                    {sleepStats.sleep.year}
+                  </td>
+                  <td className="border px-3 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{sleepStats.sleep.month}</span>
+                      {sleepStats.sleep.monthArrow === ArrowDown ? (
+                        <ArrowDown className={`h-3 w-3 ${sleepStats.sleep.monthColor}`} />
+                      ) : (
+                        <ArrowUp className={`h-3 w-3 ${sleepStats.sleep.monthColor}`} />
+                      )}
+                    </div>
+                  </td>
+                  <td className="border px-3 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{sleepStats.sleep.week}</span>
+                      {sleepStats.sleep.weekArrow === ArrowDown ? (
+                        <ArrowDown className={`h-3 w-3 ${sleepStats.sleep.weekColor}`} />
+                      ) : (
+                        <ArrowUp className={`h-3 w-3 ${sleepStats.sleep.weekColor}`} />
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-
-      {editMode && (
-        <div className="mt-6 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-          <input
-            type="text"
-            placeholder="Новая привычка"
-            value={newHabitLabel}
-            onChange={(e) => setNewHabitLabel(e.target.value)}
-            className="min-w-0 flex-1 rounded border px-3 py-2 focus:outline-none"
-          />
-          <Button
-            onClick={() => {
-              addHabit.mutate(newHabitLabel)
-              setNewHabitLabel('')
-            }}
-            disabled={!newHabitLabel.trim() || addHabit.isPending}
-            className="w-full sm:w-auto"
-          >
-            {addHabit.isPending ? 'Добавление...' : 'Добавить'}
-          </Button>
-        </div>
-      )}
-
-      <div className="mt-8 mb-6">
-        <h3 className="text-lg font-medium mb-3">Статистика</h3>
-        <div className="w-full max-w-md mx-auto rounded-[4px] overflow-hidden border border-gray-200">
-          <table className="text-sm w-full border-collapse [&_tr>th:first-child]:border-l-0 [&_tr>td:first-child]:border-l-0 [&_tr>th:last-child]:border-r-0 [&_tr>td:last-child]:border-r-0 [&_tr:first-child>th]:border-t-0 [&_tr:first-child>td]:border-t-0 [&_tbody>tr:last-child>td]:border-b-0">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border px-3 py-2 text-left font-normal"></th>
-              <th className="border px-3 py-2 text-center font-normal">Год</th>
-              <th className="border px-3 py-2 text-center font-normal">30 дней</th>
-              <th className="border px-3 py-2 text-center font-normal">7 дней</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className="border px-3 py-2 max-w-28">
-                <span className="block w-full truncate">Отбой</span>
-              </td>
-              <td className="border px-3 py-2 text-center">{sleepStats.bedtime.year}</td>
-              <td className="border px-3 py-2 text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <span>{sleepStats.bedtime.month}</span>
-                  {sleepStats.bedtime.monthArrow === ArrowDown ? (
-                    <ArrowDown className={`h-3 w-3 ${sleepStats.bedtime.monthColor}`} />
-                  ) : (
-                    <ArrowUp className={`h-3 w-3 ${sleepStats.bedtime.monthColor}`} />
-                  )}
-                </div>
-              </td>
-              <td className="border px-3 py-2 text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <span>{sleepStats.bedtime.week}</span>
-                  {sleepStats.bedtime.weekArrow === ArrowDown ? (
-                    <ArrowDown className={`h-3 w-3 ${sleepStats.bedtime.weekColor}`} />
-                  ) : (
-                    <ArrowUp className={`h-3 w-3 ${sleepStats.bedtime.weekColor}`} />
-                  )}
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td className="border px-3 py-2 max-w-28">
-                <span className="block w-full truncate">Подъем</span>
-              </td>
-              <td className="border px-3 py-2 text-center">{sleepStats.wakeTime.year}</td>
-              <td className="border px-3 py-2 text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <span>{sleepStats.wakeTime.month}</span>
-                  {sleepStats.wakeTime.monthArrow === ArrowDown ? (
-                    <ArrowDown className={`h-3 w-3 ${sleepStats.wakeTime.monthColor}`} />
-                  ) : (
-                    <ArrowUp className={`h-3 w-3 ${sleepStats.wakeTime.monthColor}`} />
-                  )}
-                </div>
-              </td>
-              <td className="border px-3 py-2 text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <span>{sleepStats.wakeTime.week}</span>
-                  {sleepStats.wakeTime.weekArrow === ArrowDown ? (
-                    <ArrowDown className={`h-3 w-3 ${sleepStats.wakeTime.weekColor}`} />
-                  ) : (
-                    <ArrowUp className={`h-3 w-3 ${sleepStats.wakeTime.weekColor}`} />
-                  )}
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td className="border px-3 py-2 max-w-28">
-                <span className="block w-full truncate">Сон</span>
-              </td>
-              <td className="border px-3 py-2 text-center">{sleepStats.sleep.year}</td>
-              <td className="border px-3 py-2 text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <span>{sleepStats.sleep.month}</span>
-                  {sleepStats.sleep.monthArrow === ArrowDown ? (
-                    <ArrowDown className={`h-3 w-3 ${sleepStats.sleep.monthColor}`} />
-                  ) : (
-                    <ArrowUp className={`h-3 w-3 ${sleepStats.sleep.monthColor}`} />
-                  )}
-                </div>
-              </td>
-              <td className="border px-3 py-2 text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <span>{sleepStats.sleep.week}</span>
-                  {sleepStats.sleep.weekArrow === ArrowDown ? (
-                    <ArrowDown className={`h-3 w-3 ${sleepStats.sleep.weekColor}`} />
-                  ) : (
-                    <ArrowUp className={`h-3 w-3 ${sleepStats.sleep.weekColor}`} />
-                  )}
-                </div>
-              </td>
-            </tr>
-          </tbody>
-          </table>
-        </div>
-      </div>
       </div>
     </main>
   )
