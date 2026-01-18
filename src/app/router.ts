@@ -1,3 +1,4 @@
+import { lazyWithRetry } from '@/shared/lib/lazy-with-retry'
 import { ROUTES } from '@/shared/model/routes'
 import { createBrowserRouter } from 'react-router'
 
@@ -13,11 +14,20 @@ export const router = createBrowserRouter([
         loader: protectedLoader,
         Component: ProtectedRoute,
         children: [
-          { path: ROUTES.HOME, lazy: () => import('@/features/main/main.page') },
+          {
+            path: ROUTES.HOME,
+            lazy: lazyWithRetry(() => import('@/features/main/main.page')),
+          },
         ],
       },
-      { path: ROUTES.LOGIN, lazy: () => import('@/features/auth/login.page') },
-      { path: ROUTES.REGISTER, lazy: () => import('@/features/auth/register.page') },
+      {
+        path: ROUTES.LOGIN,
+        lazy: lazyWithRetry(() => import('@/features/auth/login.page')),
+      },
+      {
+        path: ROUTES.REGISTER,
+        lazy: lazyWithRetry(() => import('@/features/auth/register.page')),
+      },
     ],
   },
 ])
