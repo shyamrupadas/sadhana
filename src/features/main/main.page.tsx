@@ -135,10 +135,10 @@ const MainPage = () => {
           <div className="w-full max-w-md mx-auto rounded-[4px] overflow-hidden border border-gray-200">
             <table className="min-w-max text-sm text-center w-full border-collapse [&_tr>th:first-child]:max-w-26 [&_tr>td:first-child]:max-w-26 [&_tr>th:first-child]:border-l-0 [&_tr>td:first-child]:border-l-0 [&_tr>th:last-child]:border-r-0 [&_tr>td:last-child]:border-r-0 [&_tr:first-child>th]:border-t-0 [&_tr:first-child>td]:border-t-0 [&_tbody>tr:last-child>td]:border-b-0">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border px-1 py-1 text-left"></th>
+                <tr className="h-9 bg-gray-100">
+                  <th className="border px-1 text-left"></th>
                   {days.map((date) => (
-                    <th key={date} className="border px-1 py-1 font-normal">
+                    <th key={date} className="border px-1 font-normal">
                       {dayjs(date).format('DD.MM')}
                     </th>
                   ))}
@@ -146,8 +146,8 @@ const MainPage = () => {
               </thead>
 
               <tbody>
-                <tr>
-                  <td className="border px-2 py-1 text-left">
+                <tr className="h-9">
+                  <td className="border px-2 text-left">
                     <span className="block w-full truncate">Подъём</span>
                   </td>
                   {days.map((date) => {
@@ -174,7 +174,7 @@ const MainPage = () => {
                     }
 
                     return (
-                      <td key={date} className="border px-0 py-0">
+                      <td key={date} className="border px-0">
                         <TimePicker
                           value={current}
                           defaultValue="08:00"
@@ -185,8 +185,8 @@ const MainPage = () => {
                   })}
                 </tr>
 
-                <tr>
-                  <td className="border px-2 py-1 text-left">
+                <tr className="h-9">
+                  <td className="border px-2 text-left">
                     <span className="block w-full truncate">Дневной сон</span>
                   </td>
                   {days.map((date) => {
@@ -212,7 +212,7 @@ const MainPage = () => {
                     }
 
                     return (
-                      <td key={date} className="border px-0 py-0">
+                      <td key={date} className="border px-0">
                         <DurationPicker
                           value={napValue}
                           defaultValue="0:15"
@@ -223,8 +223,8 @@ const MainPage = () => {
                   })}
                 </tr>
 
-                <tr>
-                  <td className="border px-2 py-1 text-left">
+                <tr className="h-9">
+                  <td className="border px-2 text-left">
                     <span className="block w-full truncate">Сон (итого)</span>
                   </td>
                   {days.map((date) => {
@@ -233,7 +233,7 @@ const MainPage = () => {
 
                     if (!duration) {
                       return (
-                        <td key={date} className="border px-1 py-1">
+                        <td key={date} className="border px-2">
                           —
                         </td>
                       )
@@ -243,15 +243,15 @@ const MainPage = () => {
                     const minutes = duration % 60
 
                     return (
-                      <td key={date} className="border px-0 py-0">
+                      <td key={date} className="border px-2">
                         {`${hours}:${String(minutes).padStart(2, '0')}`}
                       </td>
                     )
                   })}
                 </tr>
 
-                <tr>
-                  <td className="border px-2 py-1 text-left">
+                <tr className="h-9">
+                  <td className="border px-2 text-left">
                     <span className="block w-full truncate">Отбой</span>
                   </td>
                   {days.map((date) => {
@@ -288,7 +288,7 @@ const MainPage = () => {
                     }
 
                     return (
-                      <td key={date} className="border px-0 py-0">
+                      <td key={date} className="border px-0">
                         <TimePicker
                           value={value}
                           defaultValue={defaultTime}
@@ -300,8 +300,8 @@ const MainPage = () => {
                 </tr>
 
                 {habits.map((habit) => (
-                  <tr key={habit.key}>
-                    <td className="border px-2 py-1 text-left relative">
+                  <tr key={habit.key} className="h-9">
+                    <td className="border px-2 text-left relative">
                       <span className="block w-full truncate">{habit.label}</span>
                       {editMode && (
                         <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-white/90 rounded px-1">
@@ -327,7 +327,7 @@ const MainPage = () => {
                     {days.map((date) => {
                       const value = getHabitValue(date, habit.key)
                       return (
-                        <td key={date} className="border p-2">
+                        <td key={date} className="border px-2">
                           <button
                             onClick={() => handleToggleHabit(date, habit.key, value)}
                             className={`w-6 h-6 rounded border align-middle ${
@@ -382,22 +382,20 @@ const MainPage = () => {
           <div className="w-full max-w-md mx-auto rounded-[4px] overflow-hidden border border-gray-200">
             <table className="text-sm w-full border-collapse [&_tr>th:first-child]:max-w-28 [&_tr>td:first-child]:max-w-28 [&_tr>th:first-child]:border-l-0 [&_tr>td:first-child]:border-l-0 [&_tr>th:last-child]:border-r-0 [&_tr>td:last-child]:border-r-0 [&_tr:first-child>th]:border-t-0 [&_tr:first-child>td]:border-t-0 [&_tbody>tr:last-child>td]:border-b-0">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border px-3 py-2 text-left font-normal"></th>
-                  <th className="border px-3 py-2 text-center font-normal">Год</th>
-                  <th className="border px-3 py-2 text-center font-normal">30 дней</th>
-                  <th className="border px-3 py-2 text-center font-normal">7 дней</th>
+                <tr className="h-9 bg-gray-100">
+                  <th className="border px-3 text-left font-normal"></th>
+                  <th className="border px-3 text-center font-normal">Год</th>
+                  <th className="border px-3 text-center font-normal">30 дней</th>
+                  <th className="border px-3 text-center font-normal">7 дней</th>
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td className="border px-3 py-2">
+                <tr className="h-9">
+                  <td className="border px-3">
                     <span className="block w-full truncate">Отбой</span>
                   </td>
-                  <td className="border px-3 py-2 text-center">
-                    {sleepStats.bedtime.year}
-                  </td>
-                  <td className="border px-3 py-2 text-center">
+                  <td className="border px-3 text-center">{sleepStats.bedtime.year}</td>
+                  <td className="border px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>{sleepStats.bedtime.month}</span>
                       {sleepStats.bedtime.monthArrow === ArrowDown ? (
@@ -409,7 +407,7 @@ const MainPage = () => {
                       )}
                     </div>
                   </td>
-                  <td className="border px-3 py-2 text-center">
+                  <td className="border px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>{sleepStats.bedtime.week}</span>
                       {sleepStats.bedtime.weekArrow === ArrowDown ? (
@@ -422,14 +420,12 @@ const MainPage = () => {
                     </div>
                   </td>
                 </tr>
-                <tr>
-                  <td className="border px-3 py-2">
+                <tr className="h-9">
+                  <td className="border px-3">
                     <span className="block w-full truncate">Подъем</span>
                   </td>
-                  <td className="border px-3 py-2 text-center">
-                    {sleepStats.wakeTime.year}
-                  </td>
-                  <td className="border px-3 py-2 text-center">
+                  <td className="border px-3 text-center">{sleepStats.wakeTime.year}</td>
+                  <td className="border px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>{sleepStats.wakeTime.month}</span>
                       {sleepStats.wakeTime.monthArrow === ArrowDown ? (
@@ -443,7 +439,7 @@ const MainPage = () => {
                       )}
                     </div>
                   </td>
-                  <td className="border px-3 py-2 text-center">
+                  <td className="border px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>{sleepStats.wakeTime.week}</span>
                       {sleepStats.wakeTime.weekArrow === ArrowDown ? (
@@ -456,14 +452,12 @@ const MainPage = () => {
                     </div>
                   </td>
                 </tr>
-                <tr>
-                  <td className="border px-3 py-2">
+                <tr className="h-9">
+                  <td className="border px-3">
                     <span className="block w-full truncate">Сон</span>
                   </td>
-                  <td className="border px-3 py-2 text-center">
-                    {sleepStats.sleep.year}
-                  </td>
-                  <td className="border px-3 py-2 text-center">
+                  <td className="border px-3 text-center">{sleepStats.sleep.year}</td>
+                  <td className="border px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>{sleepStats.sleep.month}</span>
                       {sleepStats.sleep.monthArrow === ArrowDown ? (
@@ -473,7 +467,7 @@ const MainPage = () => {
                       )}
                     </div>
                   </td>
-                  <td className="border px-3 py-2 text-center">
+                  <td className="border px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>{sleepStats.sleep.week}</span>
                       {sleepStats.sleep.weekArrow === ArrowDown ? (
