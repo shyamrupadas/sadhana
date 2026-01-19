@@ -9,9 +9,15 @@ type TimePickerProps = {
   value: string | null
   defaultValue: string
   onChange: (val: string) => void
+  disabled?: boolean
 }
 
-export const TimePicker = ({ value, defaultValue, onChange }: TimePickerProps) => {
+export const TimePicker = ({
+  value,
+  defaultValue,
+  onChange,
+  disabled = false,
+}: TimePickerProps) => {
   const [open, setOpen] = useState(false)
 
   const baseOptions = useMemo(() => {
@@ -39,9 +45,19 @@ export const TimePicker = ({ value, defaultValue, onChange }: TimePickerProps) =
 
   return (
     <div className="w-full">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (disabled) return
+          setOpen(nextOpen)
+        }}
+      >
         <PopoverTrigger asChild>
-          <Button variant="ghost" className="w-full text-left px-1 font-normal">
+          <Button
+            variant="ghost"
+            className="w-full text-left px-1 font-normal"
+            disabled={disabled}
+          >
             {value ?? '—'}
           </Button>
         </PopoverTrigger>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
-import { PenIcon, XIcon, ArrowUp, ArrowDown } from 'lucide-react'
+import { PenIcon, XIcon, ArrowUp, ArrowDown, User, LogOut } from 'lucide-react'
 
 import { useHabits } from '@/features/main/model/use-habits'
 import { useSleepRecords } from '@/features/main/model/use-sleep-records'
@@ -10,7 +10,9 @@ import { TimePicker } from '@/shared/components/time-picker'
 import { DurationPicker } from '@/shared/components/duration-picker'
 import { Button } from '@/shared/components/ui/button'
 import { Skeleton } from '@/shared/components/ui/skeleton'
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover'
 import { useSession } from '@/shared/model/session'
+import { cn } from '@/shared/lib/utils'
 
 const getLastNDays = (n = 5): string[] => {
   return Array.from({ length: n })
@@ -25,7 +27,8 @@ const MainPage = () => {
   const { sleepRecordsQuery, updateSleep, updateHabit, removeHabit } = useSleepRecords()
   const { sleepStatsQuery } = useSleepStats()
   const { checkYesterdaySleep } = useCheckYesterday()
-  const { logout } = useSession()
+  const { logout, session } = useSession()
+  const email = session?.email ?? ''
 
   const [newHabitLabel, setNewHabitLabel] = useState<string>('')
   const [editMode, setEditMode] = useState<boolean>(false)
@@ -141,18 +144,41 @@ const MainPage = () => {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-medium">Садхана</h2>
           <div className="flex flex-row">
-            <Button variant="ghost" onClick={logout}>
-              выйти
-            </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={handleEditModeToggle}
-              className="text-gray-600 hover:text-gray-800"
-              title="Режим редактирования"
+              className={cn(
+                'text-gray-600 hover:text-gray-800',
+                editMode &&
+                  'bg-red-100 text-red-700 hover:text-red-800 ring-1 ring-red-200'
+              )}
+              title={
+                editMode ? 'Выйти из режима редактирования' : 'Режим редактирования'
+              }
+              aria-pressed={editMode}
             >
               <PenIcon className="h-4 w-4" />
             </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" title="Аккаунт">
+                  <User className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-48 p-1 md:p-2">
+                <div className="flex flex-col gap-2">
+                  <Button variant="ghost" className="justify-start gap-2 px-2" disabled>
+                    <User className="h-4 w-4" />
+                    <span className="truncate">{email}</span>
+                  </Button>
+                  <Button variant="ghost" className="justify-start gap-2 px-2" onClick={logout}>
+                    <LogOut className="h-4 w-4" />
+                    Выйти
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
@@ -204,6 +230,7 @@ const MainPage = () => {
                           value={current}
                           defaultValue="08:00"
                           onChange={handleWakeChange}
+                          disabled={editMode}
                         />
                       </td>
                     )
@@ -242,6 +269,7 @@ const MainPage = () => {
                           value={napValue}
                           defaultValue="0:15"
                           onChange={handleDailySleepChange}
+                          disabled={editMode}
                         />
                       </td>
                     )
@@ -318,6 +346,7 @@ const MainPage = () => {
                           value={value}
                           defaultValue={defaultTime}
                           onChange={handleChange}
+                          disabled={editMode}
                         />
                       </td>
                     )
@@ -354,20 +383,28 @@ const MainPage = () => {
                       return (
                         <td key={date} className="border px-2">
                           <button
-                            onClick={() => handleToggleHabit(date, habit.key, value)}
-                            className={`w-6 h-6 rounded border align-middle ${
+                            onClick={() => {
+                              if (!editMode) {
+                                handleToggleHabit(date, habit.key, value)
+                              }
+                            }}
+                            disabled={editMode}
+                            className={cn(
+                              'w-6 h-6 rounded border align-middle disabled:cursor-not-allowed disabled:opacity-50',
                               value === true
                                 ? 'bg-green-400'
                                 : value === false
                                   ? 'bg-red-400'
                                   : 'bg-gray-200'
-                            }`}
+                            )}
                             title={
-                              value === true
-                                ? 'Выполнено'
-                                : value === false
-                                  ? 'Не выполнено'
-                                  : 'Не отмечено'
+                              editMode
+                                ? 'Редактирование включено'
+                                : value === true
+                                  ? 'Выполнено'
+                                  : value === false
+                                    ? 'Не выполнено'
+                                    : 'Не отмечено'
                             }
                           />
                         </td>

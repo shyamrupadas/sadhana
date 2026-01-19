@@ -9,6 +9,7 @@ type DurationPickerProps = {
   defaultValue: string
   onChange: (val: string) => void
   maxHours?: number
+  disabled?: boolean
 }
 
 const MAX_HOURS = 8
@@ -17,6 +18,7 @@ export const DurationPicker = ({
   value,
   defaultValue,
   onChange,
+  disabled = false,
 }: DurationPickerProps) => {
   const [open, setOpen] = useState(false)
 
@@ -37,9 +39,19 @@ export const DurationPicker = ({
 
   return (
     <div className="w-full">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (disabled) return
+          setOpen(nextOpen)
+        }}
+      >
         <PopoverTrigger asChild>
-          <Button variant="ghost" className="w-full text-left px-1 font-normal">
+          <Button
+            variant="ghost"
+            className="w-full text-left px-1 font-normal"
+            disabled={disabled}
+          >
             {value ?? '—'}
           </Button>
         </PopoverTrigger>
