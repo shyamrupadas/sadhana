@@ -9,6 +9,7 @@ import { useCheckYesterday } from '@/features/main/model/use-check-yesterday'
 import { TimePicker } from '@/shared/components/time-picker'
 import { DurationPicker } from '@/shared/components/duration-picker'
 import { Button } from '@/shared/components/ui/button'
+import { Skeleton } from '@/shared/components/ui/skeleton'
 import { useSession } from '@/shared/model/session'
 
 const getLastNDays = (n = 5): string[] => {
@@ -73,7 +74,31 @@ const MainPage = () => {
   const sleepStats = sleepStatsQuery.data
 
   if (sleepStatsQuery.isLoading || !sleepStats) {
-    return <div>Загрузка...</div>
+    return (
+      <main className="grow flex flex-col items-center">
+        <div className="w-full max-w-100 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <Skeleton className="h-6 w-24" />
+            <div className="flex flex-row gap-2">
+              <Skeleton className="h-8 w-14" />
+              <Skeleton className="h-8 w-8" />
+            </div>
+          </div>
+          <div className="w-full max-w-md mx-auto rounded-[4px] overflow-hidden border border-gray-200 p-3">
+            <div className="grid grid-cols-6 gap-2">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <Skeleton key={`header-${index}`} className="h-6 w-full" />
+              ))}
+            </div>
+            <div className="mt-3 space-y-2">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <Skeleton key={`row-${index}`} className="h-8 w-full" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   const getHabitValue = (date: string, habitKey: string): boolean | null => {
