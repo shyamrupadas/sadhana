@@ -39,7 +39,15 @@ const getMinutesDifference = (time1: string | null, time2: string | null): numbe
   const [h1, m1] = time1.split(':').map(Number)
   const [h2, m2] = time2.split(':').map(Number)
 
-  return h2 * 60 + m2 - (h1 * 60 + m1)
+  const minutes1 = h1 * 60 + m1
+  const minutes2 = h2 * 60 + m2
+  let diff = minutes2 - minutes1
+
+  // Adjust for crossing midnight so 01:00 is treated as later than 23:00.
+  if (diff <= -720) diff += 1440
+  if (diff >= 720) diff -= 1440
+
+  return diff
 }
 
 const getDurationDifference = (
