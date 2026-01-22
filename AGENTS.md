@@ -21,6 +21,7 @@ Layering is enforced by `eslint-plugin-boundaries`: `shared` cannot import from 
 - Use the `@/*` alias for `src/*` (e.g., `@/shared/lib/date`).
 - Keep feature entry points as `index.ts` or `*.page.tsx`; import through these files.
 - Formatting is handled by Prettier via ESLint config; keep changes consistent and run `yarn lint` before committing.
+- Всегда отвечай пользователю только по-русски.
 
 ## Testing Guidelines
 Automated tests are not currently configured. For changes:

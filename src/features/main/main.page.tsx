@@ -9,7 +9,6 @@ import { useCheckYesterday } from '@/features/main/model/use-check-yesterday'
 import { TimePicker } from '@/shared/components/time-picker'
 import { DurationPicker } from '@/shared/components/duration-picker'
 import { Button } from '@/shared/components/ui/button'
-import { Skeleton } from '@/shared/components/ui/skeleton'
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover'
 import { useSession } from '@/shared/model/session'
 import { cn } from '@/shared/lib/utils'
@@ -21,6 +20,18 @@ const getLastNDays = (n = 5): string[] => {
 }
 
 const REMINDER_TIME = 10
+
+const LoadingScreen = () => {
+  return (
+    <main className="grow flex items-center justify-center motion-safe:animate-[fade-in_500ms_ease-in-out] will-change-[opacity,transform]">
+      <img
+        src="/check.svg"
+        alt="Садхана"
+        className="w-[200px] opacity-10 grayscale"
+      />
+    </main>
+  )
+}
 
 const MainPage = () => {
   const { habitsQuery, addHabit, deleteHabit, renameHabit } = useHabits()
@@ -79,31 +90,7 @@ const MainPage = () => {
   const sleepStats = sleepStatsQuery.data
 
   if (sleepStatsQuery.isLoading || !sleepStats) {
-    return (
-      <main className="grow flex flex-col items-center">
-        <div className="w-full max-w-100 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <Skeleton className="h-6 w-24" />
-            <div className="flex flex-row gap-2">
-              <Skeleton className="h-8 w-14" />
-              <Skeleton className="h-8 w-8" />
-            </div>
-          </div>
-          <div className="w-full max-w-md mx-auto rounded-[4px] overflow-hidden border border-gray-200 p-3">
-            <div className="grid grid-cols-6 gap-2">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <Skeleton key={`header-${index}`} className="h-6 w-full" />
-              ))}
-            </div>
-            <div className="mt-3 space-y-2">
-              {Array.from({ length: 8 }).map((_, index) => (
-                <Skeleton key={`row-${index}`} className="h-8 w-full" />
-              ))}
-            </div>
-          </div>
-        </div>
-      </main>
-    )
+    return <LoadingScreen />
   }
 
   const getHabitValue = (date: string, habitKey: string): boolean | null => {
@@ -141,7 +128,7 @@ const MainPage = () => {
   }
 
   return (
-    <main className="grow flex flex-col items-center">
+    <main className="grow flex flex-col items-center motion-safe:animate-[fade-in_500ms_ease-in-out] will-change-[opacity,transform]">
       <div className="w-full max-w-100 p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-medium">Садхана</h2>
@@ -155,9 +142,7 @@ const MainPage = () => {
                 editMode &&
                   'bg-red-100 text-red-700 hover:text-red-800 ring-1 ring-red-200'
               )}
-              title={
-                editMode ? 'Выйти из режима редактирования' : 'Режим редактирования'
-              }
+              title={editMode ? 'Выйти из режима редактирования' : 'Режим редактирования'}
               aria-pressed={editMode}
             >
               <PenIcon className="h-4 w-4" />
@@ -174,7 +159,11 @@ const MainPage = () => {
                     <User className="h-4 w-4" />
                     <span className="truncate">{email}</span>
                   </Button>
-                  <Button variant="ghost" className="justify-start gap-2 px-2" onClick={logout}>
+                  <Button
+                    variant="ghost"
+                    className="justify-start gap-2 px-2"
+                    onClick={logout}
+                  >
                     <LogOut className="h-4 w-4" />
                     Выйти
                   </Button>
