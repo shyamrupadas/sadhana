@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -12,6 +13,8 @@ import {
 } from '@/shared/components/ui/form'
 import { Input } from '@/shared/components/ui/input'
 import { Button } from '@/shared/components/ui/button'
+import { Label } from '@/shared/components/ui/label'
+import { Checkbox } from '@/shared/components/ui/checkbox'
 import { useLogin } from '../model/use-login'
 
 const loginShema = z.object({
@@ -20,6 +23,7 @@ const loginShema = z.object({
 })
 
 export const LoginForm = () => {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const form = useForm({
     resolver: zodResolver(loginShema),
     defaultValues: {
@@ -56,12 +60,25 @@ export const LoginForm = () => {
             <FormItem>
               <FormLabel>Пароль</FormLabel>
               <FormControl>
-                <Input placeholder="******" type="password" {...field} />
+                <Input
+                  placeholder="******"
+                  type={isPasswordVisible ? 'text' : 'password'}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="login-show-password"
+            checked={isPasswordVisible}
+            onCheckedChange={(checked) => setIsPasswordVisible(checked === true)}
+          />
+          <Label htmlFor="login-show-password">Показать пароль</Label>
+        </div>
 
         {errorMessage && <p className="text-destructive text-sm">{errorMessage}</p>}
 

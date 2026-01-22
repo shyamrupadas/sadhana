@@ -15,6 +15,7 @@ Layering is enforced by `eslint-plugin-boundaries`: `shared` cannot import from 
 - `yarn preview`: serve the built app locally.
 - `yarn lint`: run ESLint across the repo.
 - `yarn api`: generate OpenAPI types into `src/shared/api/schema/generated.ts`.
+- `yarn dlx shadcn@latest add checkbox`: add a new shadcn/ui component (example for checkbox).
 
 ## Coding Style & Naming Conventions
 - TypeScript + React (`.ts`, `.tsx`) with strict compiler settings.

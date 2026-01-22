@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -12,6 +13,8 @@ import {
 } from '@/shared/components/ui/form'
 import { Input } from '@/shared/components/ui/input'
 import { Button } from '@/shared/components/ui/button'
+import { Label } from '@/shared/components/ui/label'
+import { Checkbox } from '@/shared/components/ui/checkbox'
 import { useRegister } from '../model/use-register'
 
 const registerShema = z
@@ -26,6 +29,7 @@ const registerShema = z
   })
 
 export const RegisterForm = () => {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const form = useForm({
     resolver: zodResolver(registerShema),
     defaultValues: {
@@ -62,7 +66,11 @@ export const RegisterForm = () => {
             <FormItem>
               <FormLabel>Пароль</FormLabel>
               <FormControl>
-                <Input placeholder="******" type="password" {...field} />
+                <Input
+                  placeholder="******"
+                  type={isPasswordVisible ? 'text' : 'password'}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -76,12 +84,21 @@ export const RegisterForm = () => {
             <FormItem>
               <FormLabel>Подтвердите пароль</FormLabel>
               <FormControl>
-                <Input type="password" {...field} />
+                <Input type={isPasswordVisible ? 'text' : 'password'} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
+
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="register-show-password"
+            checked={isPasswordVisible}
+            onCheckedChange={(checked) => setIsPasswordVisible(checked === true)}
+          />
+          <Label htmlFor="register-show-password">Показать пароль</Label>
+        </div>
 
         {errorMessage && <p className="text-destructive text-sm">{errorMessage}</p>}
 
