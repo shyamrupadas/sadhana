@@ -73,6 +73,8 @@ const MainPage = () => {
   const entries = sleepRecordsQuery.data ?? []
 
   const getEntryByDate = (date: string) => entries.find((e) => e.id === date)
+  const normalizeNapDuration = (value?: number | null) =>
+    value === 0 || value === undefined ? null : value
 
   const sleepStats = sleepStatsQuery.data
 
@@ -219,7 +221,7 @@ const MainPage = () => {
                         sleep: {
                           bedtime: bed,
                           wakeTime: wake.format('YYYY-MM-DD HH:mm'),
-                          napDurationMin: entry?.sleep?.napDurationMin ?? 0,
+                          napDuration: normalizeNapDuration(entry?.sleep?.napDuration),
                         },
                       })
                     }
@@ -244,11 +246,14 @@ const MainPage = () => {
                   {days.map((date) => {
                     const entry = getEntryByDate(date)
 
-                    const napMin: number | null = entry?.sleep?.napDurationMin ?? null
+                    const napMin: number | null = normalizeNapDuration(
+                      entry?.sleep?.napDuration
+                    )
 
-                    const napValue: string | null = napMin
-                      ? `${Math.floor(napMin / 60)}:${String(napMin % 60).padStart(2, '0')}`
-                      : null
+                    const napValue: string | null =
+                      napMin === null
+                        ? null
+                        : `${Math.floor(napMin / 60)}:${String(napMin % 60).padStart(2, '0')}`
 
                     const handleDailySleepChange = (dur: string): void => {
                       const [h, m] = dur.split(':').map(Number)
@@ -258,7 +263,7 @@ const MainPage = () => {
                         sleep: {
                           bedtime: entry?.sleep?.bedtime ?? null,
                           wakeTime: entry?.sleep?.wakeTime ?? null,
-                          napDurationMin: newNapMin,
+                          napDuration: newNapMin === 0 ? null : newNapMin,
                         },
                       })
                     }
@@ -282,9 +287,9 @@ const MainPage = () => {
                   </td>
                   {days.map((date) => {
                     const entry = getEntryByDate(date)
-                    const duration = entry?.sleep?.durationMin
+                    const duration = entry?.sleep?.duration
 
-                    if (!duration) {
+                    if (duration === null || duration === undefined) {
                       return (
                         <td key={date} className="border px-2">
                           —
@@ -335,7 +340,7 @@ const MainPage = () => {
                         sleep: {
                           bedtime: bedtime,
                           wakeTime: wakeTime,
-                          napDurationMin: entry?.sleep?.napDurationMin ?? 0,
+                          napDuration: normalizeNapDuration(entry?.sleep?.napDuration),
                         },
                       })
                     }

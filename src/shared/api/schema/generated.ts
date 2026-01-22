@@ -549,8 +549,8 @@ export interface components {
         SleepData: {
             bedtime: string | null;
             wakeTime: string | null;
-            napDurationMin: number;
-            durationMin: number;
+            napDuration: number | null;
+            duration: number | null;
         };
         HabitCheck: {
             key: string;
@@ -565,7 +565,7 @@ export interface components {
         SleepDataInput: {
             bedtime: string | null;
             wakeTime: string | null;
-            napDurationMin: number;
+            napDuration: number | null;
         };
         UpdateHabitValueRequest: {
             value: boolean;

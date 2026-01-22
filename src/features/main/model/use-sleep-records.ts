@@ -43,7 +43,7 @@ const updateEntrySleep = (
             sleep: {
               ...entry.sleep,
               ...sleep,
-              durationMin: entry.sleep.durationMin,
+              duration: entry.sleep.duration,
             },
           }
         : entry
@@ -55,7 +55,7 @@ const updateEntrySleep = (
     date,
     sleep: {
       ...sleep,
-      durationMin: 0,
+      duration: null,
     },
     habits: [],
   }
@@ -91,8 +91,8 @@ const updateEntryHabit = (
     sleep: {
       bedtime: null,
       wakeTime: null,
-      napDurationMin: 0,
-      durationMin: 0,
+      napDuration: null,
+      duration: null,
     },
     habits: [{ key: habitKey, value }],
   }

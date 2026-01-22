@@ -53,13 +53,25 @@ const getMinutesDifference = (time1: string | null, time2: string | null): numbe
 const getDurationDifference = (
   duration1: string | null,
   duration2: string | null
-): number => {
-  if (!duration1 || !duration2) return 0
+): number | null => {
+  if (!duration1 || !duration2) return null
 
   const [h1, m1] = duration1.split(':').map(Number)
   const [h2, m2] = duration2.split(':').map(Number)
 
   return h2 * 60 + m2 - (h1 * 60 + m1)
+}
+
+const getDurationTrend = (
+  diff: number | null
+): { arrow: typeof ArrowDown | typeof ArrowUp; color: string } => {
+  if (diff === null) {
+    return { arrow: ArrowUp, color: 'text-gray-600' }
+  }
+
+  return diff > 0
+    ? { arrow: ArrowUp, color: 'text-green-600' }
+    : { arrow: ArrowDown, color: 'text-red-600' }
 }
 
 const getDefaultStats = (): TransformedSleepStats => ({
@@ -121,6 +133,9 @@ const transformStatsData = (
     rawData.week?.duration ?? null
   )
 
+  const monthVsYearSleepTrend = getDurationTrend(monthVsYearSleep)
+  const weekVsMonthSleepTrend = getDurationTrend(weekVsMonthSleep)
+
   return {
     bedtime: {
       year: rawData.year?.bedtime || '—',
@@ -143,11 +158,11 @@ const transformStatsData = (
     sleep: {
       year: rawData.year?.duration || '—',
       month: rawData.month?.duration || '—',
-      monthArrow: monthVsYearSleep > 0 ? ArrowUp : ArrowDown,
-      monthColor: monthVsYearSleep > 0 ? 'text-green-600' : 'text-red-600',
+      monthArrow: monthVsYearSleepTrend.arrow,
+      monthColor: monthVsYearSleepTrend.color,
       week: rawData.week?.duration || '—',
-      weekArrow: weekVsMonthSleep > 0 ? ArrowUp : ArrowDown,
-      weekColor: weekVsMonthSleep > 0 ? 'text-green-600' : 'text-red-600',
+      weekArrow: weekVsMonthSleepTrend.arrow,
+      weekColor: weekVsMonthSleepTrend.color,
     },
   }
 }
