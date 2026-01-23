@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import dayjs from 'dayjs'
 import { PenIcon, XIcon, ArrowUp, ArrowDown, User, LogOut } from 'lucide-react'
 
 import { useHabits } from '@/features/main/model/use-habits'
 import { useSleepRecords } from '@/features/main/model/use-sleep-records'
 import { useSleepStats } from '@/features/main/model/use-sleep-stats'
-import { useCheckYesterday } from '@/features/main/model/use-check-yesterday'
 import { TimePicker } from '@/shared/components/time-picker'
 import { DurationPicker } from '@/shared/components/duration-picker'
 import { Button } from '@/shared/components/ui/button'
@@ -18,8 +17,6 @@ const getLastNDays = (n = 5): string[] => {
     .map((_, i) => dayjs().subtract(i, 'day').format('YYYY-MM-DD'))
     .reverse()
 }
-
-const REMINDER_TIME = 10
 
 const LoadingScreen = () => {
   return (
@@ -37,47 +34,12 @@ const MainPage = () => {
   const { habitsQuery, addHabit, deleteHabit, renameHabit } = useHabits()
   const { sleepRecordsQuery, updateSleep, updateHabit, removeHabit } = useSleepRecords()
   const { sleepStatsQuery } = useSleepStats()
-  const { checkYesterdaySleep } = useCheckYesterday()
   const { logout, session } = useSession()
   const email = session?.email ?? ''
 
   const [newHabitLabel, setNewHabitLabel] = useState<string>('')
   const [editMode, setEditMode] = useState<boolean>(false)
 
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission !== 'denied') {
-      Notification.requestPermission()
-    }
-
-    const checkTime = () => {
-      const now = dayjs().add(3, 'hour')
-      let targetTime = now.hour(REMINDER_TIME).minute(0).second(0)
-
-      if (now.isAfter(targetTime)) {
-        targetTime = targetTime.add(1, 'day')
-      }
-
-      const msToNextCheck = targetTime.diff(now)
-
-      const timer = setTimeout(async () => {
-        const hasData = await checkYesterdaySleep()
-        if (!hasData && 'serviceWorker' in navigator) {
-          navigator.serviceWorker.ready.then((registration) => {
-            registration.active?.postMessage({
-              type: 'SHOW_NOTIFICATION',
-              title: 'Садхана',
-              body: 'Не забудьте отметить время отбоя и подъема за прошедшую ночь',
-            })
-          })
-        }
-      }, msToNextCheck)
-
-      return timer
-    }
-
-    const initialTimer = checkTime()
-    return () => clearTimeout(initialTimer)
-  }, [checkYesterdaySleep])
 
   const days = getLastNDays()
   const habits = habitsQuery.data ?? []
