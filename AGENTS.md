@@ -21,6 +21,8 @@ Layering is enforced by `eslint-plugin-boundaries`: `shared` cannot import from 
 - TypeScript + React (`.ts`, `.tsx`) with strict compiler settings.
 - Use the `@/*` alias for `src/*` (e.g., `@/shared/lib/date`).
 - Keep feature entry points as `index.ts` or `*.page.tsx`; import through these files.
+- For spacing, sizing, and layout, always use Tailwind scale utilities (e.g., `w-12`, `px-3`) when possible; do not use arbitrary pixel values unless there is no suitable Tailwind scale alternative.
+- Fractional Tailwind size utilities (e.g., `w-10.5`) are acceptable; use them when needed instead of arbitrary pixel values.
 - Formatting is handled by Prettier via ESLint config; keep changes consistent and run `yarn lint` before committing.
 - Всегда отвечай пользователю только по-русски.
 

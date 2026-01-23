@@ -137,7 +137,13 @@ const MainPage = () => {
 
         <div className="overflow-x-auto">
           <div className="w-full max-w-md mx-auto rounded-[4px] overflow-hidden border border-gray-200">
-            <table className="min-w-max text-sm text-center w-full border-collapse [&_tr>th:first-child]:max-w-26 [&_tr>td:first-child]:max-w-26 [&_tr>th:first-child]:border-l-0 [&_tr>td:first-child]:border-l-0 [&_tr>th:last-child]:border-r-0 [&_tr>td:last-child]:border-r-0 [&_tr:first-child>th]:border-t-0 [&_tr:first-child>td]:border-t-0 [&_tbody>tr:last-child>td]:border-b-0">
+            <table className="table-auto text-sm text-center w-full border-collapse [&_tr>th:first-child]:w-full [&_tr>td:first-child]:w-full [&_tr>th:not(:first-child)]:max-w-11 [&_tr>td:not(:first-child)]:max-w-11 [&_tr>th:not(:first-child)]:min-w-0 [&_tr>td:not(:first-child)]:min-w-0 [&_tr>th:first-child]:border-l-0 [&_tr>td:first-child]:border-l-0 [&_tr>th:last-child]:border-r-0 [&_tr>td:last-child]:border-r-0 [&_tr:first-child>th]:border-t-0 [&_tr:first-child>td]:border-t-0 [&_tbody>tr:last-child>td]:border-b-0">
+              <colgroup>
+                <col className="w-full min-w-22" />
+                {days.map((date) => (
+                  <col key={date} />
+                ))}
+              </colgroup>
               <thead>
                 <tr className="h-9 bg-gray-100">
                   <th className="border px-1 text-left"></th>
