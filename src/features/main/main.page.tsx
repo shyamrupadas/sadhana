@@ -55,6 +55,16 @@ const MainPage = () => {
     return <LoadingScreen />
   }
 
+  const isPlaceholder = (value?: string | null) =>
+    value === null || value === undefined || value === '' || value === '—'
+
+  const shouldShowArrow = (current: string, previous: string, color: string) => {
+    if (isPlaceholder(current) || isPlaceholder(previous)) return false
+    if (current === previous) return false
+    if (color.includes('gray')) return false
+    return true
+  }
+
   const getHabitValue = (date: string, habitKey: string): boolean | null => {
     const entry = getEntryByDate(date)
     const habit = entry?.habits.find((h) => h.key === habitKey)
@@ -422,25 +432,39 @@ const MainPage = () => {
                   <td className="border px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>{sleepStats.bedtime.month}</span>
-                      {sleepStats.bedtime.monthArrow === ArrowDown ? (
-                        <ArrowDown
-                          className={`h-3 w-3 ${sleepStats.bedtime.monthColor}`}
-                        />
-                      ) : (
-                        <ArrowUp className={`h-3 w-3 ${sleepStats.bedtime.monthColor}`} />
-                      )}
+                      {shouldShowArrow(
+                        sleepStats.bedtime.month,
+                        sleepStats.bedtime.year,
+                        sleepStats.bedtime.monthColor
+                      ) &&
+                        (sleepStats.bedtime.monthArrow === ArrowDown ? (
+                          <ArrowDown
+                            className={`h-3 w-3 ${sleepStats.bedtime.monthColor}`}
+                          />
+                        ) : (
+                          <ArrowUp
+                            className={`h-3 w-3 ${sleepStats.bedtime.monthColor}`}
+                          />
+                        ))}
                     </div>
                   </td>
                   <td className="border px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>{sleepStats.bedtime.week}</span>
-                      {sleepStats.bedtime.weekArrow === ArrowDown ? (
-                        <ArrowDown
-                          className={`h-3 w-3 ${sleepStats.bedtime.weekColor}`}
-                        />
-                      ) : (
-                        <ArrowUp className={`h-3 w-3 ${sleepStats.bedtime.weekColor}`} />
-                      )}
+                      {shouldShowArrow(
+                        sleepStats.bedtime.week,
+                        sleepStats.bedtime.month,
+                        sleepStats.bedtime.weekColor
+                      ) &&
+                        (sleepStats.bedtime.weekArrow === ArrowDown ? (
+                          <ArrowDown
+                            className={`h-3 w-3 ${sleepStats.bedtime.weekColor}`}
+                          />
+                        ) : (
+                          <ArrowUp
+                            className={`h-3 w-3 ${sleepStats.bedtime.weekColor}`}
+                          />
+                        ))}
                     </div>
                   </td>
                 </tr>
@@ -452,27 +476,39 @@ const MainPage = () => {
                   <td className="border px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>{sleepStats.wakeTime.month}</span>
-                      {sleepStats.wakeTime.monthArrow === ArrowDown ? (
-                        <ArrowDown
-                          className={`h-3 w-3 ${sleepStats.wakeTime.monthColor}`}
-                        />
-                      ) : (
-                        <ArrowUp
-                          className={`h-3 w-3 ${sleepStats.wakeTime.monthColor}`}
-                        />
-                      )}
+                      {shouldShowArrow(
+                        sleepStats.wakeTime.month,
+                        sleepStats.wakeTime.year,
+                        sleepStats.wakeTime.monthColor
+                      ) &&
+                        (sleepStats.wakeTime.monthArrow === ArrowDown ? (
+                          <ArrowDown
+                            className={`h-3 w-3 ${sleepStats.wakeTime.monthColor}`}
+                          />
+                        ) : (
+                          <ArrowUp
+                            className={`h-3 w-3 ${sleepStats.wakeTime.monthColor}`}
+                          />
+                        ))}
                     </div>
                   </td>
                   <td className="border px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>{sleepStats.wakeTime.week}</span>
-                      {sleepStats.wakeTime.weekArrow === ArrowDown ? (
-                        <ArrowDown
-                          className={`h-3 w-3 ${sleepStats.wakeTime.weekColor}`}
-                        />
-                      ) : (
-                        <ArrowUp className={`h-3 w-3 ${sleepStats.wakeTime.weekColor}`} />
-                      )}
+                      {shouldShowArrow(
+                        sleepStats.wakeTime.week,
+                        sleepStats.wakeTime.month,
+                        sleepStats.wakeTime.weekColor
+                      ) &&
+                        (sleepStats.wakeTime.weekArrow === ArrowDown ? (
+                          <ArrowDown
+                            className={`h-3 w-3 ${sleepStats.wakeTime.weekColor}`}
+                          />
+                        ) : (
+                          <ArrowUp
+                            className={`h-3 w-3 ${sleepStats.wakeTime.weekColor}`}
+                          />
+                        ))}
                     </div>
                   </td>
                 </tr>
@@ -484,21 +520,39 @@ const MainPage = () => {
                   <td className="border px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>{sleepStats.sleep.month}</span>
-                      {sleepStats.sleep.monthArrow === ArrowDown ? (
-                        <ArrowDown className={`h-3 w-3 ${sleepStats.sleep.monthColor}`} />
-                      ) : (
-                        <ArrowUp className={`h-3 w-3 ${sleepStats.sleep.monthColor}`} />
-                      )}
+                      {shouldShowArrow(
+                        sleepStats.sleep.month,
+                        sleepStats.sleep.year,
+                        sleepStats.sleep.monthColor
+                      ) &&
+                        (sleepStats.sleep.monthArrow === ArrowDown ? (
+                          <ArrowDown
+                            className={`h-3 w-3 ${sleepStats.sleep.monthColor}`}
+                          />
+                        ) : (
+                          <ArrowUp
+                            className={`h-3 w-3 ${sleepStats.sleep.monthColor}`}
+                          />
+                        ))}
                     </div>
                   </td>
                   <td className="border px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>{sleepStats.sleep.week}</span>
-                      {sleepStats.sleep.weekArrow === ArrowDown ? (
-                        <ArrowDown className={`h-3 w-3 ${sleepStats.sleep.weekColor}`} />
-                      ) : (
-                        <ArrowUp className={`h-3 w-3 ${sleepStats.sleep.weekColor}`} />
-                      )}
+                      {shouldShowArrow(
+                        sleepStats.sleep.week,
+                        sleepStats.sleep.month,
+                        sleepStats.sleep.weekColor
+                      ) &&
+                        (sleepStats.sleep.weekArrow === ArrowDown ? (
+                          <ArrowDown
+                            className={`h-3 w-3 ${sleepStats.sleep.weekColor}`}
+                          />
+                        ) : (
+                          <ArrowUp
+                            className={`h-3 w-3 ${sleepStats.sleep.weekColor}`}
+                          />
+                        ))}
                     </div>
                   </td>
                 </tr>
