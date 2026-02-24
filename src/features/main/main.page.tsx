@@ -21,11 +21,7 @@ const getLastNDays = (n = 5): string[] => {
 const LoadingScreen = () => {
   return (
     <main className="grow flex items-center justify-center motion-safe:animate-[fade-in_500ms_ease-in-out] will-change-[opacity,transform]">
-      <img
-        src="/check.svg"
-        alt="Садхана"
-        className="w-[200px] opacity-10 grayscale"
-      />
+      <img src="/check.svg" alt="Садхана" className="w-[200px] opacity-10 grayscale" />
     </main>
   )
 }
@@ -39,7 +35,6 @@ const MainPage = () => {
 
   const [newHabitLabel, setNewHabitLabel] = useState<string>('')
   const [editMode, setEditMode] = useState<boolean>(false)
-
 
   const days = getLastNDays()
   const habits = habitsQuery.data ?? []
@@ -145,13 +140,13 @@ const MainPage = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-w-0">
           <div className="w-full max-w-md mx-auto rounded-[4px] overflow-hidden border border-gray-200">
-            <table className="table-auto text-sm text-center w-full border-collapse [&_tr>th:first-child]:w-full [&_tr>td:first-child]:w-full [&_tr>th:not(:first-child)]:max-w-11 [&_tr>td:not(:first-child)]:max-w-11 [&_tr>th:not(:first-child)]:min-w-0 [&_tr>td:not(:first-child)]:min-w-0 [&_tr>th:first-child]:border-l-0 [&_tr>td:first-child]:border-l-0 [&_tr>th:last-child]:border-r-0 [&_tr>td:last-child]:border-r-0 [&_tr:first-child>th]:border-t-0 [&_tr:first-child>td]:border-t-0 [&_tbody>tr:last-child>td]:border-b-0">
+            <table className="table-fixed text-sm text-center w-full border-collapse [&_tr>th:first-child]:overflow-hidden [&_tr>td:first-child]:overflow-hidden [&_tr>th:first-child]:min-w-0 [&_tr>td:first-child]:min-w-0 [&_tr>th:not(:first-child)]:max-w-11 [&_tr>td:not(:first-child)]:max-w-11 [&_tr>th:not(:first-child)]:min-w-0 [&_tr>td:not(:first-child)]:min-w-0 [&_tr>th:first-child]:border-l-0 [&_tr>td:first-child]:border-l-0 [&_tr>th:last-child]:border-r-0 [&_tr>td:last-child]:border-r-0 [&_tr:first-child>th]:border-t-0 [&_tr:first-child>td]:border-t-0 [&_tbody>tr:last-child>td]:border-b-0">
               <colgroup>
-                <col className="w-full min-w-22" />
+                <col className="min-w-0" />
                 {days.map((date) => (
-                  <col key={date} />
+                  <col key={date} className="w-[43px]" />
                 ))}
               </colgroup>
               <thead>
@@ -530,9 +525,7 @@ const MainPage = () => {
                             className={`h-3 w-3 ${sleepStats.sleep.monthColor}`}
                           />
                         ) : (
-                          <ArrowUp
-                            className={`h-3 w-3 ${sleepStats.sleep.monthColor}`}
-                          />
+                          <ArrowUp className={`h-3 w-3 ${sleepStats.sleep.monthColor}`} />
                         ))}
                     </div>
                   </td>
@@ -549,9 +542,7 @@ const MainPage = () => {
                             className={`h-3 w-3 ${sleepStats.sleep.weekColor}`}
                           />
                         ) : (
-                          <ArrowUp
-                            className={`h-3 w-3 ${sleepStats.sleep.weekColor}`}
-                          />
+                          <ArrowUp className={`h-3 w-3 ${sleepStats.sleep.weekColor}`} />
                         ))}
                     </div>
                   </td>
