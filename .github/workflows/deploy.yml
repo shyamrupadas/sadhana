@@ -10,12 +10,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'yarn'
 
       - name: Enable Corepack
@@ -28,15 +28,26 @@ jobs:
         run: yarn build
 
       - name: Deploy to VPS
+        env:
+          SERVER_IP: ${{ vars.SERVER_IP }}
+          SERVER_USER: ${{ vars.SERVER_USER }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
+          test -n "$SERVER_IP"
+          test -n "$SERVER_USER"
+          test -n "$SSH_KNOWN_HOSTS"
+          test -n "$SSH_PRIVATE_KEY"
+
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-          rsync -avz --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes" \
-            ./dist/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:/var/www/sadhana-app/html/
+          rsync -avz --delete \
+            -e "ssh -i $HOME/.ssh/id_rsa -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts" \
+            ./dist/ "$SERVER_USER@$SERVER_IP:/var/www/sadhana-app/html/"
