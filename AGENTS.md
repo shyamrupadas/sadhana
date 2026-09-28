@@ -1,14 +1,5 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-- `src/app/`: app bootstrap, routing, and global providers.
-- `src/features/`: feature modules (e.g., `auth`, `main`); feature entry points should be `index.ts` or `*.page.tsx`.
-- `src/shared/`: shared UI, utilities, API client, and models.
-- `public/`: static assets and PWA files.
-- `dist/`: production build output (generated).
-
-Layering is enforced by `eslint-plugin-boundaries`: `shared` cannot import from `features` or `app`, and `features` cannot import from `app`. Use public APIs (barrels or page entry points) when importing features.
-
 ## Build, Test, and Development Commands
 - `yarn start`: run Vite dev server.
 - `yarn build`: type-check (`tsc -b`) and create a production build.
@@ -20,7 +11,6 @@ Layering is enforced by `eslint-plugin-boundaries`: `shared` cannot import from 
 ## Coding Style & Naming Conventions
 - TypeScript + React (`.ts`, `.tsx`) with strict compiler settings.
 - Use the `@/*` alias for `src/*` (e.g., `@/shared/lib/date`).
-- Keep feature entry points as `index.ts` or `*.page.tsx`; import through these files.
 - For spacing, sizing, and layout, always use Tailwind scale utilities (e.g., `w-12`, `px-3`) when possible; do not use arbitrary pixel values unless there is no suitable Tailwind scale alternative.
 - Fractional Tailwind size utilities (e.g., `w-10.5`) are acceptable; use them when needed instead of arbitrary pixel values.
 - Formatting is handled by Prettier via ESLint config; keep changes consistent.
@@ -41,6 +31,10 @@ Automated tests are not currently configured. For changes:
 - Service worker output and generated files should not be edited manually; regenerate via the build or PWA tooling.
 
 ## Agent skills
+
+### Frontend architecture
+
+For adding or moving frontend files, changing module responsibilities, dependencies, or public interfaces, or auditing the architecture, follow `.agents/skills/frontend-architecture/SKILL.md`. Current rules are in `docs/architecture/frontend.md`.
 
 ### Issue tracker
 
