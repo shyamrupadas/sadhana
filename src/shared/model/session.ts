@@ -66,7 +66,7 @@ export const useSession = createGStore(() => {
 
       logout()
       return null
-    } catch (e) {
+    } catch {
       return null
     }
   }

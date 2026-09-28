@@ -38,3 +38,17 @@ Automated tests are not currently configured. For changes:
 ## Configuration & PWA Notes
 - PWA behavior is configured via Vite plugins and assets in `public/`.
 - Service worker output and generated files should not be edited manually; regenerate via the build or PWA tooling.
+
+## Agent skills
+
+### Issue tracker
+
+Specs and tickets use `to-spec → to-tickets` and live in `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the five canonical triage roles; completed implementation awaiting acceptance uses `awaiting-human-review`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
