@@ -5,8 +5,6 @@ description: Commit staged changes in Sadhana when the user asks for a commit, u
 
 # Project Commits
 
-Use this skill only for an explicit commit request. Change the git index only when the user explicitly asks to stage or unstage files. A commit request alone authorizes committing the existing staged diff, not staging other changes.
-
 ## Workflow
 
 1. Inspect `git status --short`, `git diff --cached --stat`, `git diff --cached`, and `git diff --cached --check`.
