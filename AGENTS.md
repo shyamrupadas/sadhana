@@ -23,7 +23,7 @@ Layering is enforced by `eslint-plugin-boundaries`: `shared` cannot import from 
 - Keep feature entry points as `index.ts` or `*.page.tsx`; import through these files.
 - For spacing, sizing, and layout, always use Tailwind scale utilities (e.g., `w-12`, `px-3`) when possible; do not use arbitrary pixel values unless there is no suitable Tailwind scale alternative.
 - Fractional Tailwind size utilities (e.g., `w-10.5`) are acceptable; use them when needed instead of arbitrary pixel values.
-- Formatting is handled by Prettier via ESLint config; keep changes consistent and run `yarn lint` before committing.
+- Formatting is handled by Prettier via ESLint config; keep changes consistent.
 - Всегда отвечай пользователю только по-русски.
 
 ## Testing Guidelines
@@ -32,7 +32,8 @@ Automated tests are not currently configured. For changes:
 - do a quick manual pass in `yarn start` for the affected flows.
 
 ## Commit & Pull Request Guidelines
-- Commit messages in history are short, imperative, and title-cased (e.g., `Fix Readme`, `Add optimistic UI`).
+- Do not change the git index (`git add`, `git restore --staged`) or commit unless explicitly asked.
+- Use Conventional Commits: `type(scope): subject`, with a lowercase, imperative English subject (e.g., `docs(agents): add commit workflow`). When asked to commit, follow `.agents/skills/project-commits/SKILL.md`.
 - PRs should include: a concise description, relevant issue link (if any), and screenshots for UI changes. Note any API schema updates and whether `yarn api` was run.
 
 ## Configuration & PWA Notes
