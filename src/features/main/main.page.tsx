@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import dayjs from 'dayjs'
-import { PenIcon, XIcon, ArrowUp, ArrowDown, User, LogOut } from 'lucide-react'
+import { PenIcon, XIcon, ArrowUp, ArrowDown } from 'lucide-react'
 
 import { useHabits } from '@/features/main/model/use-habits'
 import { useSleepRecords } from '@/features/main/model/use-sleep-records'
@@ -8,8 +8,6 @@ import { useSleepStats } from '@/features/main/model/use-sleep-stats'
 import { TimePicker } from '@/shared/components/time-picker'
 import { DurationPicker } from '@/shared/components/duration-picker'
 import { Button } from '@/shared/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover'
-import { useSession } from '@/shared/model/session'
 import { cn } from '@/shared/lib/utils'
 
 const getLastNDays = (n = 5): string[] => {
@@ -30,9 +28,6 @@ const MainPage = () => {
   const { habitsQuery, addHabit, deleteHabit, renameHabit } = useHabits()
   const { sleepRecordsQuery, updateSleep, updateHabit, removeHabit } = useSleepRecords()
   const { sleepStatsQuery } = useSleepStats()
-  const { logout, session } = useSession()
-  const email = session?.email ?? ''
-
   const [newHabitLabel, setNewHabitLabel] = useState<string>('')
   const [editMode, setEditMode] = useState<boolean>(false)
 
@@ -99,45 +94,20 @@ const MainPage = () => {
       <div className="w-full max-w-100 p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-medium">Садхана</h2>
-          <div className="flex flex-row">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleEditModeToggle}
-              className={cn(
-                'text-gray-600 hover:text-gray-800',
-                editMode &&
-                  'bg-red-100 text-red-700 hover:text-red-800 ring-1 ring-red-200'
-              )}
-              title={editMode ? 'Выйти из режима редактирования' : 'Режим редактирования'}
-              aria-pressed={editMode}
-            >
-              <PenIcon className="h-4 w-4" />
-            </Button>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" title="Аккаунт">
-                  <User className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-48 p-1 md:p-2">
-                <div className="flex flex-col gap-2">
-                  <Button variant="ghost" className="justify-start gap-2 px-2" disabled>
-                    <User className="h-4 w-4" />
-                    <span className="truncate">{email}</span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="justify-start gap-2 px-2"
-                    onClick={logout}
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Выйти
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleEditModeToggle}
+            className={cn(
+              'text-gray-600 hover:text-gray-800',
+              editMode &&
+                'bg-red-100 text-red-700 hover:text-red-800 ring-1 ring-red-200'
+            )}
+            title={editMode ? 'Выйти из режима редактирования' : 'Режим редактирования'}
+            aria-pressed={editMode}
+          >
+            <PenIcon className="h-4 w-4" />
+          </Button>
         </div>
 
         <div className="overflow-x-auto min-w-0">

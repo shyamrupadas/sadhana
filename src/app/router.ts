@@ -18,6 +18,10 @@ export const router = createBrowserRouter([
             path: ROUTES.HOME,
             lazy: lazyWithRetry(() => import('@/features/main/main.page')),
           },
+          {
+            path: ROUTES.SETTINGS,
+            lazy: lazyWithRetry(() => import('@/features/settings/settings.page')),
+          },
         ],
       },
       {
