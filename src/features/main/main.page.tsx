@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import dayjs from 'dayjs'
-import { PenIcon, XIcon, ArrowUp, ArrowDown } from 'lucide-react'
+import { PenIcon, XIcon } from 'lucide-react'
 
 import { useHabits } from '@/features/main/model/use-habits'
 import { useSleepRecords } from '@/features/main/model/use-sleep-records'
-import { useSleepStats } from '@/features/main/model/use-sleep-stats'
 import { TimePicker } from '@/shared/components/time-picker'
 import { DurationPicker } from '@/shared/components/duration-picker'
 import { Button } from '@/shared/components/ui/button'
@@ -16,18 +15,15 @@ const getLastNDays = (n = 5): string[] => {
     .reverse()
 }
 
-const LoadingScreen = () => {
-  return (
-    <main className="grow flex items-center justify-center motion-safe:animate-[fade-in_500ms_ease-in-out] will-change-[opacity,transform]">
-      <img src="/check.svg" alt="Садхана" className="w-[200px] opacity-10 grayscale" />
-    </main>
-  )
-}
+const LoadingScreen = () => (
+  <main className="flex grow items-center justify-center motion-safe:animate-[fade-in_500ms_ease-in-out]">
+    <img src="/check.svg" alt="Садхана" className="w-50 opacity-10 grayscale" />
+  </main>
+)
 
 const MainPage = () => {
   const { habitsQuery, addHabit, deleteHabit, renameHabit } = useHabits()
   const { sleepRecordsQuery, updateSleep, updateHabit, removeHabit } = useSleepRecords()
-  const { sleepStatsQuery } = useSleepStats()
   const [newHabitLabel, setNewHabitLabel] = useState<string>('')
   const [editMode, setEditMode] = useState<boolean>(false)
 
@@ -39,20 +35,16 @@ const MainPage = () => {
   const normalizeNapDuration = (value?: number | null) =>
     value === 0 || value === undefined ? null : value
 
-  const sleepStats = sleepStatsQuery.data
-
-  if (sleepStatsQuery.isLoading || !sleepStats) {
-    return <LoadingScreen />
+  if (habitsQuery.isError || sleepRecordsQuery.isError) {
+    return (
+      <main className="flex grow items-center justify-center p-4" role="alert">
+        <p>Не удалось загрузить данные дня. Попробуйте открыть страницу позже.</p>
+      </main>
+    )
   }
 
-  const isPlaceholder = (value?: string | null) =>
-    value === null || value === undefined || value === '' || value === '—'
-
-  const shouldShowArrow = (current: string, previous: string, color: string) => {
-    if (isPlaceholder(current) || isPlaceholder(previous)) return false
-    if (current === previous) return false
-    if (color.includes('gray')) return false
-    return true
+  if (!habitsQuery.data || !sleepRecordsQuery.data) {
+    return <LoadingScreen />
   }
 
   const getHabitValue = (date: string, habitKey: string): boolean | null => {
@@ -375,152 +367,6 @@ const MainPage = () => {
             </Button>
           </div>
         )}
-
-        <div className="mt-8 mb-6">
-          <h3 className="text-lg font-medium mb-3">Статистика</h3>
-          <div className="w-full max-w-md mx-auto rounded-[4px] overflow-hidden border border-gray-200">
-            <table className="text-sm w-full border-collapse [&_tr>th:first-child]:max-w-28 [&_tr>td:first-child]:max-w-28 [&_tr>th:first-child]:border-l-0 [&_tr>td:first-child]:border-l-0 [&_tr>th:last-child]:border-r-0 [&_tr>td:last-child]:border-r-0 [&_tr:first-child>th]:border-t-0 [&_tr:first-child>td]:border-t-0 [&_tbody>tr:last-child>td]:border-b-0">
-              <thead>
-                <tr className="h-9 bg-gray-100">
-                  <th className="border px-3 text-left font-normal"></th>
-                  <th className="border px-3 text-center font-normal">Год</th>
-                  <th className="border px-3 text-center font-normal">30 дней</th>
-                  <th className="border px-3 text-center font-normal">7 дней</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="h-9">
-                  <td className="border px-3">
-                    <span className="block w-full truncate">Отбой</span>
-                  </td>
-                  <td className="border px-3 text-center">{sleepStats.bedtime.year}</td>
-                  <td className="border px-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <span>{sleepStats.bedtime.month}</span>
-                      {shouldShowArrow(
-                        sleepStats.bedtime.month,
-                        sleepStats.bedtime.year,
-                        sleepStats.bedtime.monthColor
-                      ) &&
-                        (sleepStats.bedtime.monthArrow === ArrowDown ? (
-                          <ArrowDown
-                            className={`h-3 w-3 ${sleepStats.bedtime.monthColor}`}
-                          />
-                        ) : (
-                          <ArrowUp
-                            className={`h-3 w-3 ${sleepStats.bedtime.monthColor}`}
-                          />
-                        ))}
-                    </div>
-                  </td>
-                  <td className="border px-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <span>{sleepStats.bedtime.week}</span>
-                      {shouldShowArrow(
-                        sleepStats.bedtime.week,
-                        sleepStats.bedtime.month,
-                        sleepStats.bedtime.weekColor
-                      ) &&
-                        (sleepStats.bedtime.weekArrow === ArrowDown ? (
-                          <ArrowDown
-                            className={`h-3 w-3 ${sleepStats.bedtime.weekColor}`}
-                          />
-                        ) : (
-                          <ArrowUp
-                            className={`h-3 w-3 ${sleepStats.bedtime.weekColor}`}
-                          />
-                        ))}
-                    </div>
-                  </td>
-                </tr>
-                <tr className="h-9">
-                  <td className="border px-3">
-                    <span className="block w-full truncate">Подъем</span>
-                  </td>
-                  <td className="border px-3 text-center">{sleepStats.wakeTime.year}</td>
-                  <td className="border px-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <span>{sleepStats.wakeTime.month}</span>
-                      {shouldShowArrow(
-                        sleepStats.wakeTime.month,
-                        sleepStats.wakeTime.year,
-                        sleepStats.wakeTime.monthColor
-                      ) &&
-                        (sleepStats.wakeTime.monthArrow === ArrowDown ? (
-                          <ArrowDown
-                            className={`h-3 w-3 ${sleepStats.wakeTime.monthColor}`}
-                          />
-                        ) : (
-                          <ArrowUp
-                            className={`h-3 w-3 ${sleepStats.wakeTime.monthColor}`}
-                          />
-                        ))}
-                    </div>
-                  </td>
-                  <td className="border px-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <span>{sleepStats.wakeTime.week}</span>
-                      {shouldShowArrow(
-                        sleepStats.wakeTime.week,
-                        sleepStats.wakeTime.month,
-                        sleepStats.wakeTime.weekColor
-                      ) &&
-                        (sleepStats.wakeTime.weekArrow === ArrowDown ? (
-                          <ArrowDown
-                            className={`h-3 w-3 ${sleepStats.wakeTime.weekColor}`}
-                          />
-                        ) : (
-                          <ArrowUp
-                            className={`h-3 w-3 ${sleepStats.wakeTime.weekColor}`}
-                          />
-                        ))}
-                    </div>
-                  </td>
-                </tr>
-                <tr className="h-9">
-                  <td className="border px-3">
-                    <span className="block w-full truncate">Сон</span>
-                  </td>
-                  <td className="border px-3 text-center">{sleepStats.sleep.year}</td>
-                  <td className="border px-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <span>{sleepStats.sleep.month}</span>
-                      {shouldShowArrow(
-                        sleepStats.sleep.month,
-                        sleepStats.sleep.year,
-                        sleepStats.sleep.monthColor
-                      ) &&
-                        (sleepStats.sleep.monthArrow === ArrowDown ? (
-                          <ArrowDown
-                            className={`h-3 w-3 ${sleepStats.sleep.monthColor}`}
-                          />
-                        ) : (
-                          <ArrowUp className={`h-3 w-3 ${sleepStats.sleep.monthColor}`} />
-                        ))}
-                    </div>
-                  </td>
-                  <td className="border px-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <span>{sleepStats.sleep.week}</span>
-                      {shouldShowArrow(
-                        sleepStats.sleep.week,
-                        sleepStats.sleep.month,
-                        sleepStats.sleep.weekColor
-                      ) &&
-                        (sleepStats.sleep.weekArrow === ArrowDown ? (
-                          <ArrowDown
-                            className={`h-3 w-3 ${sleepStats.sleep.weekColor}`}
-                          />
-                        ) : (
-                          <ArrowUp className={`h-3 w-3 ${sleepStats.sleep.weekColor}`} />
-                        ))}
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
     </main>
   )
