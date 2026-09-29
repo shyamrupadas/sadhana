@@ -1,17 +1,18 @@
 ---
 name: project-commits
-description: Commit staged changes in Sadhana when the user asks for a commit, using the repository's Conventional Commit format.
+description: Create one commit with all current repository changes using this repository's Conventional Commit rules. Use when the user asks to commit the current work.
 ---
 
 # Project Commits
 
 ## Workflow
 
-1. Inspect `git status --short`, `git diff --cached --stat`, `git diff --cached`, and `git diff --cached --check`.
-2. If nothing is staged, report that there is nothing to commit and stop. If the staged diff includes changes outside the requested work or fails the whitespace check, report the issue and stop without changing the index.
-3. Choose a message in the form `type(scope): subject`. Use an English, lowercase, imperative subject without a trailing period. Keep the scope concise and tied to the changed area.
-4. Commit exactly the staged diff with `git commit -m "<message>"`. Do not rerun tests, lint, builds, type checks, or generators for a commit-only request; report validation already performed during the change task.
-5. Report the commit hash, subject, and remaining worktree status in Russian.
+1. Перед коммитом удали созданные тобой временные файлы проверок.
+2. If the staged diff is empty, report that there is nothing to commit and stop.
+3. Use `type(scope): subject`. Scope is mandatory. Choose the type, scope, and subject from the current task. Write the subject in English, imperative mood, lowercase after the colon, with no trailing period.
+4. Do not run tests, linters, builds, type checks, generators, or other validation as part of this skill unless the user explicitly requests it in the same request.
+5. Commit all staged changes with `git commit -m "<subject>"`. Add a body only for necessary context.
+6. Report in Russian: hash, subject, and whether the worktree is clean after the commit.
 
 ## Types and scopes
 

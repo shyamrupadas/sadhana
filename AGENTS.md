@@ -23,7 +23,6 @@ Automated tests are not currently configured. For changes:
 
 ## Commit & Pull Request Guidelines
 - Do not change the git index (`git add`, `git restore --staged`) or commit unless explicitly asked.
-- Use Conventional Commits: `type(scope): subject`, with a lowercase, imperative English subject (e.g., `docs(agents): add commit workflow`). When asked to commit, follow `.agents/skills/project-commits/SKILL.md`.
 - PRs should include: a concise description, relevant issue link (if any), and screenshots for UI changes. Note any API schema updates and whether `yarn api` was run.
 
 ## Configuration & PWA Notes
