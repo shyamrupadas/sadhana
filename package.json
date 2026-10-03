@@ -8,8 +8,10 @@
   "packageManager": "pnpm@12.4.1",
   "scripts": {
     "build": "turbo run build",
+    "build:api": "turbo run build --filter=@sadhana/api",
     "build:web": "turbo run build --filter=@sadhana/web",
     "dev": "turbo run dev",
+    "dev:api": "turbo run dev --filter=@sadhana/api...",
     "dev:web": "turbo run dev --filter=@sadhana/web...",
     "lint": "turbo run lint",
     "test": "turbo run test",

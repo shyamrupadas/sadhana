@@ -44,11 +44,17 @@ pnpm install --frozen-lockfile
 pnpm dev:web
 ```
 
+Для совместного запуска web и API используйте `pnpm dev`; для одного API — `pnpm dev:api`. Перед запуском настройте `apps/api/.env.local` по [инструкции API](apps/api/README.md).
+
+Локальные адреса: web — `http://localhost:5173/`, API — `http://localhost:8080/`.
+
 ### Сборка для продакшена
 
 ```bash
 pnpm build:web
 ```
+
+API отдельно собирается командой `pnpm build:api`.
 
 ### Предварительный просмотр собранного проекта
 
@@ -70,6 +76,9 @@ apps/web/
 ├── src/features/       # Пользовательские сценарии
 ├── src/shared/         # Общие компоненты и API-клиент
 └── public/             # PWA-ресурсы
+apps/api/
+├── src/                # Fastify, маршруты, сервисы и SQL
+└── test/               # Быстрые тесты API
 ```
 
 ## 📄 Лицензия

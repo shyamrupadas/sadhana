@@ -1,0 +1,47 @@
+{
+  "name": "@sadhana/api",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Sadhana Fastify API",
+  "scripts": {
+    "build": "tsc",
+    "build:ts": "tsc",
+    "dev": "tsx watch src/server.ts",
+    "start": "pnpm build && node dist/server.js",
+    "typecheck": "tsc --noEmit && tsc -p test/tsconfig.json",
+    "lint": "eslint .",
+    "test": "tsc -p test/tsconfig.json && c8 node --test -r ts-node/register \"test/**/*.ts\"",
+    "migrate": "pnpm build && node dist/db/migrate.js"
+  },
+  "dependencies": {
+    "@fastify/autoload": "^6.0.0",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.2.0",
+    "@fastify/env": "^5.0.3",
+    "@fastify/jwt": "^10.0.0",
+    "@fastify/postgres": "^6.0.2",
+    "@fastify/sensible": "^6.0.0",
+    "bcrypt": "^6.0.0",
+    "dayjs": "^1.11.19",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.0.0",
+    "fastify-cli": "^7.4.1",
+    "fastify-plugin": "^5.0.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/bcrypt": "^6.0.0",
+    "@types/node": "^24.10.1",
+    "@types/pg": "^8.16.0",
+    "c8": "^10.1.2",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "fastify-tsconfig": "^3.0.0",
+    "prettier": "^3.7.4",
+    "ts-node": "^10.4.0",
+    "tsx": "^4.23.13",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.49.0"
+  }
+}
