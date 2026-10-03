@@ -1,8 +1,23 @@
 name: Deploy App
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ "master" ]
+    branches: [master]
+    paths:
+      - 'apps/web/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'turbo.json'
+      - '.github/workflows/deploy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sadhana-web-release
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
@@ -15,19 +30,33 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '24'
-          cache: 'yarn'
+          node-version-file: package.json
 
       - name: Enable Corepack
         run: corepack enable
 
       - name: Install dependencies
-        run: yarn install --immutable
+        run: pnpm install --frozen-lockfile
 
-      - name: Build project
-        run: yarn build
+      - name: Lint web
+        run: pnpm --filter @sadhana/web lint
 
+      - name: Typecheck web
+        run: pnpm --filter @sadhana/web typecheck
+
+      - name: Build web
+        run: pnpm build:web
+
+      - name: Verify production artifact and API URL
+        run: |
+          test -s apps/web/dist/index.html
+          api_url="$(sed -n 's/^VITE_API_BASE_URL=//p' apps/web/.env.production)"
+          test -n "$api_url"
+          grep -Fq -- "$api_url" apps/web/dist/assets/*.js
+
+      # Ticket 13 enables automatic publication after the web/old-API gate.
       - name: Deploy to VPS
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
         env:
           SERVER_IP: ${{ vars.SERVER_IP }}
           SERVER_USER: ${{ vars.SERVER_USER }}
@@ -50,4 +79,11 @@ jobs:
 
           rsync -avz --delete \
             -e "ssh -i $HOME/.ssh/id_rsa -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts" \
-            ./dist/ "$SERVER_USER@$SERVER_IP:/var/www/sadhana-app/html/"
+            apps/web/dist/ "$SERVER_USER@$SERVER_IP:/var/www/sadhana-app/html/"
+
+      - name: Smoke check web and API
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+        run: |
+          api_url="$(sed -n 's/^VITE_API_BASE_URL=//p' apps/web/.env.production)"
+          curl --fail --silent --show-error --retry 4 --retry-delay 5 --max-time 30 https://app.sadhana-tracker.com/ > /dev/null
+          curl --fail --silent --show-error --retry 4 --retry-delay 5 --max-time 30 "$api_url/" > /dev/null

@@ -26,54 +26,50 @@
 
 ## 📋 Требования
 
-- Node.js 18+
-- Yarn 4.9.1+
+- Node.js 24.15+
+- Corepack (pnpm 12.4.1 закреплён в `package.json`)
 
 ## 🚀 Запуск проекта
 
 ### Установка зависимостей
 
 ```bash
-yarn install
+corepack enable
+pnpm install --frozen-lockfile
 ```
 
 ### Запуск в режиме разработки
 
 ```bash
-yarn start
+pnpm dev:web
 ```
 
 ### Сборка для продакшена
 
 ```bash
-yarn build
+pnpm build:web
 ```
 
 ### Предварительный просмотр собранного проекта
 
 ```bash
-yarn preview
+pnpm --filter @sadhana/web preview
 ```
 
 ### Линтинг кода
 
 ```bash
-yarn lint
+pnpm lint
 ```
 
 ## 📁 Структура проекта
 
-```олооооооооо
-src/
-├── app/                 # Конфигурация приложения
-├── features/           # Фичи приложения
-│   ├── auth/          # Аутентификация
-│   └── main/          # Основная страница
-├── shared/            # Общие компоненты и утилиты
-│   ├── api/          # API и работа с данными
-│   ├── components/   # Переиспользуемые компоненты
-│   ├── lib/          # Утилиты
-│   └── model/        # Модели данных
+```
+apps/web/
+├── src/app/            # Запуск и маршруты
+├── src/features/       # Пользовательские сценарии
+├── src/shared/         # Общие компоненты и API-клиент
+└── public/             # PWA-ресурсы
 ```
 
 ## 📄 Лицензия

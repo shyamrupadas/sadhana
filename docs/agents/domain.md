@@ -18,7 +18,7 @@ Sadhana currently uses a single context:
 |-- CONTEXT.md
 |-- docs/adr/
 |   `-- 0001-decision.md
-`-- src/
+`-- apps/web/src/
 ```
 
 If the repo later grows into multiple distinct domain contexts, add a root `CONTEXT-MAP.md` pointing to their `CONTEXT.md` files and keep system-wide decisions in `docs/adr/`. Put context-specific ADRs beside the corresponding context.
