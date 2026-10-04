@@ -120,6 +120,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sleep-records/{date}/habits/{habitKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Removing an absent mark succeeds when the daily entry exists. */
+        delete: operations["SleepRecords_removeDailyHabitMark"];
+        options?: never;
+        head?: never;
+        /** @description Creates the daily entry if absent. The habit key need not exist in the habit list. */
+        patch: operations["SleepRecords_setDailyHabitMark"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -138,6 +156,9 @@ export interface components {
             date: components["schemas"]["CalendarDate"];
             sleep: components["schemas"]["SleepData"];
             habits: components["schemas"]["HabitCheck"][];
+        };
+        DailyHabitMarkInput: {
+            value: boolean;
         };
         HabitCheck: {
             key: string;
@@ -602,6 +623,101 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SleepDataInput"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyEntry"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    SleepRecords_removeDailyHabitMark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: components["schemas"]["CalendarDate"];
+                habitKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyEntry"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    SleepRecords_setDailyHabitMark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: components["schemas"]["CalendarDate"];
+                habitKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DailyHabitMarkInput"];
             };
         };
         responses: {

@@ -98,6 +98,24 @@ test('sleep records client sends list, date and optional sleep fields through th
   assert.deepEqual(JSON.parse(calls[2].init.body), { napDuration: 0 })
 })
 
+test('daily habit mark client encodes both path values and sends the selected value', async () => {
+  const calls = []
+  const entry = { id: '2026-10-02', date: '2026-10-02', sleep: { bedtime: null, wakeTime: null, napDuration: null, duration: null }, habits: [{ key: 'read/one', value: false }] }
+  const client = new ApiClient({ fetch: async (input, init) => {
+    calls.push({ input, init })
+    return new Response(JSON.stringify(entry), { status: 200 })
+  } })
+
+  assert.deepEqual(await client.setDailyHabitMark('2026-10-02', 'read/one', { value: false }), entry)
+  assert.deepEqual(await client.removeDailyHabitMark('2026-10-02', 'read/one'), entry)
+  assert.deepEqual(calls.map(({ input, init }) => [input, init.method]), [
+    ['/sleep-records/2026-10-02/habits/read%2Fone', 'PATCH'],
+    ['/sleep-records/2026-10-02/habits/read%2Fone', 'DELETE'],
+  ])
+  assert.deepEqual(JSON.parse(calls[0].init.body), { value: false })
+  assert.equal(calls[1].init.body, undefined)
+})
+
 test('sleep time fields keep nullable values and date-time patterns in the same OpenAPI schema', async () => {
   const document = JSON.parse(await readFile(join(packageRoot, 'generated/openapi/openapi.json'), 'utf8'))
   for (const name of ['SleepData', 'SleepDataInput']) {

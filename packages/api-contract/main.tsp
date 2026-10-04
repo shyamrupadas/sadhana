@@ -118,6 +118,10 @@ model HabitCheck {
   value: boolean;
 }
 
+model DailyHabitMarkInput {
+  value: boolean;
+}
+
 model DailyEntry {
   id: CalendarDate;
   date: CalendarDate;
@@ -145,6 +149,12 @@ interface SleepRecords {
 
   /** Creates or replaces sleep data. Duration uses the previous day's bedtime and this day's wake time. */
   @put @route("/{date}") putSleepRecord(@path date: CalendarDate, @body body: SleepDataInput): DailyEntryResponse | UnauthorizedResponse | InternalErrorResponse;
+
+  /** Creates the daily entry if absent. The habit key need not exist in the habit list. */
+  @patch @route("/{date}/habits/{habitKey}") setDailyHabitMark(@path date: CalendarDate, @path habitKey: string, @body body: DailyHabitMarkInput): DailyEntryResponse | UnauthorizedResponse | InternalErrorResponse;
+
+  /** Removing an absent mark succeeds when the daily entry exists. */
+  @delete @route("/{date}/habits/{habitKey}") removeDailyHabitMark(@path date: CalendarDate, @path habitKey: string): DailyEntryResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
 }
 
 @route("/auth")

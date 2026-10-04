@@ -55,6 +55,14 @@ export class ApiClient {
     return this.request(`/sleep-records/${encodeURIComponent(date)}`, { method: "PUT", signal: options.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   }
 
+  removeDailyHabitMark(date: string, habitKey: string, options: { signal?: AbortSignal } = {}): Promise<Operations["SleepRecords_removeDailyHabitMark"]['responses'][200]['content']['application/json']> {
+    return this.request(`/sleep-records/${encodeURIComponent(date)}/habits/${encodeURIComponent(habitKey)}`, { method: "DELETE", signal: options.signal })
+  }
+
+  setDailyHabitMark(date: string, habitKey: string, body: Operations["SleepRecords_setDailyHabitMark"]['requestBody']['content']['application/json'], options: { signal?: AbortSignal } = {}): Promise<Operations["SleepRecords_setDailyHabitMark"]['responses'][200]['content']['application/json']> {
+    return this.request(`/sleep-records/${encodeURIComponent(date)}/habits/${encodeURIComponent(habitKey)}`, { method: "PATCH", signal: options.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  }
+
   private async request<T>(path: string, init: RequestInit): Promise<T> {
     const response = await (this.options.fetch ?? fetch)(`${this.options.baseUrl ?? ''}${path}`, init)
     const raw = response.status === 204 ? '' : await response.text()

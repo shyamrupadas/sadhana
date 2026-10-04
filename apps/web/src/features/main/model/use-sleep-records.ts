@@ -1,5 +1,5 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiClient, rqClient } from '@/shared/api/instance'
+import { apiClient } from '@/shared/api/instance'
 import { ApiShemas } from '@/shared/api/schema'
 
 type OptimisticContext = {
@@ -125,10 +125,42 @@ export const useSleepRecords = () => {
     onMutate: async ({ date, sleep }): Promise<OptimisticContext> => {
       const context = await createOptimisticContext(queryClient, QUERY_KEY)
 
-      const updatedEntries = updateEntrySleep(
+      const updatedEntries = updateEntrySleep(context.previousEntries, date, sleep)
+
+      queryClient.setQueryData(QUERY_KEY, updatedEntries)
+
+      return context
+    },
+    onError: (_error, _variables, onMutateResult) => {
+      rollbackOptimisticUpdate(
+        queryClient,
+        QUERY_KEY,
+        onMutateResult as OptimisticContext | undefined
+      )
+    },
+    onSettled: () => {
+      sleepRecordsQuery.refetch()
+    },
+  })
+
+  const updateHabit = useMutation({
+    mutationFn: ({
+      date,
+      habitKey,
+      value,
+    }: {
+      date: string
+      habitKey: string
+      value: boolean
+    }) => apiClient.setDailyHabitMark(date, habitKey, { value }),
+    onMutate: async ({ date, habitKey, value }): Promise<OptimisticContext> => {
+      const context = await createOptimisticContext(queryClient, QUERY_KEY)
+
+      const updatedEntries = updateEntryHabit(
         context.previousEntries,
         date,
-        sleep
+        habitKey,
+        value
       )
 
       queryClient.setQueryData(QUERY_KEY, updatedEntries)
@@ -147,66 +179,29 @@ export const useSleepRecords = () => {
     },
   })
 
-  const updateHabit = rqClient.useMutation(
-    'patch',
-    '/sleep-records/{date}/habits/{habitKey}',
-    {
-      onMutate: async ({ params, body }): Promise<OptimisticContext> => {
-        const context = await createOptimisticContext(queryClient, QUERY_KEY)
+  const removeHabit = useMutation({
+    mutationFn: ({ date, habitKey }: { date: string; habitKey: string }) =>
+      apiClient.removeDailyHabitMark(date, habitKey),
+    onMutate: async ({ date, habitKey }): Promise<OptimisticContext> => {
+      const context = await createOptimisticContext(queryClient, QUERY_KEY)
 
-        const updatedEntries = updateEntryHabit(
-          context.previousEntries,
-          params.path.date,
-          params.path.habitKey,
-          body.value
-        )
+      const updatedEntries = removeEntryHabit(context.previousEntries, date, habitKey)
 
-        queryClient.setQueryData(QUERY_KEY, updatedEntries)
+      queryClient.setQueryData(QUERY_KEY, updatedEntries)
 
-        return context
-      },
-      onError: (_error, _variables, onMutateResult) => {
-        rollbackOptimisticUpdate(
-          queryClient,
-          QUERY_KEY,
-          onMutateResult as OptimisticContext | undefined
-        )
-      },
-      onSettled: () => {
-        sleepRecordsQuery.refetch()
-      },
-    }
-  )
-
-  const removeHabit = rqClient.useMutation(
-    'delete',
-    '/sleep-records/{date}/habits/{habitKey}',
-    {
-      onMutate: async ({ params }): Promise<OptimisticContext> => {
-        const context = await createOptimisticContext(queryClient, QUERY_KEY)
-
-        const updatedEntries = removeEntryHabit(
-          context.previousEntries,
-          params.path.date,
-          params.path.habitKey
-        )
-
-        queryClient.setQueryData(QUERY_KEY, updatedEntries)
-
-        return context
-      },
-      onError: (_error, _variables, onMutateResult) => {
-        rollbackOptimisticUpdate(
-          queryClient,
-          QUERY_KEY,
-          onMutateResult as OptimisticContext | undefined
-        )
-      },
-      onSettled: () => {
-        sleepRecordsQuery.refetch()
-      },
-    }
-  )
+      return context
+    },
+    onError: (_error, _variables, onMutateResult) => {
+      rollbackOptimisticUpdate(
+        queryClient,
+        QUERY_KEY,
+        onMutateResult as OptimisticContext | undefined
+      )
+    },
+    onSettled: () => {
+      sleepRecordsQuery.refetch()
+    },
+  })
 
   return {
     sleepRecordsQuery: {
@@ -223,18 +218,13 @@ export const useSleepRecords = () => {
     },
     updateHabit: {
       mutate: ({ id, key, value }: { id: string; key: string; value: boolean }) => {
-        updateHabit.mutate({
-          params: { path: { date: id, habitKey: key } },
-          body: { value },
-        })
+        updateHabit.mutate({ date: id, habitKey: key, value })
       },
       isPending: updateHabit.isPending,
     },
     removeHabit: {
       mutate: ({ id, key }: { id: string; key: string }) => {
-        removeHabit.mutate({
-          params: { path: { date: id, habitKey: key } },
-        })
+        removeHabit.mutate({ date: id, habitKey: key })
       },
       isPending: removeHabit.isPending,
     },

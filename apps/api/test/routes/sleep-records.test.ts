@@ -5,6 +5,7 @@ import fastifyJwt from '@fastify/jwt'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
+import { ApiClient, ApiClientError } from '@sadhana/api-contract'
 import sleepRecordsRoutes from '../../src/routes/sleep-records'
 
 dayjs.extend(utc)
@@ -45,8 +46,12 @@ async function makeApp(rows: Row[]) {
           return { rows: [row] }
         }
         if (sql.includes('UPDATE daily_entries')) {
-          const row = rows.find((item) => item.userId === params[1] && item.date === params[2])
-          if (row) row.sleep_data = JSON.parse(String(params[0]))
+          const habitUpdate = sql.includes('SET habits =')
+          const row = rows.find((item) => item.userId === params[habitUpdate ? 2 : 1] && item.date === params[habitUpdate ? 3 : 2])
+          if (row && habitUpdate) {
+            row.habits = JSON.parse(String(params[0]))
+            row.sleep_data = JSON.parse(String(params[1]))
+          } else if (row) row.sleep_data = JSON.parse(String(params[0]))
           return { rows: row ? [row] : [] }
         }
         throw new Error(`Unexpected query: ${sql}`)
@@ -76,6 +81,59 @@ test('sleep records list covers only five Moscow dates and each user sees their 
   assert.equal(response.statusCode, 200)
   assert.deepEqual(response.json().map((entry: { date: string }) => entry.date), [0, 1, 2, 3, 4].map(date))
   assert.equal((await app.inject({ method: 'GET', url: '/sleep-records', headers: auth('bob') })).json().length, 1)
+})
+
+test('daily habit marks create a day, accept unknown keys, change values and remove marks', async (t) => {
+  const { app, auth } = await makeApp([])
+  t.after(() => app.close())
+  const url = '/sleep-records/2026-10-02/habits/unknown'
+  const headers = auth('alice')
+
+  assert.equal((await app.inject({ method: 'PATCH', url, payload: { value: true } })).statusCode, 401)
+  const first = await app.inject({ method: 'PATCH', url, headers, payload: { value: true } })
+  assert.equal(first.statusCode, 200)
+  assert.deepEqual(first.json(), { id: '2026-10-02', date: '2026-10-02', sleep: emptySleep, habits: [{ key: 'unknown', value: true }] })
+  const changed = await app.inject({ method: 'PATCH', url, headers, payload: { value: false } })
+  assert.equal(changed.statusCode, 200)
+  assert.deepEqual(changed.json().habits, [{ key: 'unknown', value: false }])
+  assert.equal((await app.inject({ method: 'GET', url: '/sleep-records/2026-10-02', headers })).json().habits[0].value, false)
+  const missingDay = await app.inject({ method: 'DELETE', url, headers: auth('bob') })
+  assert.equal(missingDay.statusCode, 404)
+  assert.deepEqual(missingDay.json(), { message: 'Daily entry not found', code: 'NOT_FOUND' })
+  const removed = await app.inject({ method: 'DELETE', url, headers })
+  assert.equal(removed.statusCode, 200)
+  assert.deepEqual(removed.json().habits, [])
+  assert.equal((await app.inject({ method: 'DELETE', url, headers })).statusCode, 200)
+
+  const invalidValue = await app.inject({ method: 'PATCH', url, headers, payload: { value: 'yes' } })
+  assert.equal(invalidValue.statusCode, 500)
+  assert.deepEqual(invalidValue.json(), { message: 'Internal Server Error', code: 'INTERNAL_ERROR' })
+})
+
+test('generated client can change and remove marks through the existing HTTP routes', async (t) => {
+  const { app, auth } = await makeApp([])
+  t.after(() => app.close())
+  const client = new ApiClient({ fetch: async (input, init) => {
+    const headers = new Headers(init?.headers)
+    const response = await app.inject({
+      method: init?.method as 'GET' | 'PATCH' | 'DELETE',
+      url: String(input),
+      headers: { authorization: auth('alice').authorization, 'content-type': headers.get('content-type') ?? undefined },
+      payload: init?.body as string | undefined,
+    })
+    return new Response(response.body, { status: response.statusCode })
+  } })
+
+  const created = await client.setDailyHabitMark('2026-10-02', 'unknown', { value: true })
+  assert.deepEqual(created.habits, [{ key: 'unknown', value: true }])
+  assert.deepEqual((await client.getSleepRecords()).map((entry) => entry.date), ['2026-10-02'])
+  assert.deepEqual((await client.setDailyHabitMark('2026-10-02', 'unknown', { value: false })).habits, [{ key: 'unknown', value: false }])
+  assert.deepEqual((await client.removeDailyHabitMark('2026-10-02', 'unknown')).habits, [])
+  await assert.rejects(client.removeDailyHabitMark('2026-10-03', 'unknown'), (error) => {
+    assert.ok(error instanceof ApiClientError)
+    assert.equal(error.status, 404)
+    return true
+  })
 })
 
 test('sleep record create and read preserve missing times, zero nap, duration, and missing date responses', async (t) => {

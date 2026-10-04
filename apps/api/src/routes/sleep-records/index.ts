@@ -7,7 +7,7 @@ import { authenticate } from '../../middleware/auth'
 
 const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   const sleepRecordsService = new SleepRecordsService(fastify)
-  const handlers: Pick<ApiHandlers, 'getSleepRecords' | 'getSleepRecord' | 'putSleepRecord'> = {
+  const handlers: Pick<ApiHandlers, 'getSleepRecords' | 'getSleepRecord' | 'putSleepRecord' | 'setDailyHabitMark' | 'removeDailyHabitMark'> = {
     async getSleepRecords({ user }) {
       return { status: 200, body: await sleepRecordsService.getAllSleepRecords(user.id) }
     },
@@ -23,6 +23,12 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
         wakeTime: body.wakeTime ?? null,
         napDuration: body.napDuration,
       }) }
+    },
+    async setDailyHabitMark({ user, date, habitKey, body }) {
+      return { status: 200, body: await sleepRecordsService.updateHabitValue(user.id, date, habitKey, body.value) }
+    },
+    async removeDailyHabitMark({ user, date, habitKey }) {
+      return { status: 200, body: await sleepRecordsService.removeHabitFromDay(user.id, date, habitKey) }
     },
   }
 
@@ -247,7 +253,7 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
   fastify.patch<{
     Params: { date: string; habitKey: string }
     Body: ApiShemas['UpdateHabitValueRequest']
-    Reply: ApiShemas['DailyEntry']
+    Reply: ApiShemas['DailyEntry'] | ApiShemas['Error']
   }>(
     '/:date/habits/:habitKey',
     {
@@ -308,19 +314,14 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
       },
     },
     async (request, reply) => {
-      const record = await sleepRecordsService.updateHabitValue(
-        request.user!.id,
-        request.params.date,
-        request.params.habitKey,
-        request.body.value
-      )
-      return reply.send(record)
+      const result = await handlers.setDailyHabitMark({ user: request.user!, date: request.params.date, habitKey: request.params.habitKey, body: request.body })
+      return reply.code(result.status).send(result.body)
     }
   )
 
   fastify.delete<{
     Params: { date: string; habitKey: string }
-    Reply: ApiShemas['DailyEntry']
+    Reply: ApiShemas['DailyEntry'] | ApiShemas['Error']
   }>(
     '/:date/habits/:habitKey',
     {
@@ -374,12 +375,8 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
       },
     },
     async (request, reply) => {
-      const record = await sleepRecordsService.removeHabitFromDay(
-        request.user!.id,
-        request.params.date,
-        request.params.habitKey
-      )
-      return reply.send(record)
+      const result = await handlers.removeDailyHabitMark({ user: request.user!, date: request.params.date, habitKey: request.params.habitKey })
+      return reply.code(result.status).send(result.body)
     }
   )
 

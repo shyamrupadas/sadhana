@@ -49,7 +49,6 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
   for (const [verb, operation] of Object.entries(pathItem)) {
     onlyKeys(operation, ['operationId', 'summary', 'description', 'parameters', 'requestBody', 'responses', 'security', 'tags'], `${path}.${verb}`)
     if (!operation.operationId || !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(operation.operationId)) fail(path, 'operationId')
-    if ((operation.parameters ?? []).length > 1) fail(operation.operationId, 'multiple parameters')
     for (const parameter of operation.parameters ?? []) {
       onlyKeys(parameter, ['name', 'in', 'required', 'schema', 'explode'], `${operation.operationId}.parameter`)
       const cookie = parameter.in === 'cookie' && parameter.name === 'refreshToken' && parameter.required === false
