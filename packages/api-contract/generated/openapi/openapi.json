@@ -445,6 +445,50 @@
         ]
       }
     },
+    "/sleep-records/yesterday/check": {
+      "get": {
+        "operationId": "SleepRecords_checkYesterday",
+        "description": "True only when the day before yesterday has bedtime and yesterday has wake time in Moscow calendar dates.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckYesterdayData"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/sleep-records/{date}": {
       "get": {
         "operationId": "SleepRecords_getSleepRecord",
@@ -707,6 +751,50 @@
           }
         ]
       }
+    },
+    "/sleep-stats": {
+      "get": {
+        "operationId": "SleepStats_getSleepStats",
+        "description": "Sleep averages for the last seven and thirty days, and the previous twelve completed calendar months. Periods without complete sleep return null values.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SleepStatsData"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -744,6 +832,17 @@
       "CalendarDate": {
         "type": "string",
         "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+      },
+      "CheckYesterdayData": {
+        "type": "object",
+        "required": [
+          "hasData"
+        ],
+        "properties": {
+          "hasData": {
+            "type": "boolean"
+          }
+        }
       },
       "DailyEntry": {
         "type": "object",
@@ -917,6 +1016,50 @@
             "nullable": true,
             "minimum": 0,
             "description": "Zero is stored as null."
+          }
+        }
+      },
+      "SleepStatsData": {
+        "type": "object",
+        "required": [
+          "week",
+          "month",
+          "year"
+        ],
+        "properties": {
+          "week": {
+            "$ref": "#/components/schemas/SleepStatsPeriod"
+          },
+          "month": {
+            "$ref": "#/components/schemas/SleepStatsPeriod"
+          },
+          "year": {
+            "$ref": "#/components/schemas/SleepStatsPeriod"
+          }
+        }
+      },
+      "SleepStatsPeriod": {
+        "type": "object",
+        "required": [
+          "bedtime",
+          "wakeTime",
+          "duration"
+        ],
+        "properties": {
+          "bedtime": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^\\d{2}:\\d{2}$"
+          },
+          "wakeTime": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^\\d{2}:\\d{2}$"
+          },
+          "duration": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^\\d+:\\d{2}$"
           }
         }
       },

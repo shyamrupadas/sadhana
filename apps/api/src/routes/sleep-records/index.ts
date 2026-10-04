@@ -7,7 +7,7 @@ import { authenticate } from '../../middleware/auth'
 
 const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   const sleepRecordsService = new SleepRecordsService(fastify)
-  const handlers: Pick<ApiHandlers, 'getSleepRecords' | 'getSleepRecord' | 'putSleepRecord' | 'setDailyHabitMark' | 'removeDailyHabitMark'> = {
+  const handlers: Pick<ApiHandlers, 'getSleepRecords' | 'getSleepRecord' | 'putSleepRecord' | 'setDailyHabitMark' | 'removeDailyHabitMark' | 'checkYesterday'> = {
     async getSleepRecords({ user }) {
       return { status: 200, body: await sleepRecordsService.getAllSleepRecords(user.id) }
     },
@@ -29,6 +29,9 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
     },
     async removeDailyHabitMark({ user, date, habitKey }) {
       return { status: 200, body: await sleepRecordsService.removeHabitFromDay(user.id, date, habitKey) }
+    },
+    async checkYesterday({ user }) {
+      return { status: 200, body: { hasData: await sleepRecordsService.checkYesterdayData(user.id) } }
     },
   }
 
@@ -381,7 +384,7 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
   )
 
   fastify.get<{
-    Reply: ApiShemas['CheckYesterdayResponse']
+    Reply: ApiShemas['CheckYesterdayResponse'] | ApiShemas['Error']
   }>(
     '/yesterday/check',
     {
@@ -399,8 +402,8 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
       },
     },
     async (request, reply) => {
-      const hasData = await sleepRecordsService.checkYesterdayData(request.user!.id)
-      return reply.send({ hasData })
+      const result = await handlers.checkYesterday({ user: request.user! })
+      return reply.code(result.status).send(result.body)
     }
   )
 }

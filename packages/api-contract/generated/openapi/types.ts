@@ -103,6 +103,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sleep-records/yesterday/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description True only when the day before yesterday has bedtime and yesterday has wake time in Moscow calendar dates. */
+        get: operations["SleepRecords_checkYesterday"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sleep-records/{date}": {
         parameters: {
             query?: never;
@@ -138,6 +155,23 @@ export interface paths {
         patch: operations["SleepRecords_setDailyHabitMark"];
         trace?: never;
     };
+    "/sleep-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Sleep averages for the last seven and thirty days, and the previous twelve completed calendar months. Periods without complete sleep return null values. */
+        get: operations["SleepStats_getSleepStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -151,6 +185,9 @@ export interface components {
             user: components["schemas"]["User"];
         };
         CalendarDate: string;
+        CheckYesterdayData: {
+            hasData: boolean;
+        };
         DailyEntry: {
             id: components["schemas"]["CalendarDate"];
             date: components["schemas"]["CalendarDate"];
@@ -202,6 +239,16 @@ export interface components {
              * @description Zero is stored as null.
              */
             napDuration: number | null;
+        };
+        SleepStatsData: {
+            week: components["schemas"]["SleepStatsPeriod"];
+            month: components["schemas"]["SleepStatsPeriod"];
+            year: components["schemas"]["SleepStatsPeriod"];
+        };
+        SleepStatsPeriod: {
+            bedtime: string | null;
+            wakeTime: string | null;
+            duration: string | null;
         };
         User: {
             id: string;
@@ -562,6 +609,44 @@ export interface operations {
             };
         };
     };
+    SleepRecords_checkYesterday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckYesterdayData"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     SleepRecords_getSleepRecord: {
         parameters: {
             query?: never;
@@ -728,6 +813,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DailyEntry"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    SleepStats_getSleepStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SleepStatsData"];
                 };
             };
             /** @description Access is unauthorized. */

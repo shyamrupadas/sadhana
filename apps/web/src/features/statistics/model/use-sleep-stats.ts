@@ -1,7 +1,8 @@
 import { ArrowUp, ArrowDown } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 
-import { rqClient } from '@/shared/api/instance'
-import { ApiShemas } from '@/shared/api/schema'
+import { apiClient } from '@/shared/api/instance'
+import type { components } from '@sadhana/api-contract'
 
 type TransformedSleepStats = {
   bedtime: {
@@ -105,7 +106,7 @@ const getDefaultStats = (): TransformedSleepStats => ({
 })
 
 const transformStatsData = (
-  rawData: ApiShemas['SleepStatsResponse']
+  rawData: components['schemas']['SleepStatsData']
 ): TransformedSleepStats => {
   const monthVsYearBedtime = getMinutesDifference(
     rawData.year?.bedtime ?? null,
@@ -170,7 +171,10 @@ const transformStatsData = (
 export const useSleepStats = () => {
   const defaultStats = getDefaultStats()
 
-  const sleepStatsQuery = rqClient.useQuery('get', '/sleep-stats')
+  const sleepStatsQuery = useQuery({
+    queryKey: ['get', '/sleep-stats'],
+    queryFn: ({ signal }) => apiClient.getSleepStats({ signal }),
+  })
 
   const data: TransformedSleepStats = sleepStatsQuery.data
     ? transformStatsData(sleepStatsQuery.data)

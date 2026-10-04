@@ -51,7 +51,7 @@ export class SleepStatsService {
     }
 
     const filteredRecords = allRecords.filter((record) => {
-      const recordDate = dayjs(record.date)
+      const recordDate = dayjs.tz(record.date, MOSCOW_TZ)
       return (
         (recordDate.isAfter(startDate) || recordDate.isSame(startDate, 'day')) &&
         (recordDate.isBefore(endDate) || recordDate.isSame(endDate, 'day')) &&

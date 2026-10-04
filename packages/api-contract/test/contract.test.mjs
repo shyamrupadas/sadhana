@@ -116,6 +116,25 @@ test('daily habit mark client encodes both path values and sends the selected va
   assert.equal(calls[1].init.body, undefined)
 })
 
+test('yesterday check and sleep stats keep their nullable HTTP response shapes', async () => {
+  const calls = []
+  const stats = {
+    week: { bedtime: '23:00', wakeTime: '07:00', duration: '8:00' },
+    month: { bedtime: null, wakeTime: null, duration: null },
+    year: { bedtime: null, wakeTime: null, duration: null },
+  }
+  const client = new ApiClient({ fetch: async (input, init) => {
+    calls.push([input, init.method])
+    return new Response(JSON.stringify(input === '/sleep-stats' ? stats : { hasData: true }), { status: 200 })
+  } })
+  assert.deepEqual(await client.checkYesterday(), { hasData: true })
+  assert.deepEqual(await client.getSleepStats(), stats)
+  assert.deepEqual(calls, [
+    ['/sleep-records/yesterday/check', 'GET'],
+    ['/sleep-stats', 'GET'],
+  ])
+})
+
 test('sleep time fields keep nullable values and date-time patterns in the same OpenAPI schema', async () => {
   const document = JSON.parse(await readFile(join(packageRoot, 'generated/openapi/openapi.json'), 'utf8'))
   for (const name of ['SleepData', 'SleepDataInput']) {

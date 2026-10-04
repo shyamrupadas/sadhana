@@ -139,6 +139,32 @@ model DailyEntryResponse {
   @body entry: DailyEntry;
 }
 
+model CheckYesterdayData {
+  hasData: boolean;
+}
+
+model CheckYesterdayResponse {
+  @statusCode statusCode: 200;
+  @body body: CheckYesterdayData;
+}
+
+model SleepStatsPeriod {
+  @pattern("^\\d{2}:\\d{2}$") bedtime: string | null;
+  @pattern("^\\d{2}:\\d{2}$") wakeTime: string | null;
+  @pattern("^\\d+:\\d{2}$") duration: string | null;
+}
+
+model SleepStatsData {
+  week: SleepStatsPeriod;
+  month: SleepStatsPeriod;
+  year: SleepStatsPeriod;
+}
+
+model SleepStatsResponse {
+  @statusCode statusCode: 200;
+  @body body: SleepStatsData;
+}
+
 @route("/sleep-records")
 @useAuth(BearerAuth)
 interface SleepRecords {
@@ -155,6 +181,16 @@ interface SleepRecords {
 
   /** Removing an absent mark succeeds when the daily entry exists. */
   @delete @route("/{date}/habits/{habitKey}") removeDailyHabitMark(@path date: CalendarDate, @path habitKey: string): DailyEntryResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
+
+  /** True only when the day before yesterday has bedtime and yesterday has wake time in Moscow calendar dates. */
+  @get @route("/yesterday/check") checkYesterday(): CheckYesterdayResponse | UnauthorizedResponse | InternalErrorResponse;
+}
+
+@route("/sleep-stats")
+@useAuth(BearerAuth)
+interface SleepStats {
+  /** Sleep averages for the last seven and thirty days, and the previous twelve completed calendar months. Periods without complete sleep return null values. */
+  @get getSleepStats(): SleepStatsResponse | UnauthorizedResponse | InternalErrorResponse;
 }
 
 @route("/auth")

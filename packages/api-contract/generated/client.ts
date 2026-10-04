@@ -43,6 +43,10 @@ export class ApiClient {
     return this.request(`/habits/${encodeURIComponent(key)}`, { method: "PATCH", signal: options.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   }
 
+  checkYesterday(options: { signal?: AbortSignal } = {}): Promise<Operations["SleepRecords_checkYesterday"]['responses'][200]['content']['application/json']> {
+    return this.request("/sleep-records/yesterday/check", { method: "GET", signal: options.signal })
+  }
+
   getSleepRecord(date: string, options: { signal?: AbortSignal } = {}): Promise<Operations["SleepRecords_getSleepRecord"]['responses'][200]['content']['application/json']> {
     return this.request(`/sleep-records/${encodeURIComponent(date)}`, { method: "GET", signal: options.signal })
   }
@@ -61,6 +65,10 @@ export class ApiClient {
 
   setDailyHabitMark(date: string, habitKey: string, body: Operations["SleepRecords_setDailyHabitMark"]['requestBody']['content']['application/json'], options: { signal?: AbortSignal } = {}): Promise<Operations["SleepRecords_setDailyHabitMark"]['responses'][200]['content']['application/json']> {
     return this.request(`/sleep-records/${encodeURIComponent(date)}/habits/${encodeURIComponent(habitKey)}`, { method: "PATCH", signal: options.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  }
+
+  getSleepStats(options: { signal?: AbortSignal } = {}): Promise<Operations["SleepStats_getSleepStats"]['responses'][200]['content']['application/json']> {
+    return this.request("/sleep-stats", { method: "GET", signal: options.signal })
   }
 
   private async request<T>(path: string, init: RequestInit): Promise<T> {

@@ -1,4 +1,5 @@
 import { FastifyPluginAsync } from 'fastify'
+import type { ApiHandlers } from '@sadhana/api-contract'
 import { SleepStatsService } from '../../services/sleep-stats.service'
 import { ApiShemas } from '../../schema'
 import { AppError } from '../../utils/errors'
@@ -6,6 +7,11 @@ import { authenticate } from '../../middleware/auth'
 
 const sleepStatsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   const sleepStatsService = new SleepStatsService(fastify)
+  const handlers: Pick<ApiHandlers, 'getSleepStats'> = {
+    async getSleepStats({ user }) {
+      return { status: 200, body: await sleepStatsService.getSleepStats(user.id) }
+    },
+  }
 
   fastify.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {
@@ -20,7 +26,7 @@ const sleepStatsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   })
 
   fastify.get<{
-    Reply: ApiShemas['SleepStatsResponse']
+    Reply: ApiShemas['SleepStatsResponse'] | ApiShemas['Error']
   }>(
     '/',
     {
@@ -91,8 +97,8 @@ const sleepStatsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
       },
     },
     async (request, reply) => {
-      const stats = await sleepStatsService.getSleepStats(request.user!.id)
-      return reply.send(stats)
+      const result = await handlers.getSleepStats({ user: request.user! })
+      return reply.code(result.status).send(result.body)
     }
   )
 }

@@ -165,3 +165,28 @@ test('sleep record create and read preserve missing times, zero nap, duration, a
   assert.equal(invalid.statusCode, 500)
   assert.deepEqual(invalid.json(), { message: 'Internal Server Error', code: 'INTERNAL_ERROR' })
 })
+
+test('yesterday check uses the two Moscow calendar dates and the generated client preserves its response', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-03-01T21:30:00.000Z') })
+  const rows: Row[] = [
+    { id: '2026-03-01', userId: 'alice', date: '2026-03-01', sleep_data: { ...emptySleep, wakeTime: '2026-03-01 07:00' }, habits: [] },
+    { id: '2026-02-28', userId: 'alice', date: '2026-02-28', sleep_data: { ...emptySleep, bedtime: '2026-02-28 23:00' }, habits: [] },
+    { id: '2026-03-01', userId: 'bob', date: '2026-03-01', sleep_data: { ...emptySleep, wakeTime: '2026-03-01 07:00' }, habits: [] },
+  ]
+  const { app, auth } = await makeApp(rows)
+  t.after(() => app.close())
+  const url = '/sleep-records/yesterday/check'
+
+  assert.equal((await app.inject({ method: 'GET', url })).statusCode, 401)
+  assert.deepEqual((await app.inject({ method: 'GET', url, headers: auth('alice') })).json(), { hasData: true })
+  assert.deepEqual((await app.inject({ method: 'GET', url, headers: auth('bob') })).json(), { hasData: false })
+
+  const client = new ApiClient({ fetch: async (input) => {
+    const response = await app.inject({ method: 'GET', url: String(input), headers: auth('alice') })
+    return new Response(response.body, { status: response.statusCode })
+  } })
+  assert.deepEqual(await client.checkYesterday(), { hasData: true })
+
+  rows[1].sleep_data = emptySleep
+  assert.deepEqual((await app.inject({ method: 'GET', url, headers: auth('alice') })).json(), { hasData: false })
+})

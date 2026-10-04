@@ -1,7 +1,11 @@
-import { rqClient } from '@/shared/api/instance'
+import { useQuery } from '@tanstack/react-query'
+import { apiClient } from '@/shared/api/instance'
 
 export const useCheckYesterday = () => {
-  const checkYesterdayQuery = rqClient.useQuery('get', '/sleep-records/yesterday/check')
+  const checkYesterdayQuery = useQuery({
+    queryKey: ['get', '/sleep-records/yesterday/check'],
+    queryFn: ({ signal }) => apiClient.checkYesterday({ signal }),
+  })
 
   return {
     checkYesterdaySleep: async (): Promise<boolean> => {
