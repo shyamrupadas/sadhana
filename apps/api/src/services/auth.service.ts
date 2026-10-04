@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import bcrypt from 'bcrypt'
 import { randomUUID } from 'node:crypto'
-import { ApiShemas } from '../schema'
+import type { ApiSchemas } from '@sadhana/api-contract'
 import { UnauthorizedError, BadRequestError } from '../utils/errors'
 
 const SALT_ROUNDS = 10
@@ -9,7 +9,7 @@ const SALT_ROUNDS = 10
 export class AuthService {
   constructor(private fastify: FastifyInstance) {}
 
-  async register(email: string, password: string): Promise<ApiShemas['AuthResponse']> {
+  async register(email: string, password: string): Promise<ApiSchemas['AuthResponse']> {
     const client = await this.fastify.pg.connect()
 
     try {
@@ -43,7 +43,7 @@ export class AuthService {
     }
   }
 
-  async login(email: string, password: string): Promise<ApiShemas['AuthResponse']> {
+  async login(email: string, password: string): Promise<ApiSchemas['AuthResponse']> {
     const client = await this.fastify.pg.connect()
 
     try {
@@ -77,7 +77,7 @@ export class AuthService {
     }
   }
 
-  async getUserById(id: string): Promise<ApiShemas['User'] | null> {
+  async getUserById(id: string): Promise<ApiSchemas['User'] | null> {
     const client = await this.fastify.pg.connect()
 
     try {
@@ -93,7 +93,7 @@ export class AuthService {
     }
   }
 
-  async refreshAccessToken(refreshToken: string): Promise<ApiShemas['AuthResponse']> {
+  async refreshAccessToken(refreshToken: string): Promise<ApiSchemas['AuthResponse']> {
     try {
       const payload = await this.fastify.refreshVerify(refreshToken)
       if (payload.type !== 'refresh') {

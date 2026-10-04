@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify'
 import type { ApiHandlers } from '@sadhana/api-contract'
 import { HabitsService } from '../../services/habits.service'
-import { ApiShemas } from '../../schema'
+import type { ApiSchemas } from '@sadhana/api-contract'
 import { AppError } from '../../utils/errors'
 import { authenticate } from '../../middleware/auth'
 
@@ -36,7 +36,7 @@ const habitsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   })
 
   fastify.get<{
-    Reply: ApiShemas['HabitDefinition'][] | ApiShemas['Error']
+    Reply: ApiSchemas['HabitDefinition'][] | ApiSchemas['ApiError']
   }>(
     '/',
     {
@@ -65,8 +65,8 @@ const habitsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   )
 
   fastify.post<{
-    Body: ApiShemas['CreateHabitRequest']
-    Reply: ApiShemas['HabitDefinition'] | ApiShemas['Error']
+    Body: ApiSchemas['HabitInput']
+    Reply: ApiSchemas['HabitDefinition'] | ApiSchemas['ApiError']
   }>(
     '/',
     {
@@ -100,8 +100,8 @@ const habitsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
 
   fastify.patch<{
     Params: { key: string }
-    Body: ApiShemas['UpdateHabitRequest']
-    Reply: ApiShemas['HabitDefinition'] | ApiShemas['Error']
+    Body: ApiSchemas['HabitInput']
+    Reply: ApiSchemas['HabitDefinition'] | ApiSchemas['ApiError']
   }>(
     '/:key',
     {

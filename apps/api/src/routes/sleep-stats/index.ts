@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify'
 import type { ApiHandlers } from '@sadhana/api-contract'
 import { SleepStatsService } from '../../services/sleep-stats.service'
-import { ApiShemas } from '../../schema'
+import type { ApiSchemas } from '@sadhana/api-contract'
 import { AppError } from '../../utils/errors'
 import { authenticate } from '../../middleware/auth'
 
@@ -26,7 +26,7 @@ const sleepStatsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   })
 
   fastify.get<{
-    Reply: ApiShemas['SleepStatsResponse'] | ApiShemas['Error']
+    Reply: ApiSchemas['SleepStatsData'] | ApiSchemas['ApiError']
   }>(
     '/',
     {

@@ -148,6 +148,46 @@ test('sleep time fields keep nullable values and date-time patterns in the same 
   assert.deepEqual(document.components.schemas.SleepDataInput.required, ['napDuration'])
 })
 
+test('generated HTTP contract covers the inventoried operations and response statuses', async () => {
+  const document = JSON.parse(await readFile(join(packageRoot, 'generated/openapi/openapi.json'), 'utf8'))
+  const expected = {
+    'POST /auth/register': [201, 400, 500],
+    'POST /auth/login': [200, 401, 500],
+    'POST /auth/refresh': [200, 401, 500],
+    'GET /habits': [200, 401, 500],
+    'POST /habits': [201, 401, 500],
+    'PATCH /habits/{key}': [200, 401, 404, 500],
+    'DELETE /habits/{key}': [204, 401, 404, 500],
+    'GET /sleep-records': [200, 401, 500],
+    'GET /sleep-records/{date}': [200, 401, 404, 500],
+    'PUT /sleep-records/{date}': [200, 401, 500],
+    'PATCH /sleep-records/{date}/habits/{habitKey}': [200, 401, 500],
+    'DELETE /sleep-records/{date}/habits/{habitKey}': [200, 401, 404, 500],
+    'GET /sleep-records/yesterday/check': [200, 401, 500],
+    'GET /sleep-stats': [200, 401, 500],
+  }
+  const actual = Object.fromEntries(Object.entries(document.paths).flatMap(([path, methods]) =>
+    Object.entries(methods).map(([method, operation]) => [
+      `${method.toUpperCase()} ${path}`,
+      Object.keys(operation.responses).map(Number).sort((a, b) => a - b),
+    ])
+  ))
+  assert.deepEqual(actual, expected)
+
+  for (const path of ['/auth/register', '/auth/login', '/auth/refresh']) {
+    const response = document.paths[path].post.responses[path === '/auth/register' ? 201 : 200]
+    const cookieHeader = response.headers['Set-Cookie']
+    assert.ok(cookieHeader)
+    for (const attribute of ['refreshToken', 'HttpOnly', 'Path=/', 'Max-Age=604800', 'x-forwarded-proto', 'Secure', 'SameSite=None', 'SameSite=Lax']) {
+      assert.ok(cookieHeader.description?.includes(attribute), `${path} must document ${attribute}`)
+    }
+  }
+  assert.equal(document.paths['/auth/refresh'].post.parameters[0].in, 'cookie')
+  assert.equal(document.paths['/habits/{key}'].delete.responses[204].content, undefined)
+  assert.equal(document.components.schemas.SleepDataInput.required.includes('bedtime'), false)
+  assert.equal(document.components.schemas.SleepDataInput.required.includes('wakeTime'), false)
+})
+
 test('generator rejects unsupported schema constructs', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'sadhana-contract-'))
   try {

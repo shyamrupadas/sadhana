@@ -75,7 +75,7 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
       onlyKeys(response, ['description', 'content', 'headers'], `${operation.operationId}.${status}`)
       for (const [name, header] of Object.entries(response.headers ?? {})) {
         if (name !== 'Set-Cookie') fail(operation.operationId, `header ${name}`)
-        onlyKeys(header, ['required', 'schema'], `${operation.operationId}.${status}.header`)
+        onlyKeys(header, ['required', 'description', 'schema'], `${operation.operationId}.${status}.header`)
         if (header.required !== true || header.schema?.type !== 'string') fail(operation.operationId, 'Set-Cookie header')
         validateSchema(header.schema, `${operation.operationId}.${status}.header`)
       }

@@ -280,6 +280,7 @@ export interface operations {
             /** @description The request has succeeded. */
             200: {
                 headers: {
+                    /** @description refreshToken cookie: HttpOnly; Path=/; Max-Age=604800. When x-forwarded-proto is https, use Secure and SameSite=None; otherwise use SameSite=Lax without Secure. */
                     "Set-Cookie": string;
                     [name: string]: unknown;
                 };
@@ -321,6 +322,7 @@ export interface operations {
             /** @description The request has succeeded. */
             200: {
                 headers: {
+                    /** @description refreshToken cookie: HttpOnly; Path=/; Max-Age=604800. When x-forwarded-proto is https, use Secure and SameSite=None; otherwise use SameSite=Lax without Secure. */
                     "Set-Cookie": string;
                     [name: string]: unknown;
                 };
@@ -364,6 +366,7 @@ export interface operations {
             /** @description The request has succeeded and a new resource has been created as a result. */
             201: {
                 headers: {
+                    /** @description refreshToken cookie: HttpOnly; Path=/; Max-Age=604800. When x-forwarded-proto is https, use Secure and SameSite=None; otherwise use SameSite=Lax without Secure. */
                     "Set-Cookie": string;
                     [name: string]: unknown;
                 };

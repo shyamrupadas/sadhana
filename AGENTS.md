@@ -5,7 +5,7 @@
 - `pnpm build:web`: type-check and build the web package through Turbo.
 - `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm test`: run workspace tasks through Turbo.
 - `pnpm --filter @sadhana/web preview`: serve the built web app locally.
-- `pnpm --filter @sadhana/web api`: generate OpenAPI types into `apps/web/src/shared/api/schema/generated.ts`.
+- `pnpm --filter @sadhana/api-contract generate`: regenerate the shared OpenAPI, client, and handler artifacts from TypeSpec.
 - `pnpm --dir apps/web dlx shadcn@latest add checkbox`: add a shadcn/ui component (example for checkbox).
 
 ## Coding Style & Naming Conventions
@@ -17,13 +17,13 @@
 - Всегда отвечай пользователю только по-русски.
 
 ## Testing Guidelines
-Automated tests are not currently configured. For changes:
-- run `pnpm lint` and `pnpm build`;
+For changes:
+- run `pnpm lint`, `pnpm build`, and `pnpm test`;
 - do a quick manual pass in `pnpm dev:web` for affected web flows.
 
 ## Commit & Pull Request Guidelines
 - Do not change the git index (`git add`, `git restore --staged`) or commit unless explicitly asked.
-- PRs should include: a concise description, relevant issue link (if any), and screenshots for UI changes. Note any API schema updates and whether `pnpm --filter @sadhana/web api` was run.
+- PRs should include: a concise description, relevant issue link (if any), and screenshots for UI changes. Note any API contract updates and whether `pnpm --filter @sadhana/api-contract generate` was run.
 
 ## Configuration & PWA Notes
 - PWA behavior is configured via Vite plugins and assets in `apps/web/public/`.

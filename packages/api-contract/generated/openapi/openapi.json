@@ -16,6 +16,7 @@
             "headers": {
               "Set-Cookie": {
                 "required": true,
+                "description": "refreshToken cookie: HttpOnly; Path=/; Max-Age=604800. When x-forwarded-proto is https, use Secure and SameSite=None; otherwise use SameSite=Lax without Secure.",
                 "schema": {
                   "type": "string"
                 }
@@ -82,6 +83,7 @@
             "headers": {
               "Set-Cookie": {
                 "required": true,
+                "description": "refreshToken cookie: HttpOnly; Path=/; Max-Age=604800. When x-forwarded-proto is https, use Secure and SameSite=None; otherwise use SameSite=Lax without Secure.",
                 "schema": {
                   "type": "string"
                 }
@@ -128,6 +130,7 @@
             "headers": {
               "Set-Cookie": {
                 "required": true,
+                "description": "refreshToken cookie: HttpOnly; Path=/; Max-Age=604800. When x-forwarded-proto is https, use Secure and SameSite=None; otherwise use SameSite=Lax without Secure.",
                 "schema": {
                   "type": "string"
                 }

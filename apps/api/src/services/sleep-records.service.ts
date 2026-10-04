@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { ApiShemas } from '../schema'
+import type { ApiSchemas } from '@sadhana/api-contract'
 import { NotFoundError } from '../utils/errors'
 import {
   calculateSleepDuration,
@@ -22,7 +22,7 @@ export class SleepRecordsService {
     return napDuration <= 0 ? null : napDuration
   }
 
-  async getAllSleepRecords(userId: string): Promise<ApiShemas['DailyEntry'][]> {
+  async getAllSleepRecords(userId: string): Promise<ApiSchemas['DailyEntry'][]> {
     const client = await this.fastify.pg.connect()
 
     try {
@@ -35,7 +35,7 @@ export class SleepRecordsService {
         [userId, fiveDaysAgo, today]
       )
 
-      const entries: ApiShemas['DailyEntry'][] = []
+      const entries: ApiSchemas['DailyEntry'][] = []
 
       for (const row of result.rows) {
         const previousDate = getPreviousDate(row.date)
@@ -44,12 +44,12 @@ export class SleepRecordsService {
           [userId, previousDate]
         )
 
-        const previousSleepData: ApiShemas['SleepData'] =
+        const previousSleepData: ApiSchemas['SleepData'] =
           previousResult.rows.length > 0 && previousResult.rows[0].sleep_data
             ? previousResult.rows[0].sleep_data
             : { bedtime: null, wakeTime: null, napDuration: null, duration: null }
 
-        const currentSleepData: ApiShemas['SleepData'] = row.sleep_data || {
+        const currentSleepData: ApiSchemas['SleepData'] = row.sleep_data || {
           bedtime: null,
           wakeTime: null,
           napDuration: null,
@@ -79,7 +79,7 @@ export class SleepRecordsService {
     }
   }
 
-  async getAllSleepRecordsForStats(userId: string): Promise<ApiShemas['DailyEntry'][]> {
+  async getAllSleepRecordsForStats(userId: string): Promise<ApiSchemas['DailyEntry'][]> {
     const client = await this.fastify.pg.connect()
 
     try {
@@ -88,7 +88,7 @@ export class SleepRecordsService {
         [userId]
       )
 
-      const entries: ApiShemas['DailyEntry'][] = []
+      const entries: ApiSchemas['DailyEntry'][] = []
 
       for (const row of result.rows) {
         const previousDate = getPreviousDate(row.date)
@@ -97,12 +97,12 @@ export class SleepRecordsService {
           [userId, previousDate]
         )
 
-        const previousSleepData: ApiShemas['SleepData'] =
+        const previousSleepData: ApiSchemas['SleepData'] =
           previousResult.rows.length > 0 && previousResult.rows[0].sleep_data
             ? previousResult.rows[0].sleep_data
             : { bedtime: null, wakeTime: null, napDuration: null, duration: null }
 
-        const currentSleepData: ApiShemas['SleepData'] = row.sleep_data || {
+        const currentSleepData: ApiSchemas['SleepData'] = row.sleep_data || {
           bedtime: null,
           wakeTime: null,
           napDuration: null,
@@ -135,7 +135,7 @@ export class SleepRecordsService {
   async getSleepRecordByDate(
     userId: string,
     date: string
-  ): Promise<ApiShemas['DailyEntry'] | null> {
+  ): Promise<ApiSchemas['DailyEntry'] | null> {
     const client = await this.fastify.pg.connect()
 
     try {
@@ -154,13 +154,13 @@ export class SleepRecordsService {
         [userId, previousDate]
       )
 
-      const previousSleepData: ApiShemas['SleepData'] =
+      const previousSleepData: ApiSchemas['SleepData'] =
         previousResult.rows.length > 0 && previousResult.rows[0].sleep_data
           ? previousResult.rows[0].sleep_data
           : { bedtime: null, wakeTime: null, napDuration: null, duration: null }
 
       const row = result.rows[0]
-      const currentSleepData: ApiShemas['SleepData'] = row.sleep_data || {
+      const currentSleepData: ApiSchemas['SleepData'] = row.sleep_data || {
         bedtime: null,
         wakeTime: null,
         napDuration: null,
@@ -190,8 +190,8 @@ export class SleepRecordsService {
   async upsertSleepRecord(
     userId: string,
     date: string,
-    sleepData: ApiShemas['SleepDataInput']
-  ): Promise<ApiShemas['DailyEntry']> {
+    sleepData: ApiSchemas['SleepDataInput']
+  ): Promise<ApiSchemas['DailyEntry']> {
     const client = await this.fastify.pg.connect()
 
     try {
@@ -208,7 +208,7 @@ export class SleepRecordsService {
         sleepData.bedtime !== null &&
         sleepData.bedtime !== undefined
       ) {
-        const nextSleepData: ApiShemas['SleepData'] = nextRecord.rows[0].sleep_data || {
+        const nextSleepData: ApiSchemas['SleepData'] = nextRecord.rows[0].sleep_data || {
           bedtime: null,
           wakeTime: null,
           napDuration: null,
@@ -221,7 +221,7 @@ export class SleepRecordsService {
           nextSleepData.napDuration ?? 0
         )
 
-        const updatedNextSleepData: ApiShemas['SleepData'] = {
+        const updatedNextSleepData: ApiSchemas['SleepData'] = {
           ...nextSleepData,
           duration: nextDuration,
         }
@@ -245,7 +245,7 @@ export class SleepRecordsService {
         [userId, previousDate]
       )
 
-      const previousSleepData: ApiShemas['SleepData'] =
+      const previousSleepData: ApiSchemas['SleepData'] =
         previousRecord.rows.length > 0 && previousRecord.rows[0].sleep_data
           ? previousRecord.rows[0].sleep_data
           : { bedtime: null, wakeTime: null, napDuration: null, duration: null }
@@ -257,7 +257,7 @@ export class SleepRecordsService {
         normalizedNapDuration
       )
 
-      const sleepDataComplete: ApiShemas['SleepData'] = {
+      const sleepDataComplete: ApiSchemas['SleepData'] = {
         bedtime: sleepData.bedtime ?? null,
         wakeTime: sleepData.wakeTime ?? null,
         napDuration: normalizedNapDuration,
@@ -282,14 +282,14 @@ export class SleepRecordsService {
       await client.query('COMMIT')
 
       const row = result.rows[0]
-      const finalSleepData: ApiShemas['SleepData'] = row.sleep_data
+      const finalSleepData: ApiSchemas['SleepData'] = row.sleep_data
 
       const finalPreviousRecord = await client.query(
         'SELECT sleep_data FROM daily_entries WHERE user_id = $1 AND date = $2',
         [userId, previousDate]
       )
 
-      const finalPreviousSleepData: ApiShemas['SleepData'] =
+      const finalPreviousSleepData: ApiSchemas['SleepData'] =
         finalPreviousRecord.rows.length > 0 && finalPreviousRecord.rows[0].sleep_data
           ? finalPreviousRecord.rows[0].sleep_data
           : { bedtime: null, wakeTime: null, napDuration: null, duration: null }
@@ -322,7 +322,7 @@ export class SleepRecordsService {
     date: string,
     habitKey: string,
     value: boolean
-  ): Promise<ApiShemas['DailyEntry']> {
+  ): Promise<ApiSchemas['DailyEntry']> {
     const client = await this.fastify.pg.connect()
 
     try {
@@ -331,8 +331,8 @@ export class SleepRecordsService {
         [userId, date]
       )
 
-      let sleepData: ApiShemas['SleepData']
-      let habits: ApiShemas['HabitCheck'][]
+      let sleepData: ApiSchemas['SleepData']
+      let habits: ApiSchemas['HabitCheck'][]
 
       if (existing.rows.length === 0) {
         sleepData = {
@@ -367,7 +367,7 @@ export class SleepRecordsService {
         [userId, previousDate]
       )
 
-      const previousSleepData: ApiShemas['SleepData'] =
+      const previousSleepData: ApiSchemas['SleepData'] =
         previousResult.rows.length > 0 && previousResult.rows[0].sleep_data
           ? previousResult.rows[0].sleep_data
           : { bedtime: null, wakeTime: null, napDuration: null, duration: null }
@@ -378,7 +378,7 @@ export class SleepRecordsService {
         sleepData.napDuration ?? 0
       )
 
-      const updatedSleepData: ApiShemas['SleepData'] = {
+      const updatedSleepData: ApiSchemas['SleepData'] = {
         ...sleepData,
         duration,
       }
@@ -394,14 +394,14 @@ export class SleepRecordsService {
       )
 
       const row = result.rows[0]
-      const finalSleepData: ApiShemas['SleepData'] = row.sleep_data || updatedSleepData
+      const finalSleepData: ApiSchemas['SleepData'] = row.sleep_data || updatedSleepData
 
       const finalPreviousResult = await client.query(
         'SELECT sleep_data FROM daily_entries WHERE user_id = $1 AND date = $2',
         [userId, previousDate]
       )
 
-      const finalPreviousSleepData: ApiShemas['SleepData'] =
+      const finalPreviousSleepData: ApiSchemas['SleepData'] =
         finalPreviousResult.rows.length > 0 && finalPreviousResult.rows[0].sleep_data
           ? finalPreviousResult.rows[0].sleep_data
           : { bedtime: null, wakeTime: null, napDuration: null, duration: null }
@@ -430,7 +430,7 @@ export class SleepRecordsService {
     userId: string,
     date: string,
     habitKey: string
-  ): Promise<ApiShemas['DailyEntry']> {
+  ): Promise<ApiSchemas['DailyEntry']> {
     const client = await this.fastify.pg.connect()
 
     try {
@@ -443,11 +443,11 @@ export class SleepRecordsService {
         throw new NotFoundError('Daily entry not found')
       }
 
-      const habits: ApiShemas['HabitCheck'][] = existing.rows[0].habits.filter(
-        (h: ApiShemas['HabitCheck']) => h.key !== habitKey
+      const habits: ApiSchemas['HabitCheck'][] = existing.rows[0].habits.filter(
+        (h: ApiSchemas['HabitCheck']) => h.key !== habitKey
       )
 
-      const sleepData: ApiShemas['SleepData'] = existing.rows[0].sleep_data || {
+      const sleepData: ApiSchemas['SleepData'] = existing.rows[0].sleep_data || {
         bedtime: null,
         wakeTime: null,
         napDuration: null,
@@ -460,7 +460,7 @@ export class SleepRecordsService {
         [userId, previousDate]
       )
 
-      const previousSleepData: ApiShemas['SleepData'] =
+      const previousSleepData: ApiSchemas['SleepData'] =
         previousResult.rows.length > 0 && previousResult.rows[0].sleep_data
           ? previousResult.rows[0].sleep_data
           : { bedtime: null, wakeTime: null, napDuration: null, duration: null }
@@ -471,7 +471,7 @@ export class SleepRecordsService {
         sleepData.napDuration ?? 0
       )
 
-      const updatedSleepData: ApiShemas['SleepData'] = {
+      const updatedSleepData: ApiSchemas['SleepData'] = {
         ...sleepData,
         duration,
       }
@@ -485,14 +485,14 @@ export class SleepRecordsService {
       )
 
       const row = result.rows[0]
-      const finalSleepData: ApiShemas['SleepData'] = row.sleep_data || updatedSleepData
+      const finalSleepData: ApiSchemas['SleepData'] = row.sleep_data || updatedSleepData
 
       const finalPreviousResult = await client.query(
         'SELECT sleep_data FROM daily_entries WHERE user_id = $1 AND date = $2',
         [userId, previousDate]
       )
 
-      const finalPreviousSleepData: ApiShemas['SleepData'] =
+      const finalPreviousSleepData: ApiSchemas['SleepData'] =
         finalPreviousResult.rows.length > 0 && finalPreviousResult.rows[0].sleep_data
           ? finalPreviousResult.rows[0].sleep_data
           : { bedtime: null, wakeTime: null, napDuration: null, duration: null }
@@ -533,7 +533,7 @@ export class SleepRecordsService {
         return false
       }
 
-      const yesterdaySleepData: ApiShemas['SleepData'] =
+      const yesterdaySleepData: ApiSchemas['SleepData'] =
         yesterdayResult.rows[0].sleep_data
 
       const dayBeforeYesterdayResult = await client.query(
@@ -541,7 +541,7 @@ export class SleepRecordsService {
         [userId, dayBeforeYesterday]
       )
 
-      const dayBeforeYesterdaySleepData: ApiShemas['SleepData'] =
+      const dayBeforeYesterdaySleepData: ApiSchemas['SleepData'] =
         dayBeforeYesterdayResult.rows.length > 0 &&
         dayBeforeYesterdayResult.rows[0].sleep_data
           ? dayBeforeYesterdayResult.rows[0].sleep_data

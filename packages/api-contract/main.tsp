@@ -80,12 +80,14 @@ model AuthResponse {
 
 model RegisteredResponse {
   @statusCode statusCode: 201;
+  /** refreshToken cookie: HttpOnly; Path=/; Max-Age=604800. When x-forwarded-proto is https, use Secure and SameSite=None; otherwise use SameSite=Lax without Secure. */
   @header("Set-Cookie") setCookie: string;
   @body body: AuthResponse;
 }
 
 model AuthenticatedResponse {
   @statusCode statusCode: 200;
+  /** refreshToken cookie: HttpOnly; Path=/; Max-Age=604800. When x-forwarded-proto is https, use Secure and SameSite=None; otherwise use SameSite=Lax without Secure. */
   @header("Set-Cookie") setCookie: string;
   @body body: AuthResponse;
 }

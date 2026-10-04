@@ -1,9 +1,9 @@
 import { delay, HttpResponse } from 'msw'
 import { http } from '../http'
-import { ApiShemas } from '../../schema'
+import type { ApiSchemas } from '@sadhana/api-contract'
 import { createRefreshTokenCookie, generateTokens, verifyToken } from '../session'
 
-const mockUsers: ApiShemas['User'][] = [{ id: '1', email: 'admin@gmail.com' }]
+const mockUsers: ApiSchemas['User'][] = [{ id: '1', email: 'admin@gmail.com' }]
 
 const userPasswords = new Map<string, string>()
 userPasswords.set('admin@gmail.com', '123456')
@@ -53,7 +53,7 @@ export const authHandlers = [
       )
     }
 
-    const newUser: ApiShemas['User'] = {
+    const newUser: ApiSchemas['User'] = {
       id: String(mockUsers.length + 1),
       email: body.email,
     }

@@ -1,0 +1,46 @@
+name: Verify API contract
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  generated-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate API contract
+        run: pnpm --filter @sadhana/api-contract generate
+
+      - name: Check committed generated artifacts
+        run: |
+          git diff --exit-code -- packages/api-contract/generated/
+          test -z "$(git ls-files --others --exclude-standard -- packages/api-contract/generated/)"
+
+      - name: Typecheck both applications
+        run: pnpm typecheck
+
+      - name: Test workspace
+        run: pnpm test
+        env:
+          NODE_ENV: production
+          DATABASE_URL: postgres://localhost:5432/sadhana
+          JWT_SECRET: ci-test-access-secret
+          JWT_REFRESH_SECRET: ci-test-refresh-secret

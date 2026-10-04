@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify'
 import type { ApiHandlers } from '@sadhana/api-contract'
 import { SleepRecordsService } from '../../services/sleep-records.service'
-import { ApiShemas } from '../../schema'
+import type { ApiSchemas } from '@sadhana/api-contract'
 import { AppError } from '../../utils/errors'
 import { authenticate } from '../../middleware/auth'
 
@@ -55,7 +55,7 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
   })
 
   fastify.get<{
-    Reply: ApiShemas['DailyEntry'][] | ApiShemas['Error']
+    Reply: ApiSchemas['DailyEntry'][] | ApiSchemas['ApiError']
   }>(
     '/',
     {
@@ -111,7 +111,7 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
 
   fastify.get<{
     Params: { date: string }
-    Reply: ApiShemas['DailyEntry'] | ApiShemas['Error']
+    Reply: ApiSchemas['DailyEntry'] | ApiSchemas['ApiError']
   }>(
     '/:date',
     {
@@ -179,8 +179,8 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
 
   fastify.put<{
     Params: { date: string }
-    Body: ApiShemas['SleepDataInput']
-    Reply: ApiShemas['DailyEntry'] | ApiShemas['Error']
+    Body: ApiSchemas['SleepDataInput']
+    Reply: ApiSchemas['DailyEntry'] | ApiSchemas['ApiError']
   }>(
     '/:date',
     {
@@ -255,8 +255,8 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
 
   fastify.patch<{
     Params: { date: string; habitKey: string }
-    Body: ApiShemas['UpdateHabitValueRequest']
-    Reply: ApiShemas['DailyEntry'] | ApiShemas['Error']
+    Body: ApiSchemas['DailyHabitMarkInput']
+    Reply: ApiSchemas['DailyEntry'] | ApiSchemas['ApiError']
   }>(
     '/:date/habits/:habitKey',
     {
@@ -324,7 +324,7 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
 
   fastify.delete<{
     Params: { date: string; habitKey: string }
-    Reply: ApiShemas['DailyEntry'] | ApiShemas['Error']
+    Reply: ApiSchemas['DailyEntry'] | ApiSchemas['ApiError']
   }>(
     '/:date/habits/:habitKey',
     {
@@ -384,7 +384,7 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
   )
 
   fastify.get<{
-    Reply: ApiShemas['CheckYesterdayResponse'] | ApiShemas['Error']
+    Reply: ApiSchemas['CheckYesterdayData'] | ApiSchemas['ApiError']
   }>(
     '/yesterday/check',
     {

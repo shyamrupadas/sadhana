@@ -1,9 +1,9 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/shared/api/instance'
-import { ApiShemas } from '@/shared/api/schema'
+import type { ApiSchemas } from '@sadhana/api-contract'
 
 type OptimisticContext = {
-  previousEntries: ApiShemas['DailyEntry'][]
+  previousEntries: ApiSchemas['DailyEntry'][]
 }
 
 const QUERY_KEY = ['get', '/sleep-records'] as const
@@ -14,7 +14,7 @@ const createOptimisticContext = async (
 ): Promise<OptimisticContext> => {
   await queryClient.cancelQueries({ queryKey })
   const previousEntries =
-    queryClient.getQueryData<ApiShemas['DailyEntry'][]>(queryKey) ?? []
+    queryClient.getQueryData<ApiSchemas['DailyEntry'][]>(queryKey) ?? []
   return { previousEntries }
 }
 
@@ -29,10 +29,10 @@ const rollbackOptimisticUpdate = (
 }
 
 const updateEntrySleep = (
-  entries: ApiShemas['DailyEntry'][],
+  entries: ApiSchemas['DailyEntry'][],
   date: string,
-  sleep: ApiShemas['SleepDataInput']
-): ApiShemas['DailyEntry'][] => {
+  sleep: ApiSchemas['SleepDataInput']
+): ApiSchemas['DailyEntry'][] => {
   const entryIndex = entries.findIndex((entry) => entry.id === date)
 
   if (entryIndex >= 0) {
@@ -50,11 +50,13 @@ const updateEntrySleep = (
     )
   }
 
-  const newEntry: ApiShemas['DailyEntry'] = {
+  const newEntry: ApiSchemas['DailyEntry'] = {
     id: date,
     date,
     sleep: {
-      ...sleep,
+      bedtime: sleep.bedtime ?? null,
+      wakeTime: sleep.wakeTime ?? null,
+      napDuration: sleep.napDuration,
       duration: null,
     },
     habits: [],
@@ -64,11 +66,11 @@ const updateEntrySleep = (
 }
 
 const updateEntryHabit = (
-  entries: ApiShemas['DailyEntry'][],
+  entries: ApiSchemas['DailyEntry'][],
   date: string,
   habitKey: string,
   value: boolean
-): ApiShemas['DailyEntry'][] => {
+): ApiSchemas['DailyEntry'][] => {
   const entryIndex = entries.findIndex((entry) => entry.id === date)
 
   if (entryIndex >= 0) {
@@ -85,7 +87,7 @@ const updateEntryHabit = (
     })
   }
 
-  const newEntry: ApiShemas['DailyEntry'] = {
+  const newEntry: ApiSchemas['DailyEntry'] = {
     id: date,
     date,
     sleep: {
@@ -101,10 +103,10 @@ const updateEntryHabit = (
 }
 
 const removeEntryHabit = (
-  entries: ApiShemas['DailyEntry'][],
+  entries: ApiSchemas['DailyEntry'][],
   date: string,
   habitKey: string
-): ApiShemas['DailyEntry'][] => {
+): ApiSchemas['DailyEntry'][] => {
   return entries.map((entry) =>
     entry.id === date
       ? { ...entry, habits: entry.habits.filter((h) => h.key !== habitKey) }
@@ -120,7 +122,7 @@ export const useSleepRecords = () => {
   })
 
   const updateSleep = useMutation({
-    mutationFn: ({ date, sleep }: { date: string; sleep: ApiShemas['SleepDataInput'] }) =>
+    mutationFn: ({ date, sleep }: { date: string; sleep: ApiSchemas['SleepDataInput'] }) =>
       apiClient.putSleepRecord(date, sleep),
     onMutate: async ({ date, sleep }): Promise<OptimisticContext> => {
       const context = await createOptimisticContext(queryClient, QUERY_KEY)
@@ -211,7 +213,7 @@ export const useSleepRecords = () => {
       error: sleepRecordsQuery.error,
     },
     updateSleep: {
-      mutate: ({ id, sleep }: { id: string; sleep: ApiShemas['SleepDataInput'] }) => {
+      mutate: ({ id, sleep }: { id: string; sleep: ApiSchemas['SleepDataInput'] }) => {
         updateSleep.mutate({ date: id, sleep })
       },
       isPending: updateSleep.isPending,

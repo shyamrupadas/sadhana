@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify'
 import type { ApiHandlers } from '@sadhana/api-contract'
 import { AuthService } from '../../services/auth.service'
-import { ApiShemas } from '../../schema'
+import type { ApiSchemas } from '@sadhana/api-contract'
 import { AppError } from '../../utils/errors'
 
 const isHttpsRequest = (request: { headers: Record<string, unknown> }) =>
@@ -69,8 +69,8 @@ const authRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   })
 
   fastify.post<{
-    Body: ApiShemas['RegisterRequest']
-    Reply: ApiShemas['AuthResponse'] | ApiShemas['Error']
+    Body: ApiSchemas['RegisterRequest']
+    Reply: ApiSchemas['AuthResponse'] | ApiSchemas['ApiError']
   }>(
     '/register',
     {
@@ -108,8 +108,8 @@ const authRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   )
 
   fastify.post<{
-    Body: ApiShemas['LoginRequest']
-    Reply: ApiShemas['AuthResponse'] | ApiShemas['Error']
+    Body: ApiSchemas['LoginRequest']
+    Reply: ApiSchemas['AuthResponse'] | ApiSchemas['ApiError']
   }>(
     '/login',
     {
@@ -147,7 +147,7 @@ const authRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   )
 
   fastify.post<{
-    Reply: ApiShemas['AuthResponse'] | ApiShemas['Error']
+    Reply: ApiSchemas['AuthResponse'] | ApiSchemas['ApiError']
   }>(
     '/refresh',
     {

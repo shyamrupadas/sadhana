@@ -1,12 +1,12 @@
 import { FastifyInstance } from 'fastify'
-import { ApiShemas } from '../schema'
+import type { ApiSchemas } from '@sadhana/api-contract'
 import { NotFoundError } from '../utils/errors'
 import { generateHabitKey } from '../utils/habit-key'
 
 export class HabitsService {
   constructor(private fastify: FastifyInstance) {}
 
-  async getAllHabits(userId: string): Promise<ApiShemas['HabitDefinition'][]> {
+  async getAllHabits(userId: string): Promise<ApiSchemas['HabitDefinition'][]> {
     const client = await this.fastify.pg.connect()
 
     try {
@@ -28,7 +28,7 @@ export class HabitsService {
   async createHabit(
     userId: string,
     label: string
-  ): Promise<ApiShemas['HabitDefinition']> {
+  ): Promise<ApiSchemas['HabitDefinition']> {
     const client = await this.fastify.pg.connect()
 
     try {
@@ -67,7 +67,7 @@ export class HabitsService {
     userId: string,
     key: string,
     label: string
-  ): Promise<ApiShemas['HabitDefinition']> {
+  ): Promise<ApiSchemas['HabitDefinition']> {
     const client = await this.fastify.pg.connect()
 
     try {
@@ -111,7 +111,7 @@ export class HabitsService {
   async getHabitByKey(
     userId: string,
     key: string
-  ): Promise<ApiShemas['HabitDefinition'] | null> {
+  ): Promise<ApiSchemas['HabitDefinition'] | null> {
     const client = await this.fastify.pg.connect()
 
     try {

@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { ApiShemas } from '../schema'
+import type { ApiSchemas } from '@sadhana/api-contract'
 import { SleepRecordsService } from './sleep-records.service'
 import { calculateAverageTime, calculateAverageDuration } from '../utils/stats'
 import { formatTime } from '../utils/datetime'
@@ -19,7 +19,7 @@ export class SleepStatsService {
     this.sleepRecordsService = new SleepRecordsService(fastify)
   }
 
-  async getSleepStats(userId: string): Promise<ApiShemas['SleepStatsResponse']> {
+  async getSleepStats(userId: string): Promise<ApiSchemas['SleepStatsData']> {
     const allRecords = await this.sleepRecordsService.getAllSleepRecordsForStats(userId)
 
     return {
@@ -30,9 +30,9 @@ export class SleepStatsService {
   }
 
   private calculatePeriodStats(
-    allRecords: ApiShemas['DailyEntry'][],
+    allRecords: ApiSchemas['DailyEntry'][],
     period: 'week' | 'month' | 'year'
-  ): ApiShemas['SleepStatsPeriod'] {
+  ): ApiSchemas['SleepStatsPeriod'] {
     const now = dayjs().tz(MOSCOW_TZ)
     let startDate: dayjs.Dayjs
     let endDate: dayjs.Dayjs = now

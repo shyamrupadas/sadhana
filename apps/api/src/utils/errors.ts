@@ -1,4 +1,4 @@
-import { ApiShemas } from '../schema'
+import type { ApiSchemas } from '@sadhana/api-contract'
 
 export class AppError extends Error {
   constructor(
@@ -11,7 +11,7 @@ export class AppError extends Error {
     Error.captureStackTrace(this, this.constructor)
   }
 
-  toJSON(): ApiShemas['Error'] {
+  toJSON(): ApiSchemas['ApiError'] {
     return {
       message: this.message,
       code: this.code,

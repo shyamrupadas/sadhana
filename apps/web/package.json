@@ -9,8 +9,7 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "api": "openapi-typescript ./src/shared/api/schema/main.yaml -o ./src/shared/api/schema/generated.ts"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@sadhana/api-contract": "workspace:*",
@@ -28,8 +27,6 @@
     "dayjs": "^1.11.13",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.506.0",
-    "openapi-fetch": "^0.15.0",
-    "openapi-react-query": "0.5.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.67.0",
@@ -56,7 +53,6 @@
     "jose": "^6.1.3",
     "msw": "^2.12.4",
     "openapi-msw": "^2.0.0",
-    "openapi-typescript": "^7.10.1",
     "prettier": "^3.5.3",
     "tw-animate-css": "^1.2.8",
     "typescript": "~5.7.2",
