@@ -7,9 +7,19 @@ import { authenticate } from '../../middleware/auth'
 
 const habitsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   const habitsService = new HabitsService(fastify)
-  const handlers: Pick<ApiHandlers, 'getHabits'> = {
+  const handlers: Pick<ApiHandlers, 'getHabits' | 'createHabit' | 'updateHabit' | 'deleteHabit'> = {
     async getHabits({ user }) {
       return { status: 200, body: await habitsService.getAllHabits(user.id) }
+    },
+    async createHabit({ user, body }) {
+      return { status: 201, body: await habitsService.createHabit(user.id, body.label) }
+    },
+    async updateHabit({ user, key, body }) {
+      return { status: 200, body: await habitsService.updateHabit(user.id, key, body.label) }
+    },
+    async deleteHabit({ user, key }) {
+      await habitsService.deleteHabit(user.id, key)
+      return { status: 204 }
     },
   }
 
@@ -56,7 +66,7 @@ const habitsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
 
   fastify.post<{
     Body: ApiShemas['CreateHabitRequest']
-    Reply: ApiShemas['HabitDefinition']
+    Reply: ApiShemas['HabitDefinition'] | ApiShemas['Error']
   }>(
     '/',
     {
@@ -83,15 +93,15 @@ const habitsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
       },
     },
     async (request, reply) => {
-      const habit = await habitsService.createHabit(request.user!.id, request.body.label)
-      return reply.code(201).send(habit)
+      const result = await handlers.createHabit({ user: request.user!, body: request.body })
+      return reply.code(result.status).send(result.body)
     }
   )
 
   fastify.patch<{
     Params: { key: string }
     Body: ApiShemas['UpdateHabitRequest']
-    Reply: ApiShemas['HabitDefinition']
+    Reply: ApiShemas['HabitDefinition'] | ApiShemas['Error']
   }>(
     '/:key',
     {
@@ -125,12 +135,8 @@ const habitsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
       },
     },
     async (request, reply) => {
-      const habit = await habitsService.updateHabit(
-        request.user!.id,
-        request.params.key,
-        request.body.label
-      )
-      return reply.send(habit)
+      const result = await handlers.updateHabit({ user: request.user!, key: request.params.key, body: request.body })
+      return reply.code(result.status).send(result.body)
     }
   )
 
@@ -154,8 +160,8 @@ const habitsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
       },
     },
     async (request, reply) => {
-      await habitsService.deleteHabit(request.user!.id, request.params.key)
-      return reply.code(204).send()
+      const result = await handlers.deleteHabit({ user: request.user!, key: request.params.key })
+      return reply.code(result.status).send()
     }
   )
 }

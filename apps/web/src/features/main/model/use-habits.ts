@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
-import { apiClient, rqClient } from '@/shared/api/instance'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { apiClient } from '@/shared/api/instance'
 
 export const useHabits = () => {
   const habitsQuery = useQuery({
@@ -7,19 +7,23 @@ export const useHabits = () => {
     queryFn: ({ signal }) => apiClient.getHabits({ signal }),
   })
 
-  const addHabit = rqClient.useMutation('post', '/habits', {
+  const addHabit = useMutation({
+    mutationFn: (label: string) => apiClient.createHabit({ label }),
     onSuccess: () => {
       habitsQuery.refetch()
     },
   })
 
-  const deleteHabit = rqClient.useMutation('delete', '/habits/{key}', {
+  const deleteHabit = useMutation({
+    mutationFn: (key: string) => apiClient.deleteHabit(key),
     onSuccess: () => {
       habitsQuery.refetch()
     },
   })
 
-  const renameHabit = rqClient.useMutation('patch', '/habits/{key}', {
+  const renameHabit = useMutation({
+    mutationFn: ({ key, newLabel }: { key: string; newLabel: string }) =>
+      apiClient.updateHabit(key, { label: newLabel }),
     onSuccess: () => {
       habitsQuery.refetch()
     },
@@ -33,28 +37,15 @@ export const useHabits = () => {
       error: habitsQuery.error,
     },
     addHabit: {
-      mutate: (label: string) => {
-        addHabit.mutate({
-          body: { label },
-        })
-      },
+      mutate: addHabit.mutate,
       isPending: addHabit.isPending,
     },
     deleteHabit: {
-      mutate: (key: string) => {
-        deleteHabit.mutate({
-          params: { path: { key } },
-        })
-      },
+      mutate: deleteHabit.mutate,
       isPending: deleteHabit.isPending,
     },
     renameHabit: {
-      mutate: ({ key, newLabel }: { key: string; newLabel: string }) => {
-        renameHabit.mutate({
-          params: { path: { key } },
-          body: { label: newLabel },
-        })
-      },
+      mutate: renameHabit.mutate,
       isPending: renameHabit.isPending,
     },
   }

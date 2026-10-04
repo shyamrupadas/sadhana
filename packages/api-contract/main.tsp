@@ -21,6 +21,29 @@ model HabitsResponse {
   @body habits: HabitDefinition[];
 }
 
+model HabitInput {
+  label: string;
+}
+
+model CreatedHabitResponse {
+  @statusCode statusCode: 201;
+  @body habit: HabitDefinition;
+}
+
+model UpdatedHabitResponse {
+  @statusCode statusCode: 200;
+  @body habit: HabitDefinition;
+}
+
+model DeletedHabitResponse {
+  @statusCode statusCode: 204;
+}
+
+model NotFoundResponse {
+  @statusCode statusCode: 404;
+  @body error: ApiError;
+}
+
 model UnauthorizedResponse {
   @statusCode statusCode: 401;
   @body error: ApiError;
@@ -84,4 +107,11 @@ interface Auth {
 interface Habits {
   /** List the authenticated user's habits in creation order. */
   @get getHabits(): HabitsResponse | UnauthorizedResponse | InternalErrorResponse;
+
+  /** An existing derived key returns its original habit with status 201. */
+  @post createHabit(@body body: HabitInput): CreatedHabitResponse | UnauthorizedResponse | InternalErrorResponse;
+
+  @patch @route("/{key}") updateHabit(@path key: string, @body body: HabitInput): UpdatedHabitResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
+
+  @delete @route("/{key}") deleteHabit(@path key: string): DeletedHabitResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
 }

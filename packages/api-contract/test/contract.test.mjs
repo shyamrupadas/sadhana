@@ -54,6 +54,28 @@ test('auth client sends JSON credentials and leaves refresh cookies to the suppl
   assert.equal(calls.every(({ init }) => !init.headers?.Authorization), true)
 })
 
+test('habit mutation client sends encoded keys, JSON bodies and accepts empty 204', async () => {
+  const calls = []
+  const client = new ApiClient({
+    fetch: async (input, init) => {
+      calls.push({ input, init })
+      if (init.method === 'DELETE') return new Response(null, { status: 204 })
+      return new Response(JSON.stringify({ key: 'read', label: 'Read', createdAt: '2026-10-04T09:00:00.000Z' }), { status: init.method === 'POST' ? 201 : 200 })
+    },
+  })
+  assert.equal((await client.createHabit({ label: 'Read' })).key, 'read')
+  assert.equal((await client.updateHabit('read/one', { label: 'Books' })).label, 'Read')
+  assert.equal(await client.deleteHabit('read/one'), undefined)
+  assert.deepEqual(calls.map(({ input, init }) => [input, init.method]), [
+    ['/habits', 'POST'],
+    ['/habits/read%2Fone', 'PATCH'],
+    ['/habits/read%2Fone', 'DELETE'],
+  ])
+  assert.deepEqual(JSON.parse(calls[0].init.body), { label: 'Read' })
+  assert.deepEqual(JSON.parse(calls[1].init.body), { label: 'Books' })
+  assert.equal(calls[2].init.body, undefined)
+})
+
 test('generator rejects unsupported schema constructs', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'sadhana-contract-'))
   try {

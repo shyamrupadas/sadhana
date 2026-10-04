@@ -52,9 +52,13 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
     if ((operation.parameters ?? []).length > 1) fail(operation.operationId, 'multiple parameters')
     for (const parameter of operation.parameters ?? []) {
       onlyKeys(parameter, ['name', 'in', 'required', 'schema', 'explode'], `${operation.operationId}.parameter`)
-      if (parameter.in !== 'cookie' || parameter.name !== 'refreshToken' || parameter.required !== false || parameter.schema?.type !== 'string') fail(operation.operationId, 'parameter')
+      const cookie = parameter.in === 'cookie' && parameter.name === 'refreshToken' && parameter.required === false
+      const pathParameter = parameter.in === 'path' && parameter.required === true && path.includes(`{${parameter.name}}`)
+      if ((!cookie && !pathParameter) || parameter.schema?.type !== 'string') fail(operation.operationId, 'parameter')
       validateSchema(parameter.schema, `${operation.operationId}.parameter`)
     }
+    const placeholders = [...path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1])
+    if (placeholders.length !== (operation.parameters ?? []).filter((parameter) => parameter.in === 'path').length || placeholders.some((name) => !operation.parameters?.some((parameter) => parameter.in === 'path' && parameter.name === name))) fail(operation.operationId, 'path parameters')
     if (operation.requestBody) {
       onlyKeys(operation.requestBody, ['required', 'content'], `${operation.operationId}.requestBody`)
       if (operation.requestBody.required !== true || Object.keys(operation.requestBody.content ?? {}).join() !== 'application/json') fail(operation.operationId, 'request body content')
@@ -95,14 +99,19 @@ const requestType = (operation) => `Operations[${JSON.stringify(operation.id)}][
 const clientMethods = operations.map((operation) => {
   const success = operation.responses.filter(([status]) => status.startsWith('2'))
   const successType = success.map(([status]) => typeFor(operation, status)).join(' | ')
+  const pathParameters = operation.parameters.filter((parameter) => parameter.in === 'path')
+  const pathArgs = pathParameters.map((parameter) => `${parameter.name}: string, `).join('')
   const bodyArg = operation.requestBody ? `body: ${requestType(operation)}, ` : ''
   const bodyInit = operation.requestBody ? ", headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)" : ''
-  return `  ${operation.methodName}(${bodyArg}options: { signal?: AbortSignal } = {}): Promise<${successType}> {\n    return this.request(${JSON.stringify(operation.path)}, { method: ${JSON.stringify(operation.verb.toUpperCase())}, signal: options.signal${bodyInit} })\n  }`
+  const requestPath = pathParameters.length
+    ? '`' + operation.path.replace(/\{([^}]+)\}/g, (_, name) => '${encodeURIComponent(' + name + ')}') + '`'
+    : JSON.stringify(operation.path)
+  return `  ${operation.methodName}(${pathArgs}${bodyArg}options: { signal?: AbortSignal } = {}): Promise<${successType}> {\n    return this.request(${requestPath}, { method: ${JSON.stringify(operation.verb.toUpperCase())}, signal: options.signal${bodyInit} })\n  }`
 }).join('\n\n')
 const client = `${header}import type { operations as Operations } from './openapi/types.js'\n\nexport interface ApiClientOptions {\n  baseUrl?: string\n  fetch?: typeof fetch\n}\n\nexport class ApiClientError extends Error {\n  constructor(readonly status: number, readonly body: unknown) {\n    super(typeof body === 'object' && body !== null && 'message' in body && typeof body.message === 'string' ? body.message : \`HTTP \${status}\`)\n  }\n}\n\nexport class ApiClient {\n  constructor(private readonly options: ApiClientOptions = {}) {}\n\n${clientMethods}\n\n  private async request<T>(path: string, init: RequestInit): Promise<T> {\n    const response = await (this.options.fetch ?? fetch)(\`\${this.options.baseUrl ?? ''}\${path}\`, init)\n    const raw = response.status === 204 ? '' : await response.text()\n    let body: unknown\n    try { body = raw ? JSON.parse(raw) : undefined } catch { body = raw }\n    if (!response.ok) throw new ApiClientError(response.status, body)\n    return body as T\n  }\n}\n`
 const handlerMembers = operations.map((operation) => {
   const variants = operation.responses.map(([status, response]) => `ApiHandlerResponse<${status}, ${typeFor(operation, status)}${response.headers ? ", { 'Set-Cookie': string }" : ''}>`).join(' | ')
-  const fields = [operation.secured ? 'user: { id: string; email: string }' : '', operation.requestBody ? `body: ${requestType(operation)}` : '', ...operation.parameters.map((parameter) => `${parameter.name}?: string`), ...((operation.responses.some(([, response]) => response.headers)) ? ['isHttps: boolean'] : [])].filter(Boolean)
+  const fields = [operation.secured ? 'user: { id: string; email: string }' : '', operation.requestBody ? `body: ${requestType(operation)}` : '', ...operation.parameters.map((parameter) => `${parameter.name}${parameter.required ? '' : '?'}: string`), ...((operation.responses.some(([, response]) => response.headers)) ? ['isHttps: boolean'] : [])].filter(Boolean)
   const context = fields.length ? `{ ${fields.join('; ')} }` : 'Record<string, never>'
   return `  ${operation.methodName}(context: ${context}): Promise<${variants}> | ${variants}`
 }).join('\n')
