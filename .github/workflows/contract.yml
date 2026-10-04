@@ -1,4 +1,4 @@
-name: Verify API contract
+name: CI
 
 on:
   pull_request:
@@ -9,11 +9,41 @@ permissions:
   contents: read
 
 jobs:
-  generated-artifacts:
+  workspace-and-image:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect API build inputs
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == pull_request ]]; then
+            base="$PR_BASE"
+            head="$PR_HEAD"
+            range="$base...$head"
+          else
+            base="$PUSH_BEFORE"
+            head="$GITHUB_SHA"
+            range="$base..$head"
+          fi
+          if [[ "$base" =~ ^0+$ ]]; then
+            echo 'api_changed=true' >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$range" -- \
+            apps/api packages/api-contract package.json pnpm-lock.yaml \
+            pnpm-workspace.yaml turbo.json Dockerfile .dockerignore railway.json \
+            .github/workflows/contract.yml | grep -q .; then
+            echo 'api_changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'api_changed=false' >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -34,13 +64,53 @@ jobs:
           git diff --exit-code -- packages/api-contract/generated/
           test -z "$(git ls-files --others --exclude-standard -- packages/api-contract/generated/)"
 
-      - name: Typecheck both applications
+      - name: Lint workspace
+        run: pnpm lint
+
+      - name: Typecheck workspace
         run: pnpm typecheck
+
+      - name: Build workspace
+        run: pnpm build
 
       - name: Test workspace
         run: pnpm test
         env:
-          NODE_ENV: production
-          DATABASE_URL: postgres://localhost:5432/sadhana
+          DATABASE_URL: postgres://fixture:fixture@db.invalid/app
           JWT_SECRET: ci-test-access-secret
           JWT_REFRESH_SECRET: ci-test-refresh-secret
+
+      - name: Build production API image
+        if: steps.changes.outputs.api_changed == 'true'
+        run: docker build --tag sadhana-api:ci .
+
+      - name: Check image contents and migration command
+        if: steps.changes.outputs.api_changed == 'true'
+        run: |
+          docker run --rm --entrypoint sh sadhana-api:ci -ec '
+            test -s dist/server.js
+            test -s dist/db/migrate.js
+            test -s node_modules/@sadhana/api-contract/dist/src/index.js
+            test "$(find src/db/migrations -name "*.sql" | wc -l)" -eq 6
+            test ! -d apps/web
+            test ! -d node_modules/typescript
+            test ! -d node_modules/tsx
+          '
+
+      - name: Start image on Railway PORT and check GET /
+        if: steps.changes.outputs.api_changed == 'true'
+        run: |
+          container="$(docker run --detach --env PORT=18080 \
+            --env DATABASE_URL=postgres://fixture:fixture@db.invalid/app \
+            --env JWT_SECRET=ci-test-access-secret \
+            --env JWT_REFRESH_SECRET=ci-test-refresh-secret \
+            --publish 127.0.0.1::18080 sadhana-api:ci)"
+          trap 'docker logs "$container"; docker rm --force "$container"' EXIT
+          port="$(docker port "$container" 18080/tcp | sed 's/.*://')"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error "http://127.0.0.1:$port/"; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1

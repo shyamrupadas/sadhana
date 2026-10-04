@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.turbo
+**/.env*
+**/coverage
+.git
+.github
+.scratch
+.agents
+.codex
+docs
+apps/web

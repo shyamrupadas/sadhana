@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "description": "Sadhana Fastify API",
+  "files": ["dist", "src/db/migrations"],
   "scripts": {
     "build": "tsc",
     "build:ts": "tsc",
