@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit && tsc -p test/tsconfig.json",
     "lint": "eslint .",
     "test": "tsc -p test/tsconfig.json && c8 node --test -r ts-node/register \"test/**/*.ts\"",
-    "migrate": "pnpm build && node dist/db/migrate.js"
+    "migrate": "pnpm build && node dist/db/migrate.js",
+    "migrate:baseline": "pnpm build && node dist/db/migrate.js --baseline-confirmed-001-006"
   },
   "dependencies": {
     "@sadhana/api-contract": "workspace:*",
