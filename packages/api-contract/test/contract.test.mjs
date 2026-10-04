@@ -35,6 +35,25 @@ test('client returns typed JSON and retains HTTP status on malformed error body'
   assert.equal(await emptyClient.getHabits(), undefined)
 })
 
+test('auth client sends JSON credentials and leaves refresh cookies to the supplied transport', async () => {
+  const calls = []
+  const client = new ApiClient({
+    fetch: async (input, init) => {
+      calls.push({ input, init })
+      return new Response(JSON.stringify({ accessToken: 'access', user: { id: '1', email: 'alice@example.test' } }), { status: input === '/auth/register' ? 201 : 200 })
+    },
+  })
+
+  assert.equal((await client.register({ email: 'alice@example.test', password: 'secret1' })).accessToken, 'access')
+  assert.equal((await client.login({ email: 'alice@example.test', password: 'secret1' })).accessToken, 'access')
+  assert.equal((await client.refresh()).accessToken, 'access')
+  assert.deepEqual(calls.map(({ input }) => input), ['/auth/register', '/auth/login', '/auth/refresh'])
+  assert.deepEqual(JSON.parse(calls[0].init.body), { email: 'alice@example.test', password: 'secret1' })
+  assert.equal(calls[0].init.headers['Content-Type'], 'application/json')
+  assert.equal(calls[2].init.body, undefined)
+  assert.equal(calls.every(({ init }) => !init.headers?.Authorization), true)
+})
+
 test('generator rejects unsupported schema constructs', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'sadhana-contract-'))
   try {

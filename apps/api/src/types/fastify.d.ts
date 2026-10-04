@@ -12,6 +12,7 @@ export interface JwtAccessPayload {
 export interface JwtRefreshPayload {
   userId: string
   type: 'refresh'
+  jti: string
 }
 
 declare module 'fastify' {

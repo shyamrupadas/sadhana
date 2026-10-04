@@ -15,6 +15,18 @@ export class ApiClientError extends Error {
 export class ApiClient {
   constructor(private readonly options: ApiClientOptions = {}) {}
 
+  login(body: Operations["Auth_login"]['requestBody']['content']['application/json'], options: { signal?: AbortSignal } = {}): Promise<Operations["Auth_login"]['responses'][200]['content']['application/json']> {
+    return this.request("/auth/login", { method: "POST", signal: options.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  }
+
+  refresh(options: { signal?: AbortSignal } = {}): Promise<Operations["Auth_refresh"]['responses'][200]['content']['application/json']> {
+    return this.request("/auth/refresh", { method: "POST", signal: options.signal })
+  }
+
+  register(body: Operations["Auth_register"]['requestBody']['content']['application/json'], options: { signal?: AbortSignal } = {}): Promise<Operations["Auth_register"]['responses'][201]['content']['application/json']> {
+    return this.request("/auth/register", { method: "POST", signal: options.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  }
+
   getHabits(options: { signal?: AbortSignal } = {}): Promise<Operations["Habits_getHabits"]['responses'][200]['content']['application/json']> {
     return this.request("/habits", { method: "GET", signal: options.signal })
   }

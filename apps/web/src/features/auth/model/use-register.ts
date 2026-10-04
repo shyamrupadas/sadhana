@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router'
+import { useMutation } from '@tanstack/react-query'
 
-import { publicRqClient } from '@/shared/api/instance'
-import { ApiShemas } from '@/shared/api/schema'
+import { publicApiClient } from '@/shared/api/instance'
 import { ROUTES } from '@/shared/model/routes'
 import { useSession } from '@/shared/model/session'
 
@@ -10,15 +10,16 @@ export const useRegister = () => {
 
   const session = useSession()
 
-  const registerMutation = publicRqClient.useMutation('post', '/auth/register', {
+  const registerMutation = useMutation({
+    mutationFn: (data: Parameters<typeof publicApiClient.register>[0]) => publicApiClient.register(data),
     onSuccess: (data) => {
       session.login(data.accessToken)
       navigate(ROUTES.HOME)
     },
   })
 
-  const register = (data: ApiShemas['RegisterRequest']) => {
-    registerMutation.mutate({ body: data })
+  const register = (data: Parameters<typeof publicApiClient.register>[0]) => {
+    registerMutation.mutate(data)
   }
 
   const errorMessage = registerMutation.isError

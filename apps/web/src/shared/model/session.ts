@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { jwtDecode } from 'jwt-decode'
 import { createGStore } from 'create-gstore'
-import { publicFetchClient } from '../api/instance'
+import { ApiClientError } from '@sadhana/api-contract'
+import { publicApiClient } from '../api/instance'
 
 type Session = {
   userId: string
@@ -9,8 +10,6 @@ type Session = {
   exp: number
   iat: number
 }
-
-type RefreshData = { accessToken?: string }
 
 const TOKEN_KEY = 'token'
 
@@ -44,20 +43,8 @@ export const useSession = createGStore(() => {
 
   const performRefresh = async (): Promise<string | null> => {
     try {
-      const { data, error, response } = await publicFetchClient.POST('/auth/refresh')
-
-      const status = response?.status ?? 0
-
-      if (error || status >= 400) {
-        if (isInvalidRefreshStatus(status)) {
-          logout()
-          return null
-        }
-
-        return null
-      }
-
-      const newToken = (data as RefreshData | undefined)?.accessToken ?? null
+      const data = await publicApiClient.refresh()
+      const newToken = data?.accessToken ?? null
 
       if (newToken) {
         login(newToken)
@@ -66,7 +53,10 @@ export const useSession = createGStore(() => {
 
       logout()
       return null
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiClientError && isInvalidRefreshStatus(error.status)) {
+        logout()
+      }
       return null
     }
   }

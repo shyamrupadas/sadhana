@@ -42,12 +42,10 @@ export const fetchClient = createFetchClient<ApiPaths>({
 })
 export const rqClient = createClient(fetchClient)
 
-export const publicFetchClient = createFetchClient<ApiPaths>({
+export const publicApiClient = new ApiClient({
   baseUrl: CONFIG.API_BASE_URL,
   fetch: customFetch,
 })
-
-export const publicRqClient = createClient(publicFetchClient)
 
 export const apiClient = new ApiClient({
   baseUrl: CONFIG.API_BASE_URL,

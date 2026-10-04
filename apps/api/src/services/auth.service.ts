@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import bcrypt from 'bcrypt'
+import { randomUUID } from 'node:crypto'
 import { ApiShemas } from '../schema'
 import { UnauthorizedError, BadRequestError } from '../utils/errors'
 
@@ -95,6 +96,9 @@ export class AuthService {
   async refreshAccessToken(refreshToken: string): Promise<ApiShemas['AuthResponse']> {
     try {
       const payload = await this.fastify.refreshVerify(refreshToken)
+      if (payload.type !== 'refresh') {
+        throw new UnauthorizedError('Invalid token type')
+      }
       const user = await this.getUserById(payload.userId)
 
       if (!user) {
@@ -128,6 +132,7 @@ export class AuthService {
     return this.fastify.refreshSign({
       userId,
       type: 'refresh',
+      jti: randomUUID(),
     })
   }
 }
