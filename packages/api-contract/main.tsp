@@ -95,6 +95,58 @@ model BadRequestResponse {
   @body error: ApiError;
 }
 
+@pattern("^\\d{4}-\\d{2}-\\d{2}$")
+scalar CalendarDate extends string;
+
+model SleepData {
+  @pattern("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$") bedtime: string | null;
+  @pattern("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$") wakeTime: string | null;
+  @minValue(0) napDuration: int32 | null;
+  /** Computed from the previous day's bedtime, this day's wake time, and nap duration. Null when either time is absent. */
+  @minValue(0) duration: int32 | null;
+}
+
+model SleepDataInput {
+  @pattern("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$") bedtime?: string | null;
+  @pattern("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$") wakeTime?: string | null;
+  /** Zero is stored as null. */
+  @minValue(0) napDuration: int32 | null;
+}
+
+model HabitCheck {
+  key: string;
+  value: boolean;
+}
+
+model DailyEntry {
+  id: CalendarDate;
+  date: CalendarDate;
+  sleep: SleepData;
+  habits: HabitCheck[];
+}
+
+model SleepRecordsResponse {
+  @statusCode statusCode: 200;
+  @body entries: DailyEntry[];
+}
+
+model DailyEntryResponse {
+  @statusCode statusCode: 200;
+  @body entry: DailyEntry;
+}
+
+@route("/sleep-records")
+@useAuth(BearerAuth)
+interface SleepRecords {
+  /** Existing records for today and the previous four days in Moscow, newest first. */
+  @get getSleepRecords(): SleepRecordsResponse | UnauthorizedResponse | InternalErrorResponse;
+
+  @get @route("/{date}") getSleepRecord(@path date: CalendarDate): DailyEntryResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
+
+  /** Creates or replaces sleep data. Duration uses the previous day's bedtime and this day's wake time. */
+  @put @route("/{date}") putSleepRecord(@path date: CalendarDate, @body body: SleepDataInput): DailyEntryResponse | UnauthorizedResponse | InternalErrorResponse;
+}
+
 @route("/auth")
 interface Auth {
   @post @route("/register") register(@body body: RegisterRequest): RegisteredResponse | BadRequestResponse | InternalErrorResponse;

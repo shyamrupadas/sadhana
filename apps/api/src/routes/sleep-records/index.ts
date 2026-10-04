@@ -1,4 +1,5 @@
 import { FastifyPluginAsync } from 'fastify'
+import type { ApiHandlers } from '@sadhana/api-contract'
 import { SleepRecordsService } from '../../services/sleep-records.service'
 import { ApiShemas } from '../../schema'
 import { AppError } from '../../utils/errors'
@@ -6,6 +7,24 @@ import { authenticate } from '../../middleware/auth'
 
 const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   const sleepRecordsService = new SleepRecordsService(fastify)
+  const handlers: Pick<ApiHandlers, 'getSleepRecords' | 'getSleepRecord' | 'putSleepRecord'> = {
+    async getSleepRecords({ user }) {
+      return { status: 200, body: await sleepRecordsService.getAllSleepRecords(user.id) }
+    },
+    async getSleepRecord({ user, date }) {
+      const record = await sleepRecordsService.getSleepRecordByDate(user.id, date)
+      return record
+        ? { status: 200, body: record }
+        : { status: 404, body: { message: 'Sleep record not found', code: 'NOT_FOUND' } }
+    },
+    async putSleepRecord({ user, date, body }) {
+      return { status: 200, body: await sleepRecordsService.upsertSleepRecord(user.id, date, {
+        bedtime: body.bedtime ?? null,
+        wakeTime: body.wakeTime ?? null,
+        napDuration: body.napDuration,
+      }) }
+    },
+  }
 
   fastify.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {
@@ -27,7 +46,7 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
   })
 
   fastify.get<{
-    Reply: ApiShemas['DailyEntry'][]
+    Reply: ApiShemas['DailyEntry'][] | ApiShemas['Error']
   }>(
     '/',
     {
@@ -76,8 +95,8 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
       },
     },
     async (request, reply) => {
-      const records = await sleepRecordsService.getAllSleepRecords(request.user!.id)
-      return reply.send(records)
+      const result = await handlers.getSleepRecords({ user: request.user! })
+      return reply.code(result.status).send(result.body)
     }
   )
 
@@ -144,27 +163,15 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
       },
     },
     async (request, reply) => {
-      const record = await sleepRecordsService.getSleepRecordByDate(
-        request.user!.id,
-        request.params.date
-      )
-
-      if (!record) {
-        const error: ApiShemas['Error'] = {
-          message: 'Sleep record not found',
-          code: 'NOT_FOUND',
-        }
-        return reply.code(404).send(error)
-      }
-
-      return reply.send(record)
+      const result = await handlers.getSleepRecord({ user: request.user!, date: request.params.date })
+      return reply.code(result.status).send(result.body)
     }
   )
 
   fastify.put<{
     Params: { date: string }
     Body: ApiShemas['SleepDataInput']
-    Reply: ApiShemas['DailyEntry']
+    Reply: ApiShemas['DailyEntry'] | ApiShemas['Error']
   }>(
     '/:date',
     {
@@ -232,12 +239,8 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
       },
     },
     async (request, reply) => {
-      const record = await sleepRecordsService.upsertSleepRecord(
-        request.user!.id,
-        request.params.date,
-        request.body
-      )
-      return reply.send(record)
+      const result = await handlers.putSleepRecord({ user: request.user!, date: request.params.date, body: request.body })
+      return reply.code(result.status).send(result.body)
     }
   )
 

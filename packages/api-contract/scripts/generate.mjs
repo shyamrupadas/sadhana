@@ -54,7 +54,10 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
       onlyKeys(parameter, ['name', 'in', 'required', 'schema', 'explode'], `${operation.operationId}.parameter`)
       const cookie = parameter.in === 'cookie' && parameter.name === 'refreshToken' && parameter.required === false
       const pathParameter = parameter.in === 'path' && parameter.required === true && path.includes(`{${parameter.name}}`)
-      if ((!cookie && !pathParameter) || parameter.schema?.type !== 'string') fail(operation.operationId, 'parameter')
+      const parameterType = parameter.schema?.$ref
+        ? document.components.schemas[parameter.schema.$ref.slice('#/components/schemas/'.length)]?.type
+        : parameter.schema?.type
+      if ((!cookie && !pathParameter) || parameterType !== 'string') fail(operation.operationId, 'parameter')
       validateSchema(parameter.schema, `${operation.operationId}.parameter`)
     }
     const placeholders = [...path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1])

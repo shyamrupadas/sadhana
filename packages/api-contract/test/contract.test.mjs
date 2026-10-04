@@ -76,6 +76,41 @@ test('habit mutation client sends encoded keys, JSON bodies and accepts empty 20
   assert.equal(calls[2].init.body, undefined)
 })
 
+test('sleep records client sends list, date and optional sleep fields through the supplied transport', async () => {
+  const calls = []
+  const entry = { id: '2026-10-02', date: '2026-10-02', sleep: { bedtime: null, wakeTime: null, napDuration: null, duration: null }, habits: [] }
+  const client = new ApiClient({
+    fetch: async (input, init) => {
+      calls.push({ input, init })
+      return new Response(JSON.stringify(input === '/sleep-records' ? [entry] : entry), { status: 200 })
+    },
+  })
+  const controller = new AbortController()
+  assert.equal((await client.getSleepRecords({ signal: controller.signal }))[0].date, entry.date)
+  assert.equal((await client.getSleepRecord(entry.date)).id, entry.id)
+  assert.equal((await client.putSleepRecord(entry.date, { napDuration: 0 })).id, entry.id)
+  assert.deepEqual(calls.map(({ input, init }) => [input, init.method]), [
+    ['/sleep-records', 'GET'],
+    ['/sleep-records/2026-10-02', 'GET'],
+    ['/sleep-records/2026-10-02', 'PUT'],
+  ])
+  assert.equal(calls[0].init.signal, controller.signal)
+  assert.deepEqual(JSON.parse(calls[2].init.body), { napDuration: 0 })
+})
+
+test('sleep time fields keep nullable values and date-time patterns in the same OpenAPI schema', async () => {
+  const document = JSON.parse(await readFile(join(packageRoot, 'generated/openapi/openapi.json'), 'utf8'))
+  for (const name of ['SleepData', 'SleepDataInput']) {
+    const schema = document.components.schemas[name]
+    for (const field of ['bedtime', 'wakeTime']) {
+      assert.deepEqual(schema.properties[field], {
+        type: 'string', nullable: true, pattern: '^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$',
+      })
+    }
+  }
+  assert.deepEqual(document.components.schemas.SleepDataInput.required, ['napDuration'])
+})
+
 test('generator rejects unsupported schema constructs', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'sadhana-contract-'))
   try {

@@ -43,6 +43,18 @@ export class ApiClient {
     return this.request(`/habits/${encodeURIComponent(key)}`, { method: "PATCH", signal: options.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   }
 
+  getSleepRecord(date: string, options: { signal?: AbortSignal } = {}): Promise<Operations["SleepRecords_getSleepRecord"]['responses'][200]['content']['application/json']> {
+    return this.request(`/sleep-records/${encodeURIComponent(date)}`, { method: "GET", signal: options.signal })
+  }
+
+  getSleepRecords(options: { signal?: AbortSignal } = {}): Promise<Operations["SleepRecords_getSleepRecords"]['responses'][200]['content']['application/json']> {
+    return this.request("/sleep-records", { method: "GET", signal: options.signal })
+  }
+
+  putSleepRecord(date: string, body: Operations["SleepRecords_putSleepRecord"]['requestBody']['content']['application/json'], options: { signal?: AbortSignal } = {}): Promise<Operations["SleepRecords_putSleepRecord"]['responses'][200]['content']['application/json']> {
+    return this.request(`/sleep-records/${encodeURIComponent(date)}`, { method: "PUT", signal: options.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  }
+
   private async request<T>(path: string, init: RequestInit): Promise<T> {
     const response = await (this.options.fetch ?? fetch)(`${this.options.baseUrl ?? ''}${path}`, init)
     const raw = response.status === 204 ? '' : await response.text()

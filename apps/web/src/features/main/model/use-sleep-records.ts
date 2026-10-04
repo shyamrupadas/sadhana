@@ -1,5 +1,5 @@
-import { QueryClient, useQueryClient } from '@tanstack/react-query'
-import { rqClient } from '@/shared/api/instance'
+import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiClient, rqClient } from '@/shared/api/instance'
 import { ApiShemas } from '@/shared/api/schema'
 
 type OptimisticContext = {
@@ -114,16 +114,21 @@ const removeEntryHabit = (
 
 export const useSleepRecords = () => {
   const queryClient = useQueryClient()
-  const sleepRecordsQuery = rqClient.useQuery('get', '/sleep-records')
+  const sleepRecordsQuery = useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: ({ signal }) => apiClient.getSleepRecords({ signal }),
+  })
 
-  const updateSleep = rqClient.useMutation('put', '/sleep-records/{date}', {
-    onMutate: async ({ params, body }): Promise<OptimisticContext> => {
+  const updateSleep = useMutation({
+    mutationFn: ({ date, sleep }: { date: string; sleep: ApiShemas['SleepDataInput'] }) =>
+      apiClient.putSleepRecord(date, sleep),
+    onMutate: async ({ date, sleep }): Promise<OptimisticContext> => {
       const context = await createOptimisticContext(queryClient, QUERY_KEY)
 
       const updatedEntries = updateEntrySleep(
         context.previousEntries,
-        params.path.date,
-        body
+        date,
+        sleep
       )
 
       queryClient.setQueryData(QUERY_KEY, updatedEntries)
@@ -212,10 +217,7 @@ export const useSleepRecords = () => {
     },
     updateSleep: {
       mutate: ({ id, sleep }: { id: string; sleep: ApiShemas['SleepDataInput'] }) => {
-        updateSleep.mutate({
-          params: { path: { date: id } },
-          body: sleep,
-        })
+        updateSleep.mutate({ date: id, sleep })
       },
       isPending: updateSleep.isPending,
     },
