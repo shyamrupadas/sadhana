@@ -1,7 +1,11 @@
-import { rqClient } from '@/shared/api/instance'
+import { useQuery } from '@tanstack/react-query'
+import { apiClient, rqClient } from '@/shared/api/instance'
 
 export const useHabits = () => {
-  const habitsQuery = rqClient.useQuery('get', '/habits')
+  const habitsQuery = useQuery({
+    queryKey: ['get', '/habits'],
+    queryFn: ({ signal }) => apiClient.getHabits({ signal }),
+  })
 
   const addHabit = rqClient.useMutation('post', '/habits', {
     onSuccess: () => {

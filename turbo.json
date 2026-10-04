@@ -25,7 +25,7 @@
       "outputs": []
     },
     "test": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "build"],
       "outputs": [],
       "passThroughEnv": [
         "DATABASE_URL",

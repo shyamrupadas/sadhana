@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "build:ts": "tsc",
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx watch --include '../../packages/api-contract/dist/**/*.js' src/server.ts",
     "start": "pnpm build && node dist/server.js",
     "typecheck": "tsc --noEmit && tsc -p test/tsconfig.json",
     "lint": "eslint .",
@@ -14,6 +14,7 @@
     "migrate": "pnpm build && node dist/db/migrate.js"
   },
   "dependencies": {
+    "@sadhana/api-contract": "workspace:*",
     "@fastify/autoload": "^6.0.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",

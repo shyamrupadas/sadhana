@@ -1,4 +1,5 @@
 import { FastifyPluginAsync } from 'fastify'
+import type { ApiHandlers } from '@sadhana/api-contract'
 import { HabitsService } from '../../services/habits.service'
 import { ApiShemas } from '../../schema'
 import { AppError } from '../../utils/errors'
@@ -6,6 +7,11 @@ import { authenticate } from '../../middleware/auth'
 
 const habitsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   const habitsService = new HabitsService(fastify)
+  const handlers: Pick<ApiHandlers, 'getHabits'> = {
+    async getHabits({ user }) {
+      return { status: 200, body: await habitsService.getAllHabits(user.id) }
+    },
+  }
 
   fastify.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {
@@ -20,7 +26,7 @@ const habitsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
   })
 
   fastify.get<{
-    Reply: ApiShemas['HabitDefinition'][]
+    Reply: ApiShemas['HabitDefinition'][] | ApiShemas['Error']
   }>(
     '/',
     {
@@ -43,8 +49,8 @@ const habitsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
       },
     },
     async (request, reply) => {
-      const habits = await habitsService.getAllHabits(request.user!.id)
-      return reply.send(habits)
+      const result = await handlers.getHabits({ user: request.user! })
+      return reply.code(result.status).send(result.body)
     }
   )
 

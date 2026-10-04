@@ -1,0 +1,30 @@
+{
+  "name": "@sadhana/api-contract",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "scripts": {
+    "generate": "tsp compile . && openapi-typescript generated/openapi/openapi.json -o generated/openapi/types.ts && node scripts/generate.mjs",
+    "build": "pnpm generate && tsc -p tsconfig.json",
+    "dev": "node scripts/watch.mjs",
+    "lint": "node --check scripts/generate.mjs && node --check scripts/watch.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "@typespec/compiler": "1.16.0",
+    "@typespec/http": "1.16.0",
+    "@typespec/openapi": "1.16.0",
+    "@typespec/openapi3": "1.16.0",
+    "openapi-typescript": "7.10.1",
+    "typescript": "~5.9.2"
+  }
+}
