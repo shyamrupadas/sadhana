@@ -5,7 +5,7 @@
 ## Настройки действующего сервиса
 
 - Сохранить прежние проект, environment, сервис, домены, регион, одну реплику, переменные и порт `8080`. Источник Git при переключении: монорепозиторий, ветка `master`, корневая директория `/`.
-- Корневой `Dockerfile` запускает `node dist/server.js`. `railway.json` задаёт Docker builder, watch patterns для API и общих входов, healthcheck `/` и Pre-Deploy `node dist/db/migrate.js`. Сборка образа и запуск API не применяют SQL.
+- Корневой `Dockerfile` запускает `node dist/server.js` от непривилегированного пользователя `node`. Команда Pre-Deploy запускается из того же образа. `railway.json` задаёт Docker builder, watch patterns для API и общих входов, healthcheck `/` и Pre-Deploy `node dist/db/migrate.js`. Сборка образа и запуск API не применяют SQL.
 - В настройках GitHub-подключения включить **Wait for CI**. Эту настройку Railway хранит в сервисе, а не в `railway.json`; обязательный workflow `CI` запускается на каждом push в `master` без path-фильтра.
 - Перед включением Pre-Deploy убедиться, что отдельная переменная `MIGRATION_DATABASE_URL` указывает на **direct** Neon URL той же production-ветки, что и сохранённый pooled `DATABASE_URL`. Проверить репетицию и начальное заполнение журнала по тикету 12; иначе мигратор остановит выпуск.
 - Для коммита, опубликованного до смены Git-источника, запустить **Deploy Latest Commit** и сверить SHA. Затем проверить лог Pre-Deploy, healthcheck и `GET /` по прежнему API-домену.

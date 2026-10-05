@@ -1,60 +1,12 @@
 import { FastifyPluginAsync } from 'fastify'
-import type { ApiHandlers } from '@sadhana/api-contract'
-import { AuthService } from '../../services/auth.service'
 import type { ApiSchemas } from '@sadhana/api-contract'
 import { AppError } from '../../utils/errors'
 
 const isHttpsRequest = (request: { headers: Record<string, unknown> }) =>
   String(request.headers['x-forwarded-proto'] ?? '') === 'https'
 
-const buildRefreshCookieOptions = (isHttps: boolean) => {
-  // NOTE: Behind a proxy (Railway), HTTPS is usually indicated via x-forwarded-proto.
-  const sameSite: 'none' | 'lax' = isHttps ? 'none' : 'lax'
-  const secure = isHttps
-
-  return {
-    httpOnly: true,
-    secure,
-    sameSite,
-    path: '/',
-    maxAge: 7 * 24 * 60 * 60,
-  } as const
-}
-
 const authRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
-  const authService = new AuthService(fastify)
-  const handlers: Pick<ApiHandlers, 'register' | 'login' | 'refresh'> = {
-    async register({ body, isHttps }) {
-      const result = await authService.register(body.email, body.password)
-      const token = await authService.generateRefreshTokenForUser(result.user.id)
-      return {
-        status: 201,
-        body: result,
-        headers: { 'Set-Cookie': fastify.serializeCookie('refreshToken', token, buildRefreshCookieOptions(isHttps)) },
-      }
-    },
-    async login({ body, isHttps }) {
-      const result = await authService.login(body.email, body.password)
-      const token = await authService.generateRefreshTokenForUser(result.user.id)
-      return {
-        status: 200,
-        body: result,
-        headers: { 'Set-Cookie': fastify.serializeCookie('refreshToken', token, buildRefreshCookieOptions(isHttps)) },
-      }
-    },
-    async refresh({ refreshToken, isHttps }) {
-      if (!refreshToken) {
-        return { status: 401, body: { message: 'Refresh token not found', code: 'UNAUTHORIZED' } }
-      }
-      const result = await authService.refreshAccessToken(refreshToken)
-      const token = await authService.generateRefreshTokenForUser(result.user.id)
-      return {
-        status: 200,
-        body: result,
-        headers: { 'Set-Cookie': fastify.serializeCookie('refreshToken', token, buildRefreshCookieOptions(isHttps)) },
-      }
-    },
-  }
+  const handlers = fastify.apiHandlers
 
   fastify.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {

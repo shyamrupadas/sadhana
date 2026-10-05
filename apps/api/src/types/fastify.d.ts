@@ -2,6 +2,7 @@ import 'fastify'
 import { PostgresDb } from '@fastify/postgres'
 import '@fastify/jwt'
 import '@fastify/cookie'
+import type { ApiHandlers } from '@sadhana/api-contract'
 
 export interface JwtAccessPayload {
   userId: string
@@ -17,6 +18,7 @@ export interface JwtRefreshPayload {
 
 declare module 'fastify' {
   interface FastifyInstance {
+    apiHandlers: ApiHandlers
     pg: PostgresDb
     config: {
       DATABASE_URL: string

@@ -1,39 +1,10 @@
 import { FastifyPluginAsync } from 'fastify'
-import type { ApiHandlers } from '@sadhana/api-contract'
-import { SleepRecordsService } from '../../services/sleep-records.service'
 import type { ApiSchemas } from '@sadhana/api-contract'
 import { AppError } from '../../utils/errors'
 import { authenticate } from '../../middleware/auth'
 
 const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
-  const sleepRecordsService = new SleepRecordsService(fastify)
-  const handlers: Pick<ApiHandlers, 'getSleepRecords' | 'getSleepRecord' | 'putSleepRecord' | 'setDailyHabitMark' | 'removeDailyHabitMark' | 'checkYesterday'> = {
-    async getSleepRecords({ user }) {
-      return { status: 200, body: await sleepRecordsService.getAllSleepRecords(user.id) }
-    },
-    async getSleepRecord({ user, date }) {
-      const record = await sleepRecordsService.getSleepRecordByDate(user.id, date)
-      return record
-        ? { status: 200, body: record }
-        : { status: 404, body: { message: 'Sleep record not found', code: 'NOT_FOUND' } }
-    },
-    async putSleepRecord({ user, date, body }) {
-      return { status: 200, body: await sleepRecordsService.upsertSleepRecord(user.id, date, {
-        bedtime: body.bedtime ?? null,
-        wakeTime: body.wakeTime ?? null,
-        napDuration: body.napDuration,
-      }) }
-    },
-    async setDailyHabitMark({ user, date, habitKey, body }) {
-      return { status: 200, body: await sleepRecordsService.updateHabitValue(user.id, date, habitKey, body.value) }
-    },
-    async removeDailyHabitMark({ user, date, habitKey }) {
-      return { status: 200, body: await sleepRecordsService.removeHabitFromDay(user.id, date, habitKey) }
-    },
-    async checkYesterday({ user }) {
-      return { status: 200, body: { hasData: await sleepRecordsService.checkYesterdayData(user.id) } }
-    },
-  }
+  const handlers = fastify.apiHandlers
 
   fastify.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {

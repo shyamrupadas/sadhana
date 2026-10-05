@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 import AutoLoad, { AutoloadPluginOptions } from '@fastify/autoload'
 import { FastifyPluginAsync, FastifyServerOptions } from 'fastify'
+import { createApiHandlers } from './api-handlers'
 
 export interface AppOptions
   extends FastifyServerOptions, Partial<AutoloadPluginOptions> {}
@@ -21,6 +22,8 @@ const app: FastifyPluginAsync<AppOptions> = async (fastify, opts): Promise<void>
     dir: join(__dirname, 'plugins'),
     options: opts,
   })
+
+  fastify.decorate('apiHandlers', createApiHandlers(fastify))
 
   // This loads all plugins defined in routes
   // define your routes in one of these

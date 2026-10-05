@@ -4,6 +4,7 @@ import Fastify, { FastifyInstance } from 'fastify'
 import fastifyJwt from '@fastify/jwt'
 import { ApiClient } from '@sadhana/api-contract'
 import sleepStatsRoutes from '../../src/routes/sleep-stats'
+import { createApiHandlers } from '../../src/api-handlers'
 
 type Row = {
   id: string
@@ -37,6 +38,7 @@ async function makeApp(rows: Row[]) {
     }),
   } as unknown as FastifyInstance['pg'])
   await app.register(fastifyJwt, { secret: 'test-secret' })
+  app.decorate('apiHandlers', createApiHandlers(app))
   await app.register(sleepStatsRoutes, { prefix: '/sleep-stats' })
   await app.ready()
   const auth = (userId: string) => ({ authorization: `Bearer ${app.jwt.sign({ userId, email: `${userId}@example.test`, type: 'access' })}` })

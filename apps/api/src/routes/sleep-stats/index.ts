@@ -1,17 +1,10 @@
 import { FastifyPluginAsync } from 'fastify'
-import type { ApiHandlers } from '@sadhana/api-contract'
-import { SleepStatsService } from '../../services/sleep-stats.service'
 import type { ApiSchemas } from '@sadhana/api-contract'
 import { AppError } from '../../utils/errors'
 import { authenticate } from '../../middleware/auth'
 
 const sleepStatsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
-  const sleepStatsService = new SleepStatsService(fastify)
-  const handlers: Pick<ApiHandlers, 'getSleepStats'> = {
-    async getSleepStats({ user }) {
-      return { status: 200, body: await sleepStatsService.getSleepStats(user.id) }
-    },
-  }
+  const handlers = fastify.apiHandlers
 
   fastify.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {

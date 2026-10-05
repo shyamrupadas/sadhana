@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import Fastify, { FastifyInstance } from 'fastify'
 import fastifyJwt from '@fastify/jwt'
 import habitsRoutes from '../../src/routes/habits'
+import { createApiHandlers } from '../../src/api-handlers'
 
 test('GET /habits returns only the authenticated user\'s habits and rejects missing bearer', async (t) => {
   const app = Fastify()
@@ -18,6 +19,7 @@ test('GET /habits returns only the authenticated user\'s habits and rejects miss
     }),
   } as unknown as FastifyInstance['pg'])
   await app.register(fastifyJwt, { secret: 'test-secret' })
+  app.decorate('apiHandlers', createApiHandlers(app))
   await app.register(habitsRoutes, { prefix: '/habits' })
   await app.ready()
 
@@ -62,6 +64,7 @@ test('habit mutations preserve status, ownership, duplicate-key and error behavi
     }),
   } as unknown as FastifyInstance['pg'])
   await app.register(fastifyJwt, { secret: 'test-secret' })
+  app.decorate('apiHandlers', createApiHandlers(app))
   await app.register(habitsRoutes, { prefix: '/habits' })
   await app.ready()
 

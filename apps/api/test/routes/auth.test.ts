@@ -4,6 +4,7 @@ import Fastify, { FastifyInstance } from 'fastify'
 import cookiePlugin from '../../src/plugins/cookie'
 import jwtPlugin from '../../src/plugins/jwt'
 import authRoutes from '../../src/routes/auth'
+import { createApiHandlers } from '../../src/api-handlers'
 
 test('auth HTTP endpoints issue and rotate HttpOnly refresh cookies without exposing refresh tokens in JSON', async (t) => {
   const app = Fastify()
@@ -35,6 +36,7 @@ test('auth HTTP endpoints issue and rotate HttpOnly refresh cookies without expo
   } as unknown as FastifyInstance['pg'])
   await app.register(cookiePlugin)
   await app.register(jwtPlugin)
+  app.decorate('apiHandlers', createApiHandlers(app))
   await app.register(authRoutes, { prefix: '/auth' })
   await app.ready()
 

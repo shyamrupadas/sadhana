@@ -19,5 +19,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /production/api ./
 
+USER node
+
 EXPOSE 8080
 CMD ["node", "dist/server.js"]

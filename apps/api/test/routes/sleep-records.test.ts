@@ -7,6 +7,7 @@ import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
 import { ApiClient, ApiClientError } from '@sadhana/api-contract'
 import sleepRecordsRoutes from '../../src/routes/sleep-records'
+import { createApiHandlers } from '../../src/api-handlers'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -60,6 +61,7 @@ async function makeApp(rows: Row[]) {
     }),
   } as unknown as FastifyInstance['pg'])
   await app.register(fastifyJwt, { secret: 'test-secret' })
+  app.decorate('apiHandlers', createApiHandlers(app))
   await app.register(sleepRecordsRoutes, { prefix: '/sleep-records' })
   await app.ready()
   const auth = (userId: string) => ({ authorization: `Bearer ${app.jwt.sign({ userId, email: `${userId}@example.test`, type: 'access' })}` })

@@ -1,27 +1,10 @@
 import { FastifyPluginAsync } from 'fastify'
-import type { ApiHandlers } from '@sadhana/api-contract'
-import { HabitsService } from '../../services/habits.service'
 import type { ApiSchemas } from '@sadhana/api-contract'
 import { AppError } from '../../utils/errors'
 import { authenticate } from '../../middleware/auth'
 
 const habitsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
-  const habitsService = new HabitsService(fastify)
-  const handlers: Pick<ApiHandlers, 'getHabits' | 'createHabit' | 'updateHabit' | 'deleteHabit'> = {
-    async getHabits({ user }) {
-      return { status: 200, body: await habitsService.getAllHabits(user.id) }
-    },
-    async createHabit({ user, body }) {
-      return { status: 201, body: await habitsService.createHabit(user.id, body.label) }
-    },
-    async updateHabit({ user, key, body }) {
-      return { status: 200, body: await habitsService.updateHabit(user.id, key, body.label) }
-    },
-    async deleteHabit({ user, key }) {
-      await habitsService.deleteHabit(user.id, key)
-      return { status: 204 }
-    },
-  }
+  const handlers = fastify.apiHandlers
 
   fastify.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {

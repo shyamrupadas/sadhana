@@ -84,10 +84,11 @@ jobs:
         if: steps.changes.outputs.api_changed == 'true'
         run: docker build --tag sadhana-api:ci .
 
-      - name: Check image contents and migration command
+      - name: Check non-root image contents and migration command
         if: steps.changes.outputs.api_changed == 'true'
         run: |
           docker run --rm --entrypoint sh sadhana-api:ci -ec '
+            test "$(id -u)" -ne 0
             test -s dist/server.js
             test -s dist/db/migrate.js
             test -s node_modules/@sadhana/api-contract/dist/src/index.js
