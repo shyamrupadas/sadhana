@@ -51,7 +51,7 @@ jobs:
         run: pnpm --filter @sadhana/web lint
 
       - name: Typecheck web
-        run: pnpm --filter @sadhana/web typecheck
+        run: pnpm exec turbo run typecheck --filter=@sadhana/web
 
       - name: Build web
         run: pnpm build:web
