@@ -64,17 +64,27 @@ jobs:
           grep -Fq -- "$api_url" apps/web/dist/assets/*.js
 
       - name: Require successful CI for this commit
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/master'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          conclusion="$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs" \
-            --jq '[.check_runs[] | select(.name == "workspace-and-image")] | sort_by(.started_at) | last | .conclusion')"
-          test "$conclusion" = success
+          for attempt in $(seq 1 90); do
+            conclusion="$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs" \
+              --jq '[.check_runs[] | select(.name == "workspace-and-image")] | sort_by(.started_at) | last | .conclusion // "pending"')"
+            case "$conclusion" in
+              success) exit 0 ;;
+              failure|cancelled|timed_out|action_required|skipped|neutral)
+                echo "CI finished with conclusion: $conclusion" >&2
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo 'CI did not finish within 15 minutes' >&2
+          exit 1
 
-      # Ticket 13 enables automatic publication after the web/old-API gate.
       - name: Deploy to VPS
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/master'
         env:
           SERVER_IP: ${{ vars.SERVER_IP }}
           SERVER_USER: ${{ vars.SERVER_USER }}
@@ -100,7 +110,7 @@ jobs:
             apps/web/dist/ "$SERVER_USER@$SERVER_IP:/var/www/sadhana-app/html/"
 
       - name: Smoke check web and API
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/master'
         run: |
           api_url="$(sed -n 's/^VITE_API_BASE_URL=//p' apps/web/.env.production)"
           curl --fail --silent --show-error --retry 4 --retry-delay 5 --max-time 30 https://app.sadhana-tracker.com/ > /dev/null
