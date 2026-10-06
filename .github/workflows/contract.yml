@@ -38,7 +38,7 @@ jobs:
             echo 'api_changed=true' >> "$GITHUB_OUTPUT"
           elif git diff --name-only "$range" -- \
             apps/api packages/api-contract package.json pnpm-lock.yaml \
-            pnpm-workspace.yaml turbo.json Dockerfile .dockerignore railway.json \
+            pnpm-workspace.yaml turbo.json Dockerfile .dockerignore \
             .github/workflows/contract.yml | grep -q .; then
             echo 'api_changed=true' >> "$GITHUB_OUTPUT"
           else

@@ -1,6 +1,7 @@
 # Монорепозиторий Sadhana с общим API-контрактом
 
-Status: ready-for-agent
+Status: awaiting-human-review
+Accepted: 2026-10-06
 
 ## Problem Statement
 
