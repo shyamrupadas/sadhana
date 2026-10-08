@@ -11,7 +11,7 @@ const advisoryLockKey = 734821607
 const historicalIds = ['001', '002', '003', '004', '005', '006']
 const baselineConfirmation = 'reviewed-current-schema-and-sleep-data-001-006'
 
-function loadMigrations(dir: string): Migration[] {
+export function loadMigrations(dir: string): Migration[] {
   const files = readdirSync(dir).filter((file) => file.endsWith('.sql')).sort()
   if (files.length === 0) throw new Error('No SQL migrations found')
 
@@ -29,6 +29,22 @@ function loadMigrations(dir: string): Migration[] {
       checksum: createHash('sha256').update(bytes).digest('hex'),
     }
   })
+}
+
+export function getPendingMigrations(
+  migrations: readonly Migration[],
+  recorded: readonly { id: string; checksum: string }[],
+): Migration[] {
+  for (const [index, row] of recorded.entries()) {
+    const migration = migrations[index]
+    if (!migration || row.id !== migration.id) {
+      throw new Error(`Unknown or out-of-sequence migration in journal: ${row.id}`)
+    }
+    if (row.checksum.trim() !== migration.checksum) {
+      throw new Error(`Migration checksum changed: ${row.id}`)
+    }
+  }
+  return migrations.slice(recorded.length)
 }
 
 function validateDirectUrl(connectionString: string): void {
@@ -100,15 +116,7 @@ export async function runMigrations(options: {
       'SELECT id, checksum FROM schema_migrations ORDER BY id',
     )
 
-    for (const [index, row] of recorded.rows.entries()) {
-      const migration = migrations[index]
-      if (!migration || row.id !== migration.id) {
-        throw new Error(`Unknown or out-of-sequence migration in journal: ${row.id}`)
-      }
-      if (row.checksum.trim() !== migration.checksum) {
-        throw new Error(`Migration checksum changed: ${row.id}`)
-      }
-    }
+    const pending = getPendingMigrations(migrations, recorded.rows)
 
     if (mode === 'baseline-confirmed-001-006') {
       if (recorded.rows.length !== 0) throw new Error('Baseline requires an empty migration journal')
@@ -158,7 +166,7 @@ export async function runMigrations(options: {
       return
     }
 
-    for (const migration of migrations.slice(recorded.rows.length)) {
+    for (const migration of pending) {
       await inTransaction(client, async () => {
         await client.query(migration.sql)
         await client.query(

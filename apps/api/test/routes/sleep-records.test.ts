@@ -113,6 +113,8 @@ test('daily habit marks create a day, accept unknown keys, change values and rem
 })
 
 test('generated client can change and remove marks through the existing HTTP routes', async (t) => {
+  const date = dayjs().tz('Europe/Moscow').format('YYYY-MM-DD')
+  const missingDate = dayjs(date).add(1, 'day').format('YYYY-MM-DD')
   const { app, auth } = await makeApp([])
   t.after(() => app.close())
   const client = new ApiClient({ fetch: async (input, init) => {
@@ -126,12 +128,12 @@ test('generated client can change and remove marks through the existing HTTP rou
     return new Response(response.body, { status: response.statusCode })
   } })
 
-  const created = await client.setDailyHabitMark('2026-10-02', 'unknown', { value: true })
+  const created = await client.setDailyHabitMark(date, 'unknown', { value: true })
   assert.deepEqual(created.habits, [{ key: 'unknown', value: true }])
-  assert.deepEqual((await client.getSleepRecords()).map((entry) => entry.date), ['2026-10-02'])
-  assert.deepEqual((await client.setDailyHabitMark('2026-10-02', 'unknown', { value: false })).habits, [{ key: 'unknown', value: false }])
-  assert.deepEqual((await client.removeDailyHabitMark('2026-10-02', 'unknown')).habits, [])
-  await assert.rejects(client.removeDailyHabitMark('2026-10-03', 'unknown'), (error) => {
+  assert.deepEqual((await client.getSleepRecords()).map((entry) => entry.date), [date])
+  assert.deepEqual((await client.setDailyHabitMark(date, 'unknown', { value: false })).habits, [{ key: 'unknown', value: false }])
+  assert.deepEqual((await client.removeDailyHabitMark(date, 'unknown')).habits, [])
+  await assert.rejects(client.removeDailyHabitMark(missingDate, 'unknown'), (error) => {
     assert.ok(error instanceof ApiClientError)
     assert.equal(error.status, 404)
     return true
