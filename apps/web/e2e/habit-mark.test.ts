@@ -16,14 +16,15 @@ test('создаёт привычку и сохраняет полный цик�
 
   await page.route('**/test-api/**', async (route) => {
     const request = route.request()
-    const { pathname } = new URL(request.url())
+    const { pathname, search } = new URL(request.url())
+    const path = `${pathname}${search}`
     const method = request.method()
 
-    if (method === 'GET' && pathname === '/test-api/habits') {
+    if (method === 'GET' && path === '/test-api/habits') {
       await route.fulfill(respond(habits))
       return
     }
-    if (method === 'POST' && pathname === '/test-api/habits') {
+    if (method === 'POST' && path === '/test-api/habits') {
       const body = request.postDataJSON() as ApiSchemas['HabitInput']
       if (body.label !== 'Чтение') throw new Error(`Неожиданная привычка: ${body.label}`)
       const habit = {
@@ -35,13 +36,13 @@ test('создаёт привычку и сохраняет полный цик�
       await route.fulfill(respond(habit, 201))
       return
     }
-    if (method === 'GET' && pathname === '/test-api/sleep-records') {
+    if (method === 'GET' && path === '/test-api/sleep-records') {
       await route.fulfill(respond(entries))
       return
     }
 
     const markPath = /^\/test-api\/sleep-records\/(\d{4}-\d{2}-\d{2})\/habits\/reading$/
-    const match = pathname.match(markPath)
+    const match = path.match(markPath)
     if (match && (method === 'PATCH' || method === 'DELETE')) {
       const date = match[1]
       let entry = entries.find((item) => item.id === date)
@@ -66,9 +67,9 @@ test('создаёт привычку и сохраняет полный цик�
       return
     }
 
-    unexpected.push(`${method} ${pathname}`)
+    unexpected.push(`${method} ${path}`)
     await route.fulfill(
-      respond({ code: 'UNEXPECTED_REQUEST', message: `${method} ${pathname}` }, 501)
+      respond({ code: 'UNEXPECTED_REQUEST', message: `${method} ${path}` }, 501)
     )
   })
 
@@ -79,6 +80,7 @@ test('создаёт привычку и сохраняет полный цик�
   const row = page.getByRole('row', { name: /Чтение/ })
   await expect(row).toBeVisible()
   await page.getByRole('button', { name: 'Выйти из режима редактирования' }).click()
+  const dayCell = row.getByRole('cell').last()
 
   for (const [before, after] of [
     ['Не отмечено', 'Выполнено'],
@@ -86,23 +88,20 @@ test('создаёт привычку и сохраняет полный цик�
     ['Не выполнено', 'Не отмечено'],
   ] as const) {
     const method = after === 'Не отмечено' ? 'DELETE' : 'PATCH'
-    const saved = page.waitForResponse(
-      (response) =>
+    const saved = page.waitForResponse((response) => {
+      const { pathname, search } = new URL(response.url())
+      return (
         response.request().method() === method &&
         /^\/test-api\/sleep-records\/\d{4}-\d{2}-\d{2}\/habits\/reading$/.test(
-          new URL(response.url()).pathname
+          `${pathname}${search}`
         )
-    )
-    await row.getByRole('button', { name: before }).last().click()
-    await expect(row.getByRole('button', { name: after }).last()).toBeVisible()
+      )
+    })
+    await dayCell.getByRole('button', { name: before, exact: true }).click()
+    await expect(dayCell.getByRole('button', { name: after, exact: true })).toBeVisible()
     expect((await saved).ok()).toBe(true)
     await page.reload()
-    await expect(
-      page
-        .getByRole('row', { name: /Чтение/ })
-        .getByRole('button', { name: after })
-        .last()
-    ).toBeVisible()
+    await expect(dayCell.getByRole('button', { name: after, exact: true })).toBeVisible()
   }
 
   expect(unexpected).toEqual([])

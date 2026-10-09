@@ -35,7 +35,7 @@ export function mockApi(handler: MockApiHandler) {
       const response = await handler({
         body,
         method: init?.method ?? 'GET',
-        path: url.pathname,
+        path: url.pathname + url.search,
       })
       const headers = new Headers()
       let responseBody: BodyInit | null = null
