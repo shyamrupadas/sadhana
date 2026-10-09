@@ -14,6 +14,8 @@ dist-ssr
 dist/
 coverage/
 build/
+apps/web/test-results/
+apps/web/playwright-report/
 .env
 .env.local
 *.log

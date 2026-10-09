@@ -9,16 +9,19 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "lint": "eslint .",
+    "test": "vitest run && playwright test",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@sadhana/api-contract": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-popover": "^1.1.11",
     "@radix-ui/react-scroll-area": "^1.2.6",
     "@radix-ui/react-slot": "^1.2.4",
+    "@sadhana/api-contract": "workspace:*",
     "@tailwindcss/vite": "^4.1.5",
     "@tanstack/react-query": "^5.90.11",
     "class-variance-authority": "^0.7.1",
@@ -38,6 +41,10 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
+    "@playwright/test": "^1.63.0",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^22.15.3",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
@@ -51,6 +58,7 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
     "jose": "^6.1.3",
+    "jsdom": "^30.1.2",
     "msw": "^2.12.4",
     "openapi-msw": "^2.0.0",
     "prettier": "^3.5.3",
@@ -59,7 +67,8 @@
     "typescript-eslint": "^8.26.1",
     "vite": "^6.3.1",
     "vite-plugin-pwa": "^1.0.0",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.2.7"
   },
   "msw": {
     "workerDirectory": [

@@ -73,8 +73,11 @@ jobs:
       - name: Build workspace
         run: pnpm build
 
-      - name: Test workspace
-        run: pnpm test
+      - name: Test API, contract, and fast web UI
+        run: |
+          pnpm --filter @sadhana/api test
+          pnpm --filter @sadhana/api-contract test
+          pnpm --filter @sadhana/web test:unit
         env:
           DATABASE_URL: postgres://fixture:fixture@db.invalid/app
           JWT_SECRET: ci-test-access-secret
