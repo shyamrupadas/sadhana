@@ -22,7 +22,6 @@ For changes:
 - do a quick manual pass in `pnpm dev:web` for affected web flows.
 
 ## Commit & Pull Request Guidelines
-- Do not change the git index (`git add`, `git restore --staged`) or commit unless explicitly asked.
 - PRs should include: a concise description, relevant issue link (if any), and screenshots for UI changes. Note any API contract updates and whether `pnpm --filter @sadhana/api-contract generate` was run.
 
 ## Configuration & PWA Notes

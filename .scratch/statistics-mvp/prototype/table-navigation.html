@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Прототип статистики — навигация по истории</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 1rem; background: #f6f7f8; color: #20272d; font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 64rem; margin: auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 .5rem; } h2 { font-size: 1rem; margin: 0 0 .75rem; }
+  p { margin: .5rem 0; } .muted, small { color: #68727c; } small { display: block; font-size: .7rem; }
+  .layout { display: grid; grid-template-columns: minmax(0, 28rem) minmax(0, 1fr); gap: 1.5rem; margin-top: 1.5rem; }
+  .card { padding: 1rem; background: white; border: 1px solid #dce1e5; border-radius: .5rem; min-width: 0; }
+  button, input { font: inherit; } button { cursor: pointer; border: 1px solid #d0d7dc; border-radius: .375rem; background: white; color: inherit; padding: .375rem .625rem; }
+  button:disabled { opacity: .4; cursor: default; } .scales button[aria-pressed="true"], button[aria-selected="true"] { background: #e2f1eb; border-color: #3a7862; color: #245743; }
+  button:focus-visible, input:focus-visible { outline: 2px solid #245743; outline-offset: 2px; }
+  .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; } .scales { display: grid; grid-template-columns: repeat(4, 1fr); gap: .25rem; }
+  #table-wrap { margin-top: .75rem; }
+  table { width: 100%; table-layout: fixed; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: .7rem; }
+  th, td { border: 1px solid #dce1e5; text-align: center; padding: .5rem .125rem; }
+  th:first-child { width: 5.5rem; text-align: left; padding-left: .375rem; font-weight: 500; overflow-wrap: anywhere; }
+  thead th { background: #f3f5f6; font-weight: 400; } thead button { width: 100%; border: 0; padding: .125rem 0; border-radius: .125rem; font-size: inherit; background: transparent; }
+  .separator td { height: .5rem; padding: 0; background: #f3f5f6; }
+  .mark { display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; border-radius: .25rem; font-size: .875rem; }
+  .yes { background: #caf1d1; } .no { background: #f6cccb; } .unknown { background: #e6e9ec; } .inactive { color: #9aa2aa; }
+  dl { display: grid; grid-template-columns: 8rem 1fr; gap: .5rem; margin: 0; font-size: .875rem; } dt { color: #68727c; } dd { margin: 0; }
+  .legend { font-size: .75rem; margin-top: .75rem; } input { min-width: 0; padding: .25rem; max-width: 100%; }
+  .controls { margin-top: 1rem; } .walk { margin-top: 1.5rem; } #scenario-tabs { gap: .375rem; } #steps { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+  #table-wrap.scrollable { overflow-x: auto; touch-action: auto; overscroll-behavior-x: contain; }
+  .scrollable table { border-collapse: separate; border-spacing: 0; user-select: none; }
+  .scrollable th, .scrollable td { border-width: 0 1px 1px 0; }
+  .scrollable th:first-child { position: sticky; left: 0; z-index: 2; background: white; box-shadow: 1px 0 #dce1e5; }
+  .scrollable thead th:first-child { background: #f3f5f6; }
+  .scrollable td { white-space: nowrap; }
+  .scrollable.dragging { cursor: grabbing; }
+  @media (max-width: 48rem) { .layout { grid-template-columns: minmax(0, 1fr); } .phone { max-width: 28rem; width: 100%; margin: auto; } }
+  @media (max-width: 26rem) { body { padding: .5rem; } .phone { padding: .5rem; } table { font-size: .625rem; } }
+</style>
+<main>
+  <h1>Статистика: макет навигации</h1>
+  <p>Черновой прототип с непрерывной горизонтальной прокруткой истории. Выбранная дата сохраняется при переключении дней, недель, месяцев и лет.</p>
+  <p class="muted">Все данные вымышлены. «Сегодня» в примере — 9 октября 2026. Начало истории — 1 мая 2025. Июль 2026 специально оставлен без записей. Изменения существуют только до закрытия файла.</p>
+  <div class="layout">
+    <section class="card phone" aria-label="Макет страницы статистики">
+      <h2>Статистика</h2>
+      <div class="scales" id="scales" aria-label="Масштаб времени"></div>
+      <div id="table-wrap" class="scrollable" tabindex="0" role="region" aria-label="История сна и привычек"><table id="table"></table></div>
+      <p class="legend">Прокручивайте таблицу влево и вправо пальцем, трекпадом или полосой прокрутки. Мышью можно тянуть таблицу; Shift + колесо тоже прокручивает горизонтально. Названия строк закреплены. Заголовок колонки выбирает дату для смены масштаба.</p>
+      <p class="legend"><span class="mark yes">✓</span> выполнено · <span class="mark no">×</span> не выполнено · <span class="mark unknown">·</span> не отмечено · н/а — вне срока активности</p>
+      <p class="legend">В неделях, месяцах и годах — средние сна и проценты привычек. Процент среди отмеченных — временное правило.</p>
+      <button id="today">К сегодня</button>
+    </section>
+    <aside class="card">
+      <h2>Текущее положение в истории</h2>
+      <dl id="state" aria-live="polite"></dl>
+      <div class="controls">
+        <label>Дата для перехода <input id="date" type="date" min="2025-05-01" max="2026-10-09" value="2026-10-09"></label>
+        <button id="jump">Перейти</button>
+      </div>
+      <p class="muted" id="last-action"></p>
+      <p class="muted">Предложение для MVP: только просмотр. Редактирование здесь пока не реализовано. Архивная привычка видна, если её срок активности пересекает показанный диапазон.</p>
+    </aside>
+  </div>
+  <section class="card walk">
+    <h2>Сценарии для обсуждения</h2>
+    <div class="row" id="scenario-tabs" role="tablist" aria-label="Сценарии"></div>
+    <p id="scenario-description"></p><div id="steps"></div>
+  </section>
+</main>
+<script>
+// Чистая модель навигации и вымышленных данных: не обращается к DOM или API.
+const Model = (() => {
+  const today = '2026-10-09', earliest = '2025-05-01';
+  const names = { day: 'Дни', week: 'Недели', month: 'Месяцы', year: 'Годы' };
+  const parse = d => new Date(d + 'T12:00:00Z');
+  const iso = d => d.toISOString().slice(0, 10);
+  const addDays = (d, n) => { const x = parse(d); x.setUTCDate(x.getUTCDate() + n); return iso(x); };
+  const clamp = d => d < earliest ? earliest : d > today ? today : d;
+  const start = (d, scale) => {
+    const x = parse(d);
+    if (scale === 'week') x.setUTCDate(x.getUTCDate() - (x.getUTCDay() + 6) % 7);
+    if (scale === 'month') x.setUTCDate(1);
+    if (scale === 'year') { x.setUTCDate(1); x.setUTCMonth(0); }
+    return iso(x);
+  };
+  const shift = (d, scale, n) => {
+    const x = parse(start(d, scale));
+    if (scale === 'day' || scale === 'week') x.setUTCDate(x.getUTCDate() + n * (scale === 'week' ? 7 : 1));
+    if (scale === 'month') x.setUTCMonth(x.getUTCMonth() + n);
+    if (scale === 'year') x.setUTCFullYear(x.getUTCFullYear() + n);
+    return iso(x);
+  };
+  const end = (d, scale) => addDays(shift(d, scale, 1), -1);
+  const history = scale => {
+    const periods = [];
+    for (let d = start(earliest, scale); d <= today; d = shift(d, scale, 1)) {
+      const last = end(d, scale);
+      periods.push({ start: d, end: last, through: last > today ? today : last });
+    }
+    return periods;
+  };
+  const initial = () => ({ scale: 'day', anchor: today });
+  const reduce = (s, a) => {
+    if (a.type === 'scale') return { ...s, scale: a.value };
+    if (a.type === 'date') return { ...s, anchor: clamp(a.value) };
+    if (a.type === 'select') return { ...s, anchor: clamp(a.value) };
+    if (a.type === 'today') return { ...s, anchor: today };
+    return s;
+  };
+  const days = (from, to) => { const xs = []; for (let d = from; d <= to; d = addDays(d, 1)) xs.push(d); return xs; };
+  const seed = d => Math.round((parse(d) - parse(earliest)) / 86400000);
+  const record = d => {
+    if (d < earliest || d > today || d.startsWith('2026-07') || seed(d) % 11 === 0) return null;
+    const n = seed(d);
+    return { bed: n % 9 === 0 ? null : (23 * 60 + n % 6 * 15) % 1440, wake: n % 13 === 0 ? null : 7 * 60 + n % 5 * 15, nap: n % 8 === 0 ? 30 : 0 };
+  };
+  const habits = [
+    { name: 'Чтение', from: earliest, to: today },
+    { name: 'Йога', from: '2026-09-15', to: today },
+    { name: 'Прогулка', from: '2025-07-01', to: '2026-07-15', archived: true }
+  ];
+  const mark = (d, h) => !record(d) || seed(d) % 7 === 0 ? null : seed(d) % 5 !== 0;
+  const avg = xs => xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null;
+  const metrics = p => {
+    const ds = days(p.start, p.through), beds = [], wakes = [], totals = [], naps = [];
+    for (const d of ds) {
+      const r = record(d), prev = record(addDays(d, -1));
+      if (r?.bed != null) beds.push(r.bed < 720 ? r.bed + 1440 : r.bed);
+      if (r?.wake != null) wakes.push(r.wake);
+      naps.push(r?.nap ?? 0);
+      if (r?.wake != null && prev?.bed != null) totals.push((r.wake - prev.bed + 1440) % 1440 + r.nap);
+    }
+    return [beds, wakes, naps, totals].map(xs => ({ value: avg(xs), count: xs.length }));
+  };
+  const habitStats = (p, h) => {
+    const ds = days(p.start, p.through).filter(d => d >= h.from && d <= h.to);
+    const marks = ds.map(d => mark(d, h)).filter(v => v !== null);
+    return { eligible: ds.length, marked: marks.length, value: marks.length ? Math.round(100 * marks.filter(Boolean).length / marks.length) : null };
+  };
+  return { today, earliest, names, initial, reduce, history, start, clamp, record, metrics, habits, mark, habitStats };
+})();
+</script>
+<script>
+// Оболочка макета: непрерывная прокрутка, сценарии и отображение.
+let state = Model.initial();
+let lastAction = 'Открыта история до сегодняшнего дня.', scenario = 0, step = 0;
+let scrollPeriods = [], columnWidth = 0, labelWidth = 0, scrollTick = null;
+const $ = id => document.getElementById(id);
+const fmt = d => new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(d + 'T12:00:00Z'));
+const clock = v => v === null ? '—' : `${String(Math.floor((v % 1440) / 60)).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
+const duration = v => v === null ? '—' : `${Math.floor(v / 60)}ч ${v % 60}м`;
+const columnLabel = p => {
+  if (state.scale === 'day') return `${p.start.slice(8)}.${p.start.slice(5, 7)}`;
+  if (state.scale === 'week') return `${p.start.slice(8)}.${p.start.slice(5, 7)}<small>– ${p.end.slice(8)}.${p.end.slice(5, 7)}</small>`;
+  if (state.scale === 'month') return new Intl.DateTimeFormat('ru', { month: 'short', timeZone: 'UTC' }).format(new Date(p.start + 'T12:00Z')) + `<small>${p.start.slice(0, 4)}</small>`;
+  return p.start.slice(0, 4);
+};
+function render() {
+  const ps = Model.history(state.scale);
+  scrollPeriods = ps;
+  $('scales').innerHTML = Object.entries(Model.names).map(([key, label]) => `<button data-scale="${key}" aria-pressed="${state.scale === key}">${label}</button>`).join('');
+  const cell = (p, content, title = '') => `<td data-period="${p.start}" title="${title}">${content}</td>`;
+  let html = `<thead><tr><th></th>${ps.map(p => `<th><button data-column="${p.start}" aria-pressed="${state.anchor >= p.start && state.anchor <= p.end}">${columnLabel(p)}</button></th>`).join('')}</tr></thead><tbody>`;
+  const metrics = ps.map(Model.metrics);
+  ['Отбой', 'Подъём', 'Дневной сон', 'Всего сна'].forEach((label, i) => {
+    html += `<tr><th scope="row">${label}</th>${ps.map((p, n) => {
+      const m = metrics[n][i];
+      return cell(p, i < 2 ? clock(m.value) : duration(m.value));
+    }).join('')}</tr>`;
+  });
+  html += `<tr class="separator" aria-hidden="true"><td colspan="${ps.length + 1}"></td></tr>`;
+  for (const h of Model.habits) {
+    html += `<tr><th scope="row">${h.name}${h.archived ? '<small>архив</small>' : ''}</th>${ps.map(p => {
+      const m = Model.habitStats(p, h);
+      if (!m.eligible) return cell(p, '<span class="inactive">н/а</span>', 'Привычка ещё не создана или уже удалена');
+      if (state.scale !== 'day') return cell(p, m.value === null ? '—' : m.value + '%', 'Успех среди отмеченных дней');
+      const v = Model.mark(p.start, h), label = v === null ? 'Не отмечено' : v ? 'Выполнено' : 'Не выполнено';
+      return cell(p, `<span class="mark ${v === null ? 'unknown' : v ? 'yes' : 'no'}" role="img" aria-label="${label}">${v === null ? '·' : v ? '✓' : '×'}</span>`, label);
+    }).join('')}</tr>`;
+  }
+  html += '</tbody>';
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  labelWidth = 5.5 * rem;
+  columnWidth = 3 * rem;
+  $('table').style.width = `${labelWidth + columnWidth * ps.length}px`;
+  html = `<colgroup><col style="width:${labelWidth}px">${ps.map(() => `<col style="width:${columnWidth}px">`).join('')}</colgroup>` + html;
+  $('table').innerHTML = html;
+  const index = ps.findIndex(p => state.anchor >= p.start && state.anchor <= p.end);
+  $('table-wrap').scrollLeft = labelWidth + (index + 1) * columnWidth - $('table-wrap').clientWidth;
+  updateScrollState();
+  renderScenario();
+}
+function updateScrollState() {
+  if (!scrollPeriods.length) return;
+  const wrap = $('table-wrap');
+  const first = Math.min(scrollPeriods.length - 1, Math.floor((wrap.scrollLeft + .5) / columnWidth));
+  const last = Math.min(scrollPeriods.length - 1, Math.ceil((wrap.scrollLeft + wrap.clientWidth - labelWidth - .5) / columnWidth) - 1);
+  const visible = scrollPeriods.slice(first, Math.max(first, last) + 1);
+  if (state.anchor < visible[0].start || state.anchor > visible.at(-1).through) {
+    state = Model.reduce(state, { type: 'select', value: visible.at(-1).through });
+  }
+  const start = Model.start(state.anchor, state.scale);
+  $('table').querySelectorAll('[data-column][aria-pressed="true"]').forEach(b => b.setAttribute('aria-pressed', 'false'));
+  $('table').querySelector(`[data-column="${start}"]`)?.setAttribute('aria-pressed', 'true');
+  $('state').innerHTML = [
+    ['Масштаб', Model.names[state.scale]], ['Выбранная дата', fmt(state.anchor)],
+    ['На экране', `${visible.length} колонок, включая частично видимые`],
+    ['Начало истории', fmt(Model.earliest)],
+    ['Положение', wrap.scrollLeft <= 1 ? 'Начало истории' : wrap.scrollLeft >= wrap.scrollWidth - wrap.clientWidth - 1 ? 'Сегодня — граница' : 'Внутри истории'],
+    ['Данные', 'Вымышленная история загружена целиком']
+  ].map(([key, value]) => `<dt>${key}</dt><dd>${value}</dd>`).join('');
+  $('last-action').textContent = lastAction;
+  $('date').value = state.anchor;
+}
+function dispatch(action, label) {
+  if (action.type === 'move') {
+    $('table-wrap').scrollBy({ left: action.direction * columnWidth });
+    lastAction = 'Прокрутка на ширину одной колонки.';
+    updateScrollState();
+    return;
+  }
+  state = Model.reduce(state, action); lastAction = label;
+  if (action.type === 'select') updateScrollState();
+  else render();
+}
+const scenarios = [
+  { title: 'Смена масштаба', description: 'Выберите 10 сентября. Переключите дни → месяцы → годы → дни. Выбранная дата останется 10 сентября; смена масштаба не переносит вас к сегодня.', steps: [
+    ['Выбрать 10 сентября', { type: 'date', value: '2026-09-10' }], ['Месяцы', { type: 'scale', value: 'month' }], ['Годы', { type: 'scale', value: 'year' }], ['Вернуться к дням', { type: 'scale', value: 'day' }]
+  ] },
+  { title: 'Пустой месяц', description: 'В июле нет записей. Средний дневной сон равен нулю; другие показатели сна — прочерки. Привычки без отметок тоже показывают прочерк, а не 0%.', steps: [
+    ['Выбрать июль', { type: 'date', value: '2026-07-20' }], ['Показать месяцы', { type: 'scale', value: 'month' }], ['Показать дни', { type: 'scale', value: 'day' }]
+  ] },
+  { title: 'Начало истории', description: 'У начала истории прокрутка останавливается. Первая неделя остаётся календарной; её пустые дни учитываются в среднем дневного сна как нули.', steps: [
+    ['К первой дате', { type: 'date', value: Model.earliest }], ['Попробовать назад', { type: 'move', direction: -1 }], ['Показать недели', { type: 'scale', value: 'week' }]
+  ] },
+  { title: 'Новая привычка', description: 'Йога появилась 15 сентября. На дневной таблице 10–14 сентября — «н/а», а с 15 сентября возможны три состояния. В средние входят только дни активности привычки.', steps: [
+    ['Выбрать 16 сентября', { type: 'date', value: '2026-09-16' }], ['Показать месяцы', { type: 'scale', value: 'month' }]
+  ] }
+];
+function renderScenario() {
+  $('scenario-tabs').innerHTML = scenarios.map((s, i) => `<button role="tab" aria-selected="${scenario === i}" data-scenario="${i}">${s.title}</button>`).join('');
+  $('scenario-description').textContent = scenarios[scenario].description;
+  $('steps').innerHTML = scenarios[scenario].steps.map(([label], i) => `<button data-step="${i}" ${i !== step ? 'disabled' : ''}>${i < step ? '✓ ' : ''}${i + 1}. ${label}</button>`).join('') + '<button id="restart">Сначала</button>';
+}
+function resetScenario(i) { state = Model.initial(); scenario = i; step = 0; lastAction = 'Начат сценарий: ' + scenarios[i].title; render(); }
+$('scales').onclick = e => { if (e.target.dataset.scale) dispatch({ type: 'scale', value: e.target.dataset.scale }, 'Масштаб изменён; выбранная дата сохранена.'); };
+$('today').onclick = () => dispatch({ type: 'today' }, 'Возврат к сегодня.');
+$('jump').onclick = () => { if ($('date').value) dispatch({ type: 'date', value: $('date').value }, 'Переход к выбранной дате.'); };
+$('table').onclick = e => {
+  const button = e.target.closest('[data-column]');
+  if (button) {
+    const p = scrollPeriods.find(p => p.start === button.dataset.column);
+    const value = state.anchor >= p.start && state.anchor <= p.end ? state.anchor : Model.clamp(p.through);
+    dispatch({ type: 'select', value }, 'Выбрана колонка; её последняя доступная дата станет ориентиром.');
+  }
+};
+$('scenario-tabs').onclick = e => { if (e.target.dataset.scenario !== undefined) resetScenario(Number(e.target.dataset.scenario)); };
+$('steps').onclick = e => {
+  if (e.target.id === 'restart') return resetScenario(scenario);
+  if (e.target.dataset.step !== undefined) {
+    const [label, action] = scenarios[scenario].steps[step]; step++;
+    dispatch(action, label); renderScenario();
+  }
+};
+let pointer = null, suppressClick = false;
+$('table-wrap').addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' && e.button === 0) {
+    suppressClick = false;
+    pointer = { x: e.clientX, left: $('table-wrap').scrollLeft, dragging: false };
+  }
+});
+$('table-wrap').addEventListener('pointermove', e => {
+  if (!pointer) return;
+  const dx = e.clientX - pointer.x;
+  if (!pointer.dragging && Math.abs(dx) > 5) {
+    pointer.dragging = true;
+    $('table-wrap').setPointerCapture(e.pointerId);
+    $('table-wrap').classList.add('dragging');
+  }
+  if (pointer.dragging) { $('table-wrap').scrollLeft = pointer.left - dx; suppressClick = true; }
+});
+$('table-wrap').addEventListener('pointerup', () => { pointer = null; $('table-wrap').classList.remove('dragging'); });
+$('table-wrap').addEventListener('pointercancel', () => { pointer = null; $('table-wrap').classList.remove('dragging'); });
+$('table-wrap').addEventListener('click', e => { if (suppressClick) { e.preventDefault(); e.stopPropagation(); suppressClick = false; } }, true);
+$('table-wrap').addEventListener('scroll', () => {
+  if (scrollTick === null) scrollTick = requestAnimationFrame(() => { scrollTick = null; updateScrollState(); });
+}, { passive: true });
+$('table-wrap').addEventListener('keydown', e => {
+  if (e.target === $('table-wrap') && ['ArrowLeft', 'ArrowRight'].includes(e.key)) {
+    e.preventDefault(); dispatch({ type: 'move', direction: e.key === 'ArrowLeft' ? -1 : 1 });
+  }
+});
+window.addEventListener('resize', render);
+render();
+</script>
+</html>
