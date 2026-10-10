@@ -1,0 +1,968 @@
+{
+  "measuredAtUtc": "2026-10-10T10:39:39.316Z",
+  "node": "v24.16.0",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "cpu": "Apple M2",
+  "logicalCpuCount": 8,
+  "processTimezone": "Europe/Moscow",
+  "warmups": 3,
+  "measuredRepeats": 9,
+  "statistic": "median, min, max of warmed process.perf_hooks.performance timings; no explicit GC",
+  "inputs": {
+    "realDataUsed": false,
+    "syntheticStart": "2024-01-01",
+    "days": [
+      31,
+      365,
+      3653,
+      3654
+    ],
+    "habits": [
+      10,
+      100
+    ],
+    "missingRowsEvery": 17,
+    "missingBedtimeEvery": 7,
+    "missingWakeEvery": 11,
+    "sparseMarks": "Every fifth eligible habit-day unmarked; mixed true/false; subset archived",
+    "halo": "One previous calendar day prefetched, excluded from requested columns"
+  },
+  "algorithms": {
+    "helper": "Actual datetime.ts getPreviousDate/formatTime/calculateSleepDuration, Map lookup instead of N+1, then agreed-rule aggregation; not old sleep-stats semantic filter.",
+    "candidate": "One preparation of timestamp epoch/minute components, exact ordinal neighbour, one calendar traversal and aggregation per selected scale. Same duration semantics in process TZ.",
+    "aggregation": "Arithmetic wake; bedtime hours<12 shifted +24h; independent sample counts; nap zeros for all calendar days; habit true/false/eligible counts; rounded display means only.",
+    "bounds": "CPU O(R + D*H + M + P*H); aggregate storage O(R + M + P*H); daily output O(D+M). D=bounded requested calendar days, R=existing rows including one halo, H=definitions, M=marks, P=periods. No DB queries here.",
+    "response": "Illustrative future payload, not accepted API: day minute values and sparse marks; aggregates means, sample counts and habit true/false/eligible/success. Same definition metadata in both payloads."
+  },
+  "limitations": [
+    "Synthetic CPU/serialization timings do not measure PostgreSQL/HTTP/network/DOM/peak memory or production latency.",
+    "Typed reconstruction starts from already decoded hypothetical scalar/mark rows; excludes database execution, scalar decode and network. Normalized wire payload may be larger. Not proof of a winning schema.",
+    "JSON parse simulates pg materialization of separate sleep and habits JSONB columns, not a second parse in current services.",
+    "The candidate is a research artifact, not production-safe replacement: input validation, unknown legacy identity and period/range contracts remain separate work.",
+    "3653/3654-day profiles are stress inputs, not approved response limits. Partial final periods stop at synthetic today; initial date aligns every scale.",
+    "No compression measured; illustrative payload field names/count exposure affect bytes. Browser cache remains bounded independently of DOM virtualization.",
+    "Native Date preserves current local process-TZ duration/DST behavior. UTC clock subtraction alone would change existing duration semantics."
+  ],
+  "validation": {
+    "passed": true,
+    "durationProbes": 33,
+    "timezones": [
+      "Europe/Moscow",
+      "America/New_York",
+      "Europe/Berlin"
+    ],
+    "canonicalInputScope": "Valid Gregorian YYYY-MM-DD HH:mm, null, minute precision. Invalid/noncanonical timestamps are outside candidate scope.",
+    "cases": [
+      "exact previous calendar date with gaps",
+      "duration null and existing wrap/clamp",
+      "DST spring/fall and missing local time",
+      "leap day",
+      "independent bedtime/wake/duration samples",
+      "night scale bedtime vs arithmetic wake",
+      "empty-calendar nap zeros",
+      "creation/archive inclusive",
+      "week/month/year scalar and habit counts",
+      "4 true + 1 false + 2 unmarked => 80%, eligible 7",
+      "empty habit success null"
+    ]
+  },
+  "profiles": [
+    {
+      "days": 31,
+      "habits": 10,
+      "from": "2024-01-01",
+      "through": "2024-01-31",
+      "sourceRowsWithOneDayHalo": 30,
+      "marksWithHalo": 181,
+      "materialization": {
+        "jsonParse": {
+          "medianMs": 0.039,
+          "minMs": 0.039,
+          "maxMs": 0.075
+        },
+        "typedObjectReconstruction": {
+          "medianMs": 0.021,
+          "minMs": 0.02,
+          "maxMs": 0.14
+        },
+        "jsonRowPayloadBytes": 8805
+      },
+      "fullDailyResponse": {
+        "existingRows": 29,
+        "jsonSerialization": {
+          "medianMs": 0.026,
+          "minMs": 0.025,
+          "maxMs": 0.026
+        },
+        "uncompressedJsonBytes": 11632
+      },
+      "scales": {
+        "day": {
+          "columns": 31,
+          "helperPipeline": {
+            "medianMs": 0.246,
+            "minMs": 0.24,
+            "maxMs": 0.307
+          },
+          "candidatePipeline": {
+            "medianMs": 0.039,
+            "minMs": 0.039,
+            "maxMs": 0.063
+          },
+          "jsonSerialization": {
+            "medianMs": 0.024,
+            "minMs": 0.023,
+            "maxMs": 0.061
+          },
+          "uncompressedJsonBytes": 10623,
+          "helperToCandidateMedianRatio": 6.31
+        },
+        "week": {
+          "columns": 5,
+          "helperPipeline": {
+            "medianMs": 0.291,
+            "minMs": 0.269,
+            "maxMs": 0.443
+          },
+          "candidatePipeline": {
+            "medianMs": 0.07,
+            "minMs": 0.07,
+            "maxMs": 0.081
+          },
+          "jsonSerialization": {
+            "medianMs": 0.012,
+            "minMs": 0.011,
+            "maxMs": 0.012
+          },
+          "uncompressedJsonBytes": 6459,
+          "helperToCandidateMedianRatio": 4.16
+        },
+        "month": {
+          "columns": 1,
+          "helperPipeline": {
+            "medianMs": 0.28,
+            "minMs": 0.265,
+            "maxMs": 0.384
+          },
+          "candidatePipeline": {
+            "medianMs": 0.069,
+            "minMs": 0.068,
+            "maxMs": 0.079
+          },
+          "jsonSerialization": {
+            "medianMs": 0.005,
+            "minMs": 0.004,
+            "maxMs": 0.092
+          },
+          "uncompressedJsonBytes": 2301,
+          "helperToCandidateMedianRatio": 4.06
+        },
+        "year": {
+          "columns": 1,
+          "helperPipeline": {
+            "medianMs": 0.272,
+            "minMs": 0.264,
+            "maxMs": 0.406
+          },
+          "candidatePipeline": {
+            "medianMs": 0.069,
+            "minMs": 0.068,
+            "maxMs": 0.085
+          },
+          "jsonSerialization": {
+            "medianMs": 0.004,
+            "minMs": 0.004,
+            "maxMs": 0.005
+          },
+          "uncompressedJsonBytes": 2301,
+          "helperToCandidateMedianRatio": 3.94
+        }
+      }
+    },
+    {
+      "days": 31,
+      "habits": 100,
+      "from": "2024-01-01",
+      "through": "2024-01-31",
+      "sourceRowsWithOneDayHalo": 30,
+      "marksWithHalo": 1850,
+      "materialization": {
+        "jsonParse": {
+          "medianMs": 0.267,
+          "minMs": 0.26,
+          "maxMs": 0.392
+        },
+        "typedObjectReconstruction": {
+          "medianMs": 0.044,
+          "minMs": 0.04,
+          "maxMs": 0.251
+        },
+        "jsonRowPayloadBytes": 64439
+      },
+      "fullDailyResponse": {
+        "existingRows": 29,
+        "jsonSerialization": {
+          "medianMs": 0.2,
+          "minMs": 0.196,
+          "maxMs": 0.225
+        },
+        "uncompressedJsonBytes": 78171
+      },
+      "scales": {
+        "day": {
+          "columns": 31,
+          "helperPipeline": {
+            "medianMs": 0.228,
+            "minMs": 0.226,
+            "maxMs": 0.234
+          },
+          "candidatePipeline": {
+            "medianMs": 0.039,
+            "minMs": 0.039,
+            "maxMs": 0.041
+          },
+          "jsonSerialization": {
+            "medianMs": 0.197,
+            "minMs": 0.192,
+            "maxMs": 0.213
+          },
+          "uncompressedJsonBytes": 77162,
+          "helperToCandidateMedianRatio": 5.85
+        },
+        "week": {
+          "columns": 5,
+          "helperPipeline": {
+            "medianMs": 0.396,
+            "minMs": 0.347,
+            "maxMs": 0.41
+          },
+          "candidatePipeline": {
+            "medianMs": 0.17,
+            "minMs": 0.158,
+            "maxMs": 0.269
+          },
+          "jsonSerialization": {
+            "medianMs": 0.099,
+            "minMs": 0.096,
+            "maxMs": 0.123
+          },
+          "uncompressedJsonBytes": 56206,
+          "helperToCandidateMedianRatio": 2.33
+        },
+        "month": {
+          "columns": 1,
+          "helperPipeline": {
+            "medianMs": 0.373,
+            "minMs": 0.364,
+            "maxMs": 0.404
+          },
+          "candidatePipeline": {
+            "medianMs": 0.148,
+            "minMs": 0.145,
+            "maxMs": 0.164
+          },
+          "jsonSerialization": {
+            "medianMs": 0.04,
+            "minMs": 0.039,
+            "maxMs": 0.041
+          },
+          "uncompressedJsonBytes": 21116,
+          "helperToCandidateMedianRatio": 2.52
+        },
+        "year": {
+          "columns": 1,
+          "helperPipeline": {
+            "medianMs": 0.359,
+            "minMs": 0.334,
+            "maxMs": 0.501
+          },
+          "candidatePipeline": {
+            "medianMs": 0.149,
+            "minMs": 0.148,
+            "maxMs": 0.162
+          },
+          "jsonSerialization": {
+            "medianMs": 0.037,
+            "minMs": 0.037,
+            "maxMs": 0.038
+          },
+          "uncompressedJsonBytes": 21116,
+          "helperToCandidateMedianRatio": 2.41
+        }
+      }
+    },
+    {
+      "days": 365,
+      "habits": 10,
+      "from": "2024-01-01",
+      "through": "2024-12-30",
+      "sourceRowsWithOneDayHalo": 345,
+      "marksWithHalo": 2523,
+      "materialization": {
+        "jsonParse": {
+          "medianMs": 0.469,
+          "minMs": 0.468,
+          "maxMs": 2.631
+        },
+        "typedObjectReconstruction": {
+          "medianMs": 0.1,
+          "minMs": 0.081,
+          "maxMs": 0.158
+        },
+        "jsonRowPayloadBytes": 115966
+      },
+      "fullDailyResponse": {
+        "existingRows": 344,
+        "jsonSerialization": {
+          "medianMs": 0.362,
+          "minMs": 0.35,
+          "maxMs": 0.425
+        },
+        "uncompressedJsonBytes": 137148
+      },
+      "scales": {
+        "day": {
+          "columns": 365,
+          "helperPipeline": {
+            "medianMs": 2.844,
+            "minMs": 2.686,
+            "maxMs": 3.075
+          },
+          "candidatePipeline": {
+            "medianMs": 0.45,
+            "minMs": 0.432,
+            "maxMs": 0.642
+          },
+          "jsonSerialization": {
+            "medianMs": 0.301,
+            "minMs": 0.291,
+            "maxMs": 0.304
+          },
+          "uncompressedJsonBytes": 124815,
+          "helperToCandidateMedianRatio": 6.32
+        },
+        "week": {
+          "columns": 53,
+          "helperPipeline": {
+            "medianMs": 3.081,
+            "minMs": 2.961,
+            "maxMs": 3.271
+          },
+          "candidatePipeline": {
+            "medianMs": 0.828,
+            "minMs": 0.788,
+            "maxMs": 2.32
+          },
+          "jsonSerialization": {
+            "medianMs": 0.102,
+            "minMs": 0.098,
+            "maxMs": 0.137
+          },
+          "uncompressedJsonBytes": 56490,
+          "helperToCandidateMedianRatio": 3.72
+        },
+        "month": {
+          "columns": 12,
+          "helperPipeline": {
+            "medianMs": 3.067,
+            "minMs": 3.004,
+            "maxMs": 3.81
+          },
+          "candidatePipeline": {
+            "medianMs": 0.697,
+            "minMs": 0.694,
+            "maxMs": 0.712
+          },
+          "jsonSerialization": {
+            "medianMs": 0.024,
+            "minMs": 0.024,
+            "maxMs": 0.024
+          },
+          "uncompressedJsonBytes": 14021,
+          "helperToCandidateMedianRatio": 4.4
+        },
+        "year": {
+          "columns": 1,
+          "helperPipeline": {
+            "medianMs": 3.13,
+            "minMs": 2.897,
+            "maxMs": 8.434
+          },
+          "candidatePipeline": {
+            "medianMs": 0.716,
+            "minMs": 0.694,
+            "maxMs": 0.823
+          },
+          "jsonSerialization": {
+            "medianMs": 0.004,
+            "minMs": 0.004,
+            "maxMs": 0.005
+          },
+          "uncompressedJsonBytes": 2336,
+          "helperToCandidateMedianRatio": 4.37
+        }
+      }
+    },
+    {
+      "days": 365,
+      "habits": 100,
+      "from": "2024-01-01",
+      "through": "2024-12-30",
+      "sourceRowsWithOneDayHalo": 345,
+      "marksWithHalo": 23017,
+      "materialization": {
+        "jsonParse": {
+          "medianMs": 3.242,
+          "minMs": 3.151,
+          "maxMs": 3.994
+        },
+        "typedObjectReconstruction": {
+          "medianMs": 0.514,
+          "minMs": 0.483,
+          "maxMs": 1.362
+        },
+        "jsonRowPayloadBytes": 799100
+      },
+      "fullDailyResponse": {
+        "existingRows": 344,
+        "jsonSerialization": {
+          "medianMs": 2.091,
+          "minMs": 2.001,
+          "maxMs": 4.408
+        },
+        "uncompressedJsonBytes": 831187
+      },
+      "scales": {
+        "day": {
+          "columns": 365,
+          "helperPipeline": {
+            "medianMs": 2.971,
+            "minMs": 2.595,
+            "maxMs": 3.328
+          },
+          "candidatePipeline": {
+            "medianMs": 0.418,
+            "minMs": 0.408,
+            "maxMs": 0.464
+          },
+          "jsonSerialization": {
+            "medianMs": 1.99,
+            "minMs": 1.948,
+            "maxMs": 2.092
+          },
+          "uncompressedJsonBytes": 818854,
+          "helperToCandidateMedianRatio": 7.11
+        },
+        "week": {
+          "columns": 53,
+          "helperPipeline": {
+            "medianMs": 4.26,
+            "minMs": 4.043,
+            "maxMs": 4.771
+          },
+          "candidatePipeline": {
+            "medianMs": 1.991,
+            "minMs": 1.825,
+            "maxMs": 5.964
+          },
+          "jsonSerialization": {
+            "medianMs": 0.914,
+            "minMs": 0.874,
+            "maxMs": 1.021
+          },
+          "uncompressedJsonBytes": 479308,
+          "helperToCandidateMedianRatio": 2.14
+        },
+        "month": {
+          "columns": 12,
+          "helperPipeline": {
+            "medianMs": 4.367,
+            "minMs": 4.013,
+            "maxMs": 5.987
+          },
+          "candidatePipeline": {
+            "medianMs": 1.909,
+            "minMs": 1.815,
+            "maxMs": 2.122
+          },
+          "jsonSerialization": {
+            "medianMs": 0.245,
+            "minMs": 0.232,
+            "maxMs": 0.325
+          },
+          "uncompressedJsonBytes": 119890,
+          "helperToCandidateMedianRatio": 2.29
+        },
+        "year": {
+          "columns": 1,
+          "helperPipeline": {
+            "medianMs": 3.907,
+            "minMs": 3.746,
+            "maxMs": 4.457
+          },
+          "candidatePipeline": {
+            "medianMs": 1.783,
+            "minMs": 1.676,
+            "maxMs": 1.83
+          },
+          "jsonSerialization": {
+            "medianMs": 0.038,
+            "minMs": 0.037,
+            "maxMs": 0.038
+          },
+          "uncompressedJsonBytes": 21424,
+          "helperToCandidateMedianRatio": 2.19
+        }
+      }
+    },
+    {
+      "days": 3653,
+      "habits": 10,
+      "from": "2024-01-01",
+      "through": "2033-12-31",
+      "sourceRowsWithOneDayHalo": 3439,
+      "marksWithHalo": 25542,
+      "materialization": {
+        "jsonParse": {
+          "medianMs": 4.714,
+          "minMs": 4.648,
+          "maxMs": 5.798
+        },
+        "typedObjectReconstruction": {
+          "medianMs": 0.6,
+          "minMs": 0.565,
+          "maxMs": 1.904
+        },
+        "jsonRowPayloadBytes": 1168931
+      },
+      "fullDailyResponse": {
+        "existingRows": 3438,
+        "jsonSerialization": {
+          "medianMs": 3.257,
+          "minMs": 3.196,
+          "maxMs": 3.411
+        },
+        "uncompressedJsonBytes": 1370399
+      },
+      "scales": {
+        "day": {
+          "columns": 3653,
+          "helperPipeline": {
+            "medianMs": 26.097,
+            "minMs": 25.473,
+            "maxMs": 27.285
+          },
+          "candidatePipeline": {
+            "medianMs": 4.104,
+            "minMs": 3.998,
+            "maxMs": 4.398
+          },
+          "jsonSerialization": {
+            "medianMs": 2.983,
+            "minMs": 2.971,
+            "maxMs": 3.187
+          },
+          "uncompressedJsonBytes": 1247770,
+          "helperToCandidateMedianRatio": 6.36
+        },
+        "week": {
+          "columns": 522,
+          "helperPipeline": {
+            "medianMs": 29.702,
+            "minMs": 29.383,
+            "maxMs": 30.135
+          },
+          "candidatePipeline": {
+            "medianMs": 7.18,
+            "minMs": 7.036,
+            "maxMs": 7.468
+          },
+          "jsonSerialization": {
+            "medianMs": 1.117,
+            "minMs": 1.108,
+            "maxMs": 1.155
+          },
+          "uncompressedJsonBytes": 545371,
+          "helperToCandidateMedianRatio": 4.14
+        },
+        "month": {
+          "columns": 120,
+          "helperPipeline": {
+            "medianMs": 29.562,
+            "minMs": 28.68,
+            "maxMs": 38.992
+          },
+          "candidatePipeline": {
+            "medianMs": 7.14,
+            "minMs": 6.994,
+            "maxMs": 7.88
+          },
+          "jsonSerialization": {
+            "medianMs": 0.23,
+            "minMs": 0.228,
+            "maxMs": 0.264
+          },
+          "uncompressedJsonBytes": 129107,
+          "helperToCandidateMedianRatio": 4.14
+        },
+        "year": {
+          "columns": 10,
+          "helperPipeline": {
+            "medianMs": 29.23,
+            "minMs": 28.689,
+            "maxMs": 30.751
+          },
+          "candidatePipeline": {
+            "medianMs": 6.953,
+            "minMs": 6.666,
+            "maxMs": 7.03
+          },
+          "jsonSerialization": {
+            "medianMs": 0.021,
+            "minMs": 0.021,
+            "maxMs": 0.021
+          },
+          "uncompressedJsonBytes": 12216,
+          "helperToCandidateMedianRatio": 4.2
+        }
+      }
+    },
+    {
+      "days": 3653,
+      "habits": 100,
+      "from": "2024-01-01",
+      "through": "2033-12-31",
+      "sourceRowsWithOneDayHalo": 3439,
+      "marksWithHalo": 257541,
+      "materialization": {
+        "jsonParse": {
+          "medianMs": 34.748,
+          "minMs": 34.171,
+          "maxMs": 41.895
+        },
+        "typedObjectReconstruction": {
+          "medianMs": 4.218,
+          "minMs": 3.92,
+          "maxMs": 8.591
+        },
+        "jsonRowPayloadBytes": 8902232
+      },
+      "fullDailyResponse": {
+        "existingRows": 3438,
+        "jsonSerialization": {
+          "medianMs": 23.314,
+          "minMs": 23.081,
+          "maxMs": 24.966
+        },
+        "uncompressedJsonBytes": 9114605
+      },
+      "scales": {
+        "day": {
+          "columns": 3653,
+          "helperPipeline": {
+            "medianMs": 26.031,
+            "minMs": 25.082,
+            "maxMs": 28.111
+          },
+          "candidatePipeline": {
+            "medianMs": 4.03,
+            "minMs": 3.989,
+            "maxMs": 4.071
+          },
+          "jsonSerialization": {
+            "medianMs": 23.264,
+            "minMs": 22.816,
+            "maxMs": 24.575
+          },
+          "uncompressedJsonBytes": 8991976,
+          "helperToCandidateMedianRatio": 6.46
+        },
+        "week": {
+          "columns": 522,
+          "helperPipeline": {
+            "medianMs": 41.636,
+            "minMs": 40.417,
+            "maxMs": 42.918
+          },
+          "candidatePipeline": {
+            "medianMs": 18.989,
+            "minMs": 17.594,
+            "maxMs": 19.773
+          },
+          "jsonSerialization": {
+            "medianMs": 9.515,
+            "minMs": 9.345,
+            "maxMs": 11.65
+          },
+          "uncompressedJsonBytes": 4603071,
+          "helperToCandidateMedianRatio": 2.19
+        },
+        "month": {
+          "columns": 120,
+          "helperPipeline": {
+            "medianMs": 39.945,
+            "minMs": 39.236,
+            "maxMs": 40.919
+          },
+          "candidatePipeline": {
+            "medianMs": 17.224,
+            "minMs": 16.851,
+            "maxMs": 18.015
+          },
+          "jsonSerialization": {
+            "medianMs": 2.228,
+            "minMs": 2.206,
+            "maxMs": 2.263
+          },
+          "uncompressedJsonBytes": 1090319,
+          "helperToCandidateMedianRatio": 2.32
+        },
+        "year": {
+          "columns": 10,
+          "helperPipeline": {
+            "medianMs": 39.177,
+            "minMs": 38.549,
+            "maxMs": 40.303
+          },
+          "candidatePipeline": {
+            "medianMs": 16.884,
+            "minMs": 16.353,
+            "maxMs": 17.495
+          },
+          "jsonSerialization": {
+            "medianMs": 0.196,
+            "minMs": 0.192,
+            "maxMs": 0.214
+          },
+          "uncompressedJsonBytes": 104891,
+          "helperToCandidateMedianRatio": 2.32
+        }
+      }
+    },
+    {
+      "days": 3654,
+      "habits": 10,
+      "from": "2024-01-01",
+      "through": "2034-01-01",
+      "sourceRowsWithOneDayHalo": 3440,
+      "marksWithHalo": 25551,
+      "materialization": {
+        "jsonParse": {
+          "medianMs": 4.632,
+          "minMs": 4.581,
+          "maxMs": 4.792
+        },
+        "typedObjectReconstruction": {
+          "medianMs": 0.584,
+          "minMs": 0.563,
+          "maxMs": 0.605
+        },
+        "jsonRowPayloadBytes": 1169326
+      },
+      "fullDailyResponse": {
+        "existingRows": 3439,
+        "jsonSerialization": {
+          "medianMs": 3.283,
+          "minMs": 3.197,
+          "maxMs": 3.447
+        },
+        "uncompressedJsonBytes": 1370852
+      },
+      "scales": {
+        "day": {
+          "columns": 3654,
+          "helperPipeline": {
+            "medianMs": 26.11,
+            "minMs": 25.23,
+            "maxMs": 27.987
+          },
+          "candidatePipeline": {
+            "medianMs": 4.015,
+            "minMs": 4.002,
+            "maxMs": 4.129
+          },
+          "jsonSerialization": {
+            "medianMs": 2.985,
+            "minMs": 2.956,
+            "maxMs": 3.148
+          },
+          "uncompressedJsonBytes": 1248177,
+          "helperToCandidateMedianRatio": 6.5
+        },
+        "week": {
+          "columns": 522,
+          "helperPipeline": {
+            "medianMs": 29.516,
+            "minMs": 29.334,
+            "maxMs": 30.238
+          },
+          "candidatePipeline": {
+            "medianMs": 7.222,
+            "minMs": 7.102,
+            "maxMs": 7.578
+          },
+          "jsonSerialization": {
+            "medianMs": 1.131,
+            "minMs": 1.115,
+            "maxMs": 1.201
+          },
+          "uncompressedJsonBytes": 545374,
+          "helperToCandidateMedianRatio": 4.09
+        },
+        "month": {
+          "columns": 121,
+          "helperPipeline": {
+            "medianMs": 29.265,
+            "minMs": 28.925,
+            "maxMs": 30.047
+          },
+          "candidatePipeline": {
+            "medianMs": 6.957,
+            "minMs": 6.787,
+            "maxMs": 7.379
+          },
+          "jsonSerialization": {
+            "medianMs": 0.235,
+            "minMs": 0.232,
+            "maxMs": 0.268
+          },
+          "uncompressedJsonBytes": 130157,
+          "helperToCandidateMedianRatio": 4.21
+        },
+        "year": {
+          "columns": 11,
+          "helperPipeline": {
+            "medianMs": 28.798,
+            "minMs": 28.518,
+            "maxMs": 29.516
+          },
+          "candidatePipeline": {
+            "medianMs": 6.822,
+            "minMs": 6.665,
+            "maxMs": 7.211
+          },
+          "jsonSerialization": {
+            "medianMs": 0.022,
+            "minMs": 0.022,
+            "maxMs": 0.023
+          },
+          "uncompressedJsonBytes": 13266,
+          "helperToCandidateMedianRatio": 4.22
+        }
+      }
+    },
+    {
+      "days": 3654,
+      "habits": 100,
+      "from": "2024-01-01",
+      "through": "2034-01-01",
+      "sourceRowsWithOneDayHalo": 3440,
+      "marksWithHalo": 257621,
+      "materialization": {
+        "jsonParse": {
+          "medianMs": 35.127,
+          "minMs": 34.441,
+          "maxMs": 39.863
+        },
+        "typedObjectReconstruction": {
+          "medianMs": 4.218,
+          "minMs": 3.944,
+          "maxMs": 7.64
+        },
+        "jsonRowPayloadBytes": 8904994
+      },
+      "fullDailyResponse": {
+        "existingRows": 3439,
+        "jsonSerialization": {
+          "medianMs": 23.32,
+          "minMs": 23.106,
+          "maxMs": 24.78
+        },
+        "uncompressedJsonBytes": 9117425
+      },
+      "scales": {
+        "day": {
+          "columns": 3654,
+          "helperPipeline": {
+            "medianMs": 25.455,
+            "minMs": 25.038,
+            "maxMs": 26.017
+          },
+          "candidatePipeline": {
+            "medianMs": 4.088,
+            "minMs": 4.017,
+            "maxMs": 4.518
+          },
+          "jsonSerialization": {
+            "medianMs": 23.739,
+            "minMs": 22.88,
+            "maxMs": 24.923
+          },
+          "uncompressedJsonBytes": 8994750,
+          "helperToCandidateMedianRatio": 6.23
+        },
+        "week": {
+          "columns": 522,
+          "helperPipeline": {
+            "medianMs": 41.051,
+            "minMs": 40.173,
+            "maxMs": 42.698
+          },
+          "candidatePipeline": {
+            "medianMs": 18.062,
+            "minMs": 17.728,
+            "maxMs": 20.402
+          },
+          "jsonSerialization": {
+            "medianMs": 9.475,
+            "minMs": 9.338,
+            "maxMs": 11.163
+          },
+          "uncompressedJsonBytes": 4603069,
+          "helperToCandidateMedianRatio": 2.27
+        },
+        "month": {
+          "columns": 121,
+          "helperPipeline": {
+            "medianMs": 39.857,
+            "minMs": 38.902,
+            "maxMs": 40.342
+          },
+          "candidatePipeline": {
+            "medianMs": 17.336,
+            "minMs": 17.026,
+            "maxMs": 17.938
+          },
+          "jsonSerialization": {
+            "medianMs": 2.246,
+            "minMs": 2.214,
+            "maxMs": 2.405
+          },
+          "uncompressedJsonBytes": 1099183,
+          "helperToCandidateMedianRatio": 2.3
+        },
+        "year": {
+          "columns": 11,
+          "helperPipeline": {
+            "medianMs": 40.155,
+            "minMs": 39.457,
+            "maxMs": 42.883
+          },
+          "candidatePipeline": {
+            "medianMs": 16.813,
+            "minMs": 16.598,
+            "maxMs": 17.112
+          },
+          "jsonSerialization": {
+            "medianMs": 0.208,
+            "minMs": 0.204,
+            "maxMs": 0.246
+          },
+          "uncompressedJsonBytes": 113760,
+          "helperToCandidateMedianRatio": 2.39
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,235 @@
+{
+  "recordedAt": "2026-10-10T10:38:33.507Z",
+  "kind": "real-authorized-account-read-only",
+  "measurement": "PostgreSQL execution and local client path; not production HTTP; partial SQL aggregates only",
+  "schema": {
+    "version": "170011",
+    "index_count": "5"
+  },
+  "physicalSizes": {
+    "rows": "528",
+    "mean_sleep_bytes": "116.1",
+    "mean_habits_bytes": "341.0",
+    "max_marks_per_day": 9,
+    "total_marks": "3449"
+  },
+  "profiles": [
+    {
+      "requestedDays": 31,
+      "includesPrecedingDay": true,
+      "queries": {
+        "rangeJsonb": {
+          "returnedRows": 32,
+          "resultJsonBytes": 16793,
+          "medianClientMs": 72.432,
+          "minClientMs": 67.967,
+          "maxClientMs": 99.584,
+          "explainExecutionMs": 0.105,
+          "explainPlanningMs": 0.127,
+          "planNodes": [
+            "Sort",
+            "Bitmap Heap Scan",
+            "Bitmap Index Scan"
+          ],
+          "sharedHitBlocks": 11
+        },
+        "projection": {
+          "returnedRows": 32,
+          "resultJsonBytes": 15799,
+          "medianClientMs": 70.845,
+          "minClientMs": 67.449,
+          "maxClientMs": 139.778,
+          "explainExecutionMs": 0.119,
+          "explainPlanningMs": 0.149,
+          "planNodes": [
+            "Sort",
+            "Bitmap Heap Scan",
+            "Bitmap Index Scan"
+          ],
+          "sharedHitBlocks": 11
+        },
+        "sleepPartialAggregate": {
+          "returnedRows": 2,
+          "resultJsonBytes": 151,
+          "medianClientMs": 65.846,
+          "minClientMs": 65.036,
+          "maxClientMs": 67.524,
+          "explainExecutionMs": 0.115,
+          "explainPlanningMs": 0.145,
+          "planNodes": [
+            "Aggregate",
+            "Sort",
+            "Bitmap Heap Scan",
+            "Bitmap Index Scan"
+          ],
+          "sharedHitBlocks": 11
+        },
+        "habitAggregate": {
+          "returnedRows": 18,
+          "resultJsonBytes": 1531,
+          "medianClientMs": 68.399,
+          "minClientMs": 65.771,
+          "maxClientMs": 76.169,
+          "explainExecutionMs": 0.406,
+          "explainPlanningMs": 0.146,
+          "planNodes": [
+            "Aggregate",
+            "Sort",
+            "Nested Loop",
+            "Bitmap Heap Scan",
+            "Bitmap Index Scan",
+            "Function Scan"
+          ],
+          "sharedHitBlocks": 11
+        }
+      },
+      "checks": {
+        "matchingRowCounts": true,
+        "partialSleepAggregateMatchesApi": true,
+        "habitAggregateMatchesApi": true
+      }
+    },
+    {
+      "requestedDays": 365,
+      "includesPrecedingDay": true,
+      "queries": {
+        "rangeJsonb": {
+          "returnedRows": 366,
+          "resultJsonBytes": 160785,
+          "medianClientMs": 107.31,
+          "minClientMs": 92.414,
+          "maxClientMs": 409.031,
+          "explainExecutionMs": 0.394,
+          "explainPlanningMs": 0.134,
+          "planNodes": [
+            "Sort",
+            "Seq Scan"
+          ],
+          "sharedHitBlocks": 95
+        },
+        "projection": {
+          "returnedRows": 366,
+          "resultJsonBytes": 149602,
+          "medianClientMs": 139.845,
+          "minClientMs": 88.858,
+          "maxClientMs": 162.648,
+          "explainExecutionMs": 0.51,
+          "explainPlanningMs": 0.144,
+          "planNodes": [
+            "Sort",
+            "Seq Scan"
+          ],
+          "sharedHitBlocks": 95
+        },
+        "sleepPartialAggregate": {
+          "returnedRows": 13,
+          "resultJsonBytes": 985,
+          "medianClientMs": 67.067,
+          "minClientMs": 66.343,
+          "maxClientMs": 69.392,
+          "explainExecutionMs": 0.431,
+          "explainPlanningMs": 0.153,
+          "planNodes": [
+            "Sort",
+            "Aggregate",
+            "Seq Scan"
+          ],
+          "sharedHitBlocks": 95
+        },
+        "habitAggregate": {
+          "returnedRows": 96,
+          "resultJsonBytes": 8130,
+          "medianClientMs": 70.832,
+          "minClientMs": 68.717,
+          "maxClientMs": 74.037,
+          "explainExecutionMs": 2.522,
+          "explainPlanningMs": 0.181,
+          "planNodes": [
+            "Sort",
+            "Aggregate",
+            "Nested Loop",
+            "Seq Scan",
+            "Function Scan"
+          ],
+          "sharedHitBlocks": 95
+        }
+      },
+      "checks": {
+        "matchingRowCounts": true,
+        "partialSleepAggregateMatchesApi": true,
+        "habitAggregateMatchesApi": true
+      }
+    },
+    {
+      "requestedDays": 3654,
+      "includesPrecedingDay": true,
+      "queries": {
+        "rangeJsonb": {
+          "returnedRows": 528,
+          "resultJsonBytes": 219138,
+          "medianClientMs": 129.444,
+          "minClientMs": 108.473,
+          "maxClientMs": 168.023,
+          "explainExecutionMs": 0.482,
+          "explainPlanningMs": 0.315,
+          "planNodes": [
+            "Sort",
+            "Seq Scan"
+          ],
+          "sharedHitBlocks": 95
+        },
+        "projection": {
+          "returnedRows": 528,
+          "resultJsonBytes": 202843,
+          "medianClientMs": 102.4,
+          "minClientMs": 97.249,
+          "maxClientMs": 107.043,
+          "explainExecutionMs": 0.564,
+          "explainPlanningMs": 0.184,
+          "planNodes": [
+            "Sort",
+            "Seq Scan"
+          ],
+          "sharedHitBlocks": 95
+        },
+        "sleepPartialAggregate": {
+          "returnedRows": 18,
+          "resultJsonBytes": 1365,
+          "medianClientMs": 67.647,
+          "minClientMs": 65.027,
+          "maxClientMs": 69.053,
+          "explainExecutionMs": 0.498,
+          "explainPlanningMs": 0.186,
+          "planNodes": [
+            "Sort",
+            "Aggregate",
+            "Seq Scan"
+          ],
+          "sharedHitBlocks": 95
+        },
+        "habitAggregate": {
+          "returnedRows": 126,
+          "resultJsonBytes": 10595,
+          "medianClientMs": 72.279,
+          "minClientMs": 69.895,
+          "maxClientMs": 83.005,
+          "explainExecutionMs": 3.142,
+          "explainPlanningMs": 0.331,
+          "planNodes": [
+            "Sort",
+            "Aggregate",
+            "Nested Loop",
+            "Seq Scan",
+            "Function Scan"
+          ],
+          "sharedHitBlocks": 95
+        }
+      },
+      "checks": {
+        "matchingRowCounts": true,
+        "partialSleepAggregateMatchesApi": true,
+        "habitAggregateMatchesApi": true
+      }
+    }
+  ]
+}
