@@ -17,9 +17,9 @@
 - Всегда отвечай пользователю только по-русски.
 
 ## Testing Guidelines
-For changes:
-- run `pnpm lint`, `pnpm build`, and `pnpm test`;
-- do a quick manual pass in `pnpm dev:web` for affected web flows.
+- Do a quick manual pass in `pnpm dev:web` for affected web flows.
+- Change test expectations only when the intended behavior changes or the test is demonstrably incorrect.
+- For API contract or generator changes, follow the Contract Tests section in `docs/testing/guide.md`.
 
 ## Commit & Pull Request Guidelines
 - PRs should include: a concise description, relevant issue link (if any), and screenshots for UI changes. Note any API contract updates and whether `pnpm --filter @sadhana/api-contract generate` was run.
