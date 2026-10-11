@@ -14,7 +14,6 @@
 - For spacing, sizing, and layout, always use Tailwind scale utilities (e.g., `w-12`, `px-3`) when possible; do not use arbitrary pixel values unless there is no suitable Tailwind scale alternative.
 - Fractional Tailwind size utilities (e.g., `w-10.5`) are acceptable; use them when needed instead of arbitrary pixel values.
 - Formatting is handled by Prettier via ESLint config; keep changes consistent.
-- Всегда отвечай пользователю только по-русски.
 
 ## Testing Guidelines
 - Do a quick manual pass in `pnpm dev:web` for affected web flows.
