@@ -9,7 +9,8 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'VITE_API_BASE_URL=/test-api pnpm exec vite --host 127.0.0.1 --port 4173',
+    command:
+      'VITE_API_BASE_URL=/test-api pnpm exec vite --mode test --host 127.0.0.1 --port 4173',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: false,
   },

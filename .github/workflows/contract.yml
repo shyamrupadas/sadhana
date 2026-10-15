@@ -79,7 +79,9 @@ jobs:
           pnpm --filter @sadhana/api-contract test
           pnpm --filter @sadhana/web test:unit
         env:
+          DB_ENVIRONMENT: test
           DATABASE_URL: postgres://fixture:fixture@db.invalid/app
+          MIGRATION_DATABASE_URL: postgres://fixture:fixture@db.invalid/app
           JWT_SECRET: ci-test-access-secret
           JWT_REFRESH_SECRET: ci-test-refresh-secret
 
@@ -105,7 +107,9 @@ jobs:
         if: steps.changes.outputs.api_changed == 'true'
         run: |
           container="$(docker run --detach --env PORT=18080 \
+            --env DB_ENVIRONMENT=test \
             --env DATABASE_URL=postgres://fixture:fixture@db.invalid/app \
+            --env MIGRATION_DATABASE_URL=postgres://fixture:fixture@db.invalid/app \
             --env JWT_SECRET=ci-test-access-secret \
             --env JWT_REFRESH_SECRET=ci-test-refresh-secret \
             --publish 127.0.0.1::18080 sadhana-api:ci)"

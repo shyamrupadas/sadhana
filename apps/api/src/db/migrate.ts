@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { config } from 'dotenv'
+import { loadConfiguration, ConfigurationError, type DatabaseEnvironment } from '../config/environment'
 import { Client } from 'pg'
 
 type Migration = { id: string; file: string; sql: string; checksum: string }
@@ -183,24 +183,31 @@ export async function runMigrations(options: {
   }
 }
 
-if (require.main === module) {
-  if (process.env.NODE_ENV !== 'production') config({ path: '.env.local', quiet: true })
-  const mode = process.argv[2] === '--baseline-confirmed-001-006'
-    ? 'baseline-confirmed-001-006'
-    : 'apply'
-  const connectionString = process.env.MIGRATION_DATABASE_URL
-  if (process.argv.length > 3 || (process.argv.length === 3 && mode === 'apply') || !connectionString) {
-    console.error('Usage: MIGRATION_DATABASE_URL=<direct-url> node dist/db/migrate.js [--baseline-confirmed-001-006]')
+export async function migrationMain(context?: DatabaseEnvironment): Promise<void> {
+  const args = process.argv.slice(2)
+  if (args.length === 1 && args[0] === '--help') {
+    console.log('Usage: node dist/db/migrate.js [--baseline-confirmed-001-006] (explicit DB_ENVIRONMENT and validated direct target required)')
+    return
+  }
+  if (args.length > 1 || (args.length === 1 && args[0] !== '--baseline-confirmed-001-006')) {
+    console.error('Unknown migration arguments; use --help')
     process.exitCode = 1
-  } else {
-    runMigrations({
-      connectionString,
+    return
+  }
+  try {
+    const config = loadConfiguration({ context })
+    console.log(JSON.stringify({ ...config.databaseIdentity, host: config.databaseTarget.directHost }))
+    await runMigrations({
+      connectionString: config.MIGRATION_DATABASE_URL,
       migrationsDir: join(__dirname, '..', '..', 'src', 'db', 'migrations'),
-      mode,
+      mode: args[0] === '--baseline-confirmed-001-006' ? 'baseline-confirmed-001-006' : 'apply',
       confirmation: process.env.MIGRATION_BASELINE_CONFIRMATION,
-    }).catch((error: unknown) => {
-      console.error('Migration failed:', error)
-      process.exitCode = 1
     })
+  } catch (error) {
+    // Never print driver errors: message/detail/stack can contain SQL, data and credentials.
+    console.error(error instanceof ConfigurationError ? error.message : 'Migration failed; inspect the migration state before retrying')
+    process.exitCode = 1
   }
 }
+
+if (require.main === module) void migrationMain()

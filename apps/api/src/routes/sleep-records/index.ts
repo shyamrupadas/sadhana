@@ -11,14 +11,7 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
       return reply.code(error.statusCode).send(error.toJSON())
     }
 
-    const err = error instanceof Error ? error : new Error(String(error))
-    fastify.log.error({
-      err: error,
-      message: err.message,
-      stack: err.stack,
-      url: request.url,
-      method: request.method,
-    })
+    fastify.log.error(error)
     return reply.code(500).send({
       message: 'Internal Server Error',
       code: 'INTERNAL_ERROR',

@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { test, type TestContext } from 'node:test'
 import { Client } from 'pg'
 import { runMigrations } from '../../src/db/migrate'
+import { loadConfiguration } from '../../src/config/environment'
 
 const testDatabaseUrl = process.env.MIGRATION_TEST_DATABASE_URL
 const sourceDir = join(__dirname, '..', '..', 'src', 'db', 'migrations')
@@ -21,6 +22,11 @@ async function withDatabase(
     return
   }
 
+  loadConfiguration({
+    env: { DB_ENVIRONMENT: 'test', DATABASE_URL: testDatabaseUrl, MIGRATION_DATABASE_URL: testDatabaseUrl,
+      JWT_SECRET: 'migration-test', JWT_REFRESH_SECRET: 'migration-test' },
+    targetsPath: join(__dirname, '..', '..', 'config', 'migration-test-target.json'),
+  })
   const schema = `migration_test_${randomUUID().replaceAll('-', '')}`
   const client = new Client({ connectionString: testDatabaseUrl })
   const migrationsDir = mkdtempSync(join(tmpdir(), 'sadhana-migrations-'))
@@ -161,11 +167,14 @@ test('changed SQL, unknown versions and journal gaps stop migration', async (t) 
     await assert.rejects(runMigrations({ connectionString, migrationsDir }), /Unknown or out-of-sequence/)
     const cli = spawnSync(process.execPath, [join(__dirname, '..', '..', 'dist', 'db', 'migrate.js')], {
       cwd: join(__dirname, '..', '..'),
-      env: { ...process.env, NODE_ENV: 'production', MIGRATION_DATABASE_URL: connectionString },
+      env: { ...process.env, DB_ENVIRONMENT: 'test', NODE_ENV: 'production',
+        DATABASE_URL: 'postgres://fixture:fixture@db.invalid/app',
+        MIGRATION_DATABASE_URL: connectionString, JWT_SECRET: 'test', JWT_REFRESH_SECRET: 'test' },
       encoding: 'utf8',
     })
     assert.equal(cli.status, 1)
-    assert.match(cli.stderr, /Unknown or out-of-sequence/)
+    // A test-owned search_path must not be accepted by the ordinary CLI.
+    assert.match(cli.stderr, /Invalid MIGRATION_DATABASE_URL/)
     rmSync(join(migrationsDir, '002_create_habits_and_daily_entries.sql'))
     await assert.rejects(runMigrations({ connectionString, migrationsDir }), /unique sequence/)
   })

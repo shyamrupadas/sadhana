@@ -2,16 +2,19 @@ import { join } from 'node:path'
 import AutoLoad, { AutoloadPluginOptions } from '@fastify/autoload'
 import { FastifyPluginAsync, FastifyServerOptions } from 'fastify'
 import { createApiHandlers } from './api-handlers'
+import envPlugin from './plugins/env'
+import type { DatabaseEnvironment } from './config/environment'
 
-export interface AppOptions
-  extends FastifyServerOptions, Partial<AutoloadPluginOptions> {}
+export interface AppOptions extends FastifyServerOptions, Partial<AutoloadPluginOptions> {
+  dbEnvironment?: DatabaseEnvironment
+}
 // Pass --options via CLI arguments in command to enable these options.
 const options: AppOptions = {
   trustProxy: true, // Railway/NGINX/Cloudflare: нужен для корректного protocol/ip и x-forwarded-*
 }
 
 const app: FastifyPluginAsync<AppOptions> = async (fastify, opts): Promise<void> => {
-  // Place here your custom code!
+  await fastify.register(envPlugin, { dbEnvironment: opts.dbEnvironment })
 
   // Do not touch the following lines
 
@@ -20,6 +23,7 @@ const app: FastifyPluginAsync<AppOptions> = async (fastify, opts): Promise<void>
   // through your application
   void fastify.register(AutoLoad, {
     dir: join(__dirname, 'plugins'),
+    ignorePattern: /^env\.(?:ts|js)$/,
     options: opts,
   })
 

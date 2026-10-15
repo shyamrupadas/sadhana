@@ -1,4 +1,5 @@
 import 'fastify'
+import type { Configuration } from '../config/environment'
 import { PostgresDb } from '@fastify/postgres'
 import '@fastify/jwt'
 import '@fastify/cookie'
@@ -20,15 +21,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     apiHandlers: ApiHandlers
     pg: PostgresDb
-    config: {
-      DATABASE_URL: string
-      NODE_ENV: string
-      JWT_SECRET: string
-      JWT_REFRESH_SECRET: string
-      JWT_EXPIRES_IN: string
-      JWT_REFRESH_EXPIRES_IN: string
-      CORS_ORIGIN: string
-    }
+    config: Configuration
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>
     refreshSign: (payload: JwtRefreshPayload) => Promise<string>
     refreshVerify: (token: string) => Promise<JwtRefreshPayload>

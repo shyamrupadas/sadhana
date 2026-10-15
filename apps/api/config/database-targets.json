@@ -1,0 +1,10 @@
+{
+  "dev": null,
+  "test": {
+    "directHost": "db.invalid",
+    "runtimeHost": "db.invalid",
+    "port": 5432,
+    "database": "app",
+    "role": "fixture"
+  }
+}

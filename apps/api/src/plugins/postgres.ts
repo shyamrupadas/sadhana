@@ -5,11 +5,9 @@ import fastifyPostgres from '@fastify/postgres'
 const postgresPlugin: FastifyPluginAsync = async (fastify) => {
   await fastify.register(fastifyPostgres, {
     connectionString: fastify.config.DATABASE_URL,
-    ssl:
-      process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
   })
 
-  fastify.log.info('PostgreSQL connection established')
+  fastify.pg.pool.on('error', () => fastify.log.error('Database connection failed'))
 }
 
-export default fastifyPlugin(postgresPlugin)
+export default fastifyPlugin(postgresPlugin, { dependencies: ['env'] })

@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   define: {
-    'import.meta.env.VITE_API_BASE_URL': JSON.stringify('http://127.0.0.1:4173/test-api'),
+    'import.meta.env.VITE_API_BASE_URL': JSON.stringify('/test-api'),
   },
   resolve: {
     alias: { '@': new URL('./src', import.meta.url).pathname },

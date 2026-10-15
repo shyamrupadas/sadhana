@@ -16,6 +16,7 @@ RUN pnpm --filter @sadhana/api deploy --prod --legacy /production/api
 FROM node:24.16.0-bookworm-slim
 
 ENV NODE_ENV=production
+ENV DB_ENVIRONMENT=production
 WORKDIR /app
 COPY --from=build /production/api ./
 
