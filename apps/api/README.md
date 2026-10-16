@@ -39,11 +39,17 @@ cp apps/api/.env.example apps/api/.env.dev.local
 
 ## Миграции PostgreSQL
 
-Для применения SQL к dev из корня:
+Команды для dev из корня:
 
 ```sh
-pnpm --filter @sadhana/api migrate
+pnpm db:status
+pnpm db:migrate --to 004
+pnpm db:migrate
 ```
+
+Все команды имеют `--help` и фиксированный dev-контекст без production-переключателя. `db:status` читает согласованный снимок в read-only транзакции: показывает наличие журнала и идентификаторы применённых/ожидающих SQL. Пустая схема без журнала допустима; непустая схема без журнала, разрыв, неизвестная версия и изменённый checksum дают отказ без исправлений.
+
+`db:migrate --to NNN` применяет непрерывный префикс до существующей трёхзначной версии; без `--to` — всю цепочку. Версия ниже применённой отклоняется. Для возврата к прежней версии требуется отдельное восстановление dev, которое добавляется тикетом 05. Алиас `pnpm --filter @sadhana/api migrate` сохраняется.
 
 Мигратор проверяет оба URL и разрешённую цель, создаёт `schema_migrations`, сверяет SHA-256 и применяет новые SQL. `--help` описывает вход; неизвестные аргументы отклоняются. При ошибке драйвера/SQL возвращается ненулевой код без содержимого SQL и пользовательских записей. Сохраняются транзакция каждого файла с журналом, advisory lock и ограничения времени. Обычная миграция не пересоздаёт БД и не заполняет данные.
 
@@ -53,10 +59,49 @@ pnpm --filter @sadhana/api migrate
 
 Обычные API-тесты и CI-образ используют явный `DB_ENVIRONMENT=test` и несекретную цель `test` из `config/database-targets.json`: `postgres://fixture:fixture@db.invalid/app` для обоих URL плюс фиктивные JWT-секреты. Это отдельная проверяемая конфигурация без production-доступов. Проверка `GET /` не открывает соединений к БД.
 
-Существующие PostgreSQL-тесты запускаются явно через `MIGRATION_TEST_DATABASE_URL`; без него они пропускаются. Перед запуском заполните независимую секцию `test` файла `config/migration-test-target.json` для изолированной тестовой БД (direct/runtime хосты, порт, БД, роль). Начальное `null` запрещает соединение. URL не должен содержать `options`: контур добавляет собственный `search_path` только после проверки цели и удаляет временные схемы после успеха/ошибки. Production URL не используется.
+Обычные workspace tests не подключаются к PostgreSQL, даже если задан `MIGRATION_TEST_DATABASE_URL`. Для явного прогона из корня:
 
 ```sh
-MIGRATION_TEST_DATABASE_URL=<direct-test-url> pnpm --filter @sadhana/api test
+pnpm db:test --help
+pnpm db:test --target dev
+MIGRATION_TEST_DATABASE_URL=<direct-test-url> pnpm db:test --target test
 ```
 
-Команды `db:status`, `db:migrate`, явный `db:test` и остальные операции из спецификации добавляются следующими тикетами.
+`--target dev` использует общий dev-env и разрешённую dev-цель; постоянная БД не пересоздаётся. API и прочую работу с dev на время теста лучше остановить: тестовый мигратор использует ту же advisory lock, что и обычный. `--target test` требует отдельный URL и независимую несекретную секцию `test` файла `config/migration-test-target.json` (direct/runtime хосты, порт, БД, роль). Начальное `null`, отсутствие URL, конфликт `DB_ENVIRONMENT`, pooled URL и неправильная цель дают ненулевой код, а не пропуск. Альтернативный файл задаётся `MIGRATION_TEST_TARGETS_PATH`: относительный путь разрешается от корня репозитория, абсолютный также допустим. Не формируйте разрешённую цель из проверяемого URL.
+
+Для временного локального PostgreSQL можно использовать Docker. Выберите свободный порт и уникальное имя контейнера; например:
+
+```sh
+docker run --detach --rm --name sadhana-migration-test \
+  --publish 127.0.0.1:55432:5432 --tmpfs /var/lib/postgresql/data \
+  --env POSTGRES_USER=fixture --env POSTGRES_PASSWORD=local-test-only \
+  --env POSTGRES_DB=migration_test postgres:16
+docker exec sadhana-migration-test pg_isready -U fixture -d migration_test
+```
+
+Дождитесь готовности. Запишите в отдельный несекретный файл, например `/tmp/sadhana-migration-target.json`:
+
+```json
+{
+  "test": {
+    "directHost": "127.0.0.1",
+    "runtimeHost": "127.0.0.1",
+    "port": 55432,
+    "database": "migration_test",
+    "role": "fixture"
+  }
+}
+```
+
+Запуск и обязательная очистка после успеха **или ошибки**:
+
+```sh
+MIGRATION_TEST_TARGETS_PATH=/tmp/sadhana-migration-target.json \
+MIGRATION_TEST_DATABASE_URL=postgres://fixture:local-test-only@127.0.0.1:55432/migration_test \
+  pnpm db:test --target test
+docker stop sadhana-migration-test
+```
+
+Контейнер хранит данные в tmpfs и удаляется после остановки. Для внешней тестовой цели нужна отдельная БД/роль с правами создания/удаления схем и установки `uuid-ossp`; production-доступы не используются. TLS на Neon задаётся обычными разрешёнными параметрами URL.
+
+Контур повторно проверяет цель перед соединением, затем добавляет собственный уникальный `search_path`; входной URL с `options` запрещён. Каждый сценарий создаёт отдельную схему, удаляет её в `finally` после успеха/ошибки и очищает временные SQL-файлы. Проверяются read-only статус, маленькая цепочка механики, транзакции и конкуренция; отдельно — настоящая цепочка, преобразование сохранённых данных сна и исторический baseline. Дочерний вывод драйвера/SQL не публикуется: команда сообщает безопасную цель, счётчики результатов и имена упавших сценариев; ошибка любого сценария даёт ненулевой код. Сборка не нужна; PostgreSQL не становится обязательным для CI.

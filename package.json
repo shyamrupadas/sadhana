@@ -15,7 +15,10 @@
     "dev:web": "turbo run dev --filter=@sadhana/web...",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "db:status": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts status",
+    "db:migrate": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts migrate",
+    "db:test": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts test"
   },
   "devDependencies": {
     "turbo": "2.11.7"

@@ -96,6 +96,10 @@ pnpm --filter @sadhana/api-contract generate
 
 DB migrations в production-коде требуют отдельного упоминания в финальном отчете: их нужно применить.
 
+## Явные PostgreSQL-проверки мигратора
+
+`pnpm db:test --target dev` использует проверенный dev; `pnpm db:test --target test` — отдельные `MIGRATION_TEST_DATABASE_URL` и независимую разрешённую цель. Отсутствующая настройка в явном запуске — ошибка. Обычный `pnpm test` эти DB-сценарии пропускает и не открывает соединений, даже если URL унаследован. Каждый DB-сценарий изолируется собственной схемой с очисткой после успеха/ошибки. Подготовка временного Docker PostgreSQL, права и очистка описаны в [API README](../../apps/api/README.md#изолированные-проверки).
+
 ## Contract Tests
 
 Меняя `packages/api-contract/main.tsp`, generator scripts или generated API surface:

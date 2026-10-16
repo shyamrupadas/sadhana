@@ -1,3 +1,3 @@
-import { migrationMain } from './migrate'
+import { devDatabaseMain } from './dev-database'
 
-void migrationMain('dev')
+void devDatabaseMain(['migrate', ...process.argv.slice(2)])

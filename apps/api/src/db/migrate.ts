@@ -5,6 +5,8 @@ import { loadConfiguration, ConfigurationError, type DatabaseEnvironment } from 
 import { Client } from 'pg'
 
 type Migration = { id: string; file: string; sql: string; checksum: string }
+export class MigrationError extends Error {}
+
 type Mode = 'apply' | 'baseline-confirmed-001-006'
 
 const advisoryLockKey = 734821607
@@ -13,13 +15,13 @@ const baselineConfirmation = 'reviewed-current-schema-and-sleep-data-001-006'
 
 export function loadMigrations(dir: string): Migration[] {
   const files = readdirSync(dir).filter((file) => file.endsWith('.sql')).sort()
-  if (files.length === 0) throw new Error('No SQL migrations found')
+  if (files.length === 0) throw new MigrationError('No SQL migrations found')
 
   return files.map((file, index) => {
     const match = /^(\d{3})_[^/]+\.sql$/.exec(file)
     const id = match?.[1]
     if (!id || Number(id) !== index + 1) {
-      throw new Error(`Migration filenames must form a unique sequence from 001: ${file}`)
+      throw new MigrationError(`Migration filenames must form a unique sequence from 001: ${file}`)
     }
     const bytes = readFileSync(join(dir, file))
     return {
@@ -38,10 +40,10 @@ export function getPendingMigrations(
   for (const [index, row] of recorded.entries()) {
     const migration = migrations[index]
     if (!migration || row.id !== migration.id) {
-      throw new Error(`Unknown or out-of-sequence migration in journal: ${row.id}`)
+      throw new MigrationError(`Unknown or out-of-sequence migration in journal: ${row.id}`)
     }
     if (row.checksum.trim() !== migration.checksum) {
-      throw new Error(`Migration checksum changed: ${row.id}`)
+      throw new MigrationError(`Migration checksum changed: ${row.id}`)
     }
   }
   return migrations.slice(recorded.length)
@@ -50,10 +52,10 @@ export function getPendingMigrations(
 function validateDirectUrl(connectionString: string): void {
   const url = new URL(connectionString)
   if (!['postgres:', 'postgresql:'].includes(url.protocol)) {
-    throw new Error('MIGRATION_DATABASE_URL must be a PostgreSQL URL')
+    throw new MigrationError('MIGRATION_DATABASE_URL must be a PostgreSQL URL')
   }
   if (url.hostname.includes('-pooler') || url.port === '6432') {
-    throw new Error('Migrations require a direct PostgreSQL connection, not a pooler')
+    throw new MigrationError('Migrations require a direct PostgreSQL connection, not a pooler')
   }
 }
 
@@ -70,18 +72,72 @@ async function inTransaction(client: Client, action: () => Promise<void>): Promi
   }
 }
 
+type MigrationOptions = { connectionString: string; migrationsDir: string }
+
+async function readMigrationState(client: Client, migrations: readonly Migration[]) {
+  const journal = await client.query<{ exists: string | null }>(
+    "SELECT to_regclass('schema_migrations')::text AS exists",
+  )
+  const journalExists = Boolean(journal.rows[0].exists)
+  if (!journalExists) {
+    const tables = await client.query<{ exists: boolean }>(`
+      SELECT EXISTS (
+        SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
+      ) AS exists
+    `)
+    if (tables.rows[0].exists) {
+      throw new MigrationError('Existing database has no migration journal; review it and run the baseline operation')
+    }
+  }
+  const recorded = journalExists
+    ? (await client.query<{ id: string; checksum: string }>(
+        'SELECT id, checksum FROM schema_migrations ORDER BY id',
+      )).rows
+    : []
+  const pending = getPendingMigrations(migrations, recorded)
+  return { journalExists, recorded, pending }
+}
+
+export async function getMigrationStatus(options: MigrationOptions): Promise<{
+  journalExists: boolean; applied: string[]; pending: string[]
+}> {
+  validateDirectUrl(options.connectionString)
+  const migrations = loadMigrations(options.migrationsDir)
+  const client = new Client({ connectionString: options.connectionString, connectionTimeoutMillis: 10_000 })
+  try {
+    await client.connect()
+    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
+    await client.query("SET LOCAL statement_timeout = '30s'")
+    const state = await readMigrationState(client, migrations)
+    await client.query('COMMIT')
+    return {
+      journalExists: state.journalExists,
+      applied: state.recorded.map(({ id }) => id),
+      pending: state.pending.map(({ id }) => id),
+    }
+  } finally {
+    await client.end()
+  }
+}
+
 export async function runMigrations(options: {
   connectionString: string
   migrationsDir: string
   mode?: Mode
   confirmation?: string
+  to?: string
 }): Promise<void> {
   const { connectionString, migrationsDir, mode = 'apply', confirmation } = options
   if (mode === 'baseline-confirmed-001-006' && confirmation !== baselineConfirmation) {
-    throw new Error('Baseline requires explicit confirmation of the current schema and sleep data for 001–006')
+    throw new MigrationError('Baseline requires explicit confirmation of the current schema and sleep data for 001–006')
   }
   validateDirectUrl(connectionString)
   const migrations = loadMigrations(migrationsDir)
+  const target = options.to
+  if (target !== undefined && (mode !== 'apply' || !migrations.some(({ id }) => id === target))) {
+    throw new MigrationError('Target version must exist in the migration chain')
+  }
   const client = new Client({ connectionString, connectionTimeoutMillis: 10_000 })
   let connected = false
 
@@ -91,16 +147,9 @@ export async function runMigrations(options: {
     await client.query("SET statement_timeout = '30s'")
     await client.query('SELECT pg_advisory_lock($1)', [advisoryLockKey])
 
-    const journalExists = await client.query<{ exists: string | null }>(
-      "SELECT to_regclass('schema_migrations')::text AS exists",
-    )
-    if (!journalExists.rows[0].exists && mode === 'apply') {
-      const existingTables = await client.query<{ exists: string | null }>(
-        "SELECT to_regclass('users')::text AS exists",
-      )
-      if (existingTables.rows[0].exists) {
-        throw new Error('Existing database has no migration journal; review it and run the baseline operation')
-      }
+    const state = mode === 'apply' ? await readMigrationState(client, migrations) : undefined
+    if (target && state?.recorded.some(({ id }) => id > target)) {
+      throw new MigrationError('Target version is below the applied migration version')
     }
 
     await client.query(`
@@ -112,22 +161,22 @@ export async function runMigrations(options: {
         recorded_retrospectively BOOLEAN NOT NULL DEFAULT FALSE
       )
     `)
-    const recorded = await client.query<{ id: string; checksum: string }>(
+    const recorded = state ? { rows: state.recorded } : await client.query<{ id: string; checksum: string }>(
       'SELECT id, checksum FROM schema_migrations ORDER BY id',
     )
 
-    const pending = getPendingMigrations(migrations, recorded.rows)
+    const pending = state?.pending ?? getPendingMigrations(migrations, recorded.rows)
 
     if (mode === 'baseline-confirmed-001-006') {
-      if (recorded.rows.length !== 0) throw new Error('Baseline requires an empty migration journal')
+      if (recorded.rows.length !== 0) throw new MigrationError('Baseline requires an empty migration journal')
       if (historicalIds.some((id, index) => migrations[index]?.id !== id)) {
-        throw new Error('Baseline requires the original migrations 001–006')
+        throw new MigrationError('Baseline requires the original migrations 001–006')
       }
       const tables = await client.query<{ users: string | null; habits: string | null; entries: string | null }>(
         "SELECT to_regclass('users')::text AS users, to_regclass('habits')::text AS habits, to_regclass('daily_entries')::text AS entries",
       )
       if (!tables.rows[0].users || !tables.rows[0].habits || !tables.rows[0].entries) {
-        throw new Error('Baseline requires an existing, reviewed database schema')
+        throw new MigrationError('Baseline requires an existing, reviewed database schema')
       }
       const shape = await client.query<{ id_length: number | null; sleep_default: string | null; primary_key: string | null }>(`
         SELECT
@@ -144,7 +193,7 @@ export async function runMigrations(options: {
       const { id_length, sleep_default, primary_key } = shape.rows[0]
       if (id_length !== 255 || !sleep_default?.includes('napDuration') || !sleep_default.includes('duration') ||
           primary_key !== 'user_id,date') {
-        throw new Error('Database schema does not match confirmed migrations 001–006')
+        throw new MigrationError('Database schema does not match confirmed migrations 001–006')
       }
       const legacyData = await client.query<{ count: string }>(`
         SELECT count(*) AS count FROM daily_entries
@@ -152,7 +201,7 @@ export async function runMigrations(options: {
            OR NOT (sleep_data ? 'napDuration') OR NOT (sleep_data ? 'duration')
       `)
       if (Number(legacyData.rows[0].count) !== 0) {
-        throw new Error('Legacy sleep fields remain; migration 006 is not confirmed')
+        throw new MigrationError('Legacy sleep fields remain; migration 006 is not confirmed')
       }
       await inTransaction(client, async () => {
         for (const migration of migrations.slice(0, historicalIds.length)) {
@@ -166,7 +215,7 @@ export async function runMigrations(options: {
       return
     }
 
-    for (const migration of pending) {
+    for (const migration of pending.filter(({ id }) => !target || id <= target)) {
       await inTransaction(client, async () => {
         await client.query(migration.sql)
         await client.query(
@@ -176,7 +225,7 @@ export async function runMigrations(options: {
       })
       console.log(`Applied migration ${migration.file}`)
     }
-    console.log('Migrations are up to date')
+    console.log(`Migrations are up to date through ${target ?? migrations[migrations.length - 1].id}`)
   } finally {
     // Closing the dedicated session releases its advisory lock, including on failure.
     if (connected) await client.end()
