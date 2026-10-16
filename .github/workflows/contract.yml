@@ -85,9 +85,35 @@ jobs:
           JWT_SECRET: ci-test-access-secret
           JWT_REFRESH_SECRET: ci-test-refresh-secret
 
+      - name: Snapshot SQL names and checksums from build sources
+        if: steps.changes.outputs.api_changed == 'true'
+        run: |
+          cat > "$RUNNER_TEMP/migration-manifest.cjs" <<'NODE'
+          const { createHash } = require('node:crypto')
+          const { readdirSync, readFileSync } = require('node:fs')
+          const { join } = require('node:path')
+          const directory = process.argv[2]
+          const files = readdirSync(directory, { recursive: true })
+            .filter(name => name.endsWith('.sql')).sort()
+          if (files.length === 0) throw new Error('No SQL migrations found')
+          for (const name of files) {
+            const checksum = createHash('sha256').update(readFileSync(join(directory, name))).digest('hex')
+            console.log(JSON.stringify([name, checksum]))
+          }
+          NODE
+          node "$RUNNER_TEMP/migration-manifest.cjs" apps/api/src/db/migrations \
+            > "$RUNNER_TEMP/api-migrations.expected"
+
       - name: Build production API image
         if: steps.changes.outputs.api_changed == 'true'
         run: docker build --tag sadhana-api:ci .
+
+      - name: Compare packaged SQL with build sources
+        if: steps.changes.outputs.api_changed == 'true'
+        run: |
+          docker run --rm --interactive --entrypoint node sadhana-api:ci - src/db/migrations \
+            < "$RUNNER_TEMP/migration-manifest.cjs" > "$RUNNER_TEMP/api-migrations.actual"
+          diff -u "$RUNNER_TEMP/api-migrations.expected" "$RUNNER_TEMP/api-migrations.actual"
 
       - name: Check non-root image contents and migration command
         if: steps.changes.outputs.api_changed == 'true'
@@ -97,10 +123,10 @@ jobs:
             test -s dist/server.js
             test -s dist/db/migrate.js
             test -s node_modules/@sadhana/api-contract/dist/src/index.js
-            test "$(find src/db/migrations -name "*.sql" | wc -l)" -eq 6
             test ! -d apps/web
             test ! -d node_modules/typescript
             test ! -d node_modules/tsx
+            node dist/db/migrate.js --help
           '
 
       - name: Start image on Railway PORT and check GET /
