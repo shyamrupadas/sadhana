@@ -3,6 +3,13 @@ import { spawn } from 'node:child_process'
 import { createInterface } from 'node:readline'
 import { ConfigurationError, loadConfiguration } from '../config/environment'
 import { getMigrationStatus, MigrationError, runMigrations } from './migrate'
+import {
+  devFixtureVersion,
+  FixtureError,
+  seedDevFixtures,
+  validateFixtureDate,
+  validateFixturePassword,
+} from './dev-fixtures'
 
 const apiRoot = join(__dirname, '..', '..')
 
@@ -44,6 +51,7 @@ async function runDatabaseTests(target: 'dev' | 'test'): Promise<void> {
         '-r',
         require.resolve('ts-node/register'),
         'test/db/migrate.test.ts',
+        'test/db/dev-fixtures-postgres.test.ts',
       ],
       {
         cwd: apiRoot,
@@ -78,8 +86,10 @@ async function runDatabaseTests(target: 'dev' | 'test'): Promise<void> {
 export async function devDatabaseMain(args = process.argv.slice(2)): Promise<void> {
   try {
     const [command, ...flags] = args
-    if (!['status', 'migrate', 'test'].includes(command)) {
-      throw new ConfigurationError('Expected database command: status, migrate or test')
+    if (!['status', 'migrate', 'test', 'seed'].includes(command)) {
+      throw new ConfigurationError(
+        'Expected database command: status, migrate, seed or test'
+      )
     }
     if (flags.length === 1 && flags[0] === '--help') {
       console.log(
@@ -87,6 +97,7 @@ export async function devDatabaseMain(args = process.argv.slice(2)): Promise<voi
           status: 'Usage: pnpm db:status',
           migrate: 'Usage: pnpm db:migrate [--to <NNN>]',
           test: 'Usage: pnpm db:test --target <dev|test>',
+          seed: 'Usage: pnpm db:dev-seed --date <YYYY-MM-DD>',
         }[command]
       )
       return
@@ -105,14 +116,15 @@ export async function devDatabaseMain(args = process.argv.slice(2)): Promise<voi
     if (
       flags.length &&
       !(
-        command === 'migrate' &&
+        ['migrate', 'seed'].includes(command) &&
         flags.length === 2 &&
-        flags[0] === '--to' &&
-        /^\d{3}$/.test(flags[1])
+        flags[0] === (command === 'seed' ? '--date' : '--to') &&
+        (command === 'seed' || /^\d{3}$/.test(flags[1]))
       )
     ) {
       throw new ConfigurationError('Unknown database arguments; use --help')
     }
+    if (command === 'seed') validateFixtureDate(flags[1] ?? '')
     const config = loadConfiguration({ context: 'dev' })
     console.log(
       JSON.stringify({
@@ -124,14 +136,23 @@ export async function devDatabaseMain(args = process.argv.slice(2)): Promise<voi
       connectionString: config.MIGRATION_DATABASE_URL,
       migrationsDir: join(apiRoot, 'src', 'db', 'migrations'),
     }
-    if (command === 'status') {
+    if (command === 'seed') {
+      const password = config.DEV_FIXTURE_PASSWORD
+      validateFixturePassword(password)
+      await seedDevFixtures({ ...options, date: flags[1], password })
+      console.log(
+        JSON.stringify({ fixtures: devFixtureVersion, date: flags[1], result: 'seeded' })
+      )
+    } else if (command === 'status') {
       console.log(JSON.stringify(await getMigrationStatus(options)))
     } else {
       await runMigrations({ ...options, to: flags[1] })
     }
   } catch (error) {
     console.error(
-      error instanceof ConfigurationError || error instanceof MigrationError
+      error instanceof ConfigurationError ||
+        error instanceof MigrationError ||
+        error instanceof FixtureError
         ? error.message
         : 'Database command failed: connection, migration history, target version or PostgreSQL check failed; no automatic repair was performed'
     )

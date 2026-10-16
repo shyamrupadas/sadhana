@@ -117,11 +117,17 @@ test('fixed local context keeps dev secrets under NODE_ENV=production and refuse
     env: {
       NODE_ENV: 'production',
       JWT_SECRET: 'inherited-secret',
+      DEV_FIXTURE_PASSWORD: 'inherited-fixture-password',
     },
   }
   const config = loadConfiguration(options)
   assert.equal(config.DB_ENVIRONMENT, 'dev')
   assert.equal(config.JWT_SECRET, 'dev-access')
+  assert.equal(config.DEV_FIXTURE_PASSWORD, undefined)
+  writeFileSync(localEnvPath, '\nDEV_FIXTURE_PASSWORD=local-fixture-password', {
+    flag: 'a',
+  })
+  assert.equal(loadConfiguration(options).DEV_FIXTURE_PASSWORD, 'local-fixture-password')
   assert.equal(config.databaseIdentity.host, 'dev-pooler.invalid')
   assert.throws(
     () => loadConfiguration({ ...options, env: { DB_ENVIRONMENT: 'production' } }),

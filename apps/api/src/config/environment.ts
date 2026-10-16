@@ -20,6 +20,7 @@ export type Configuration = {
   MIGRATION_DATABASE_URL: string
   JWT_SECRET: string
   JWT_REFRESH_SECRET: string
+  DEV_FIXTURE_PASSWORD?: string
   JWT_EXPIRES_IN: string
   JWT_REFRESH_EXPIRES_IN: string
   CORS_ORIGIN: string
@@ -127,6 +128,7 @@ export function loadConfiguration(
   } = {}
 ): Configuration {
   let env = { ...(options.env ?? process.env) }
+  let fixturePassword: string | undefined
   // Check the caller's context before reading any local secrets. NODE_ENV never selects it.
   if (options.context && env.DB_ENVIRONMENT && env.DB_ENVIRONMENT !== options.context) {
     throw new ConfigurationError('DB_ENVIRONMENT conflicts with the fixed launch context')
@@ -159,6 +161,7 @@ export function loadConfiguration(
       required(local, key)
     }
     env = { ...env, ...local }
+    fixturePassword = local.DEV_FIXTURE_PASSWORD
   }
   const selected = environment as DatabaseEnvironment
   const target = readTarget(
@@ -176,6 +179,7 @@ export function loadConfiguration(
     MIGRATION_DATABASE_URL: direct,
     JWT_SECRET: required(env, 'JWT_SECRET'),
     JWT_REFRESH_SECRET: required(env, 'JWT_REFRESH_SECRET'),
+    DEV_FIXTURE_PASSWORD: fixturePassword,
     JWT_EXPIRES_IN: env.JWT_EXPIRES_IN || '15m',
     JWT_REFRESH_EXPIRES_IN: env.JWT_REFRESH_EXPIRES_IN || '7d',
     CORS_ORIGIN: env.CORS_ORIGIN || 'http://localhost:5173',
