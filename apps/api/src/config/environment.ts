@@ -12,6 +12,7 @@ type Target = {
   database: string
   role: string
   maintenanceDatabase?: string
+  resetDatabase?: string
 }
 
 export type Configuration = {
@@ -117,6 +118,16 @@ function validateUrl(value: string, target: Target, migration: boolean): void {
       `Invalid ${migration ? 'MIGRATION_DATABASE_URL' : 'DATABASE_URL'}: expected the configured PostgreSQL target and TLS parameters only`
     )
   }
+}
+
+export function validateDatabaseUrls(
+  config: Pick<
+    Configuration,
+    'DATABASE_URL' | 'MIGRATION_DATABASE_URL' | 'databaseTarget'
+  >
+): void {
+  validateUrl(config.DATABASE_URL, config.databaseTarget, false)
+  validateUrl(config.MIGRATION_DATABASE_URL, config.databaseTarget, true)
 }
 
 export function loadConfiguration(

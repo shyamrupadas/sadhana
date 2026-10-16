@@ -19,6 +19,7 @@
     "db:status": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts status",
     "db:migrate": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts migrate",
     "db:dev-seed": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts seed",
+    "db:dev-reset": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts reset",
     "db:test": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts test"
   },
   "devDependencies": {

@@ -4,6 +4,12 @@ import { createInterface } from 'node:readline'
 import { ConfigurationError, loadConfiguration } from '../config/environment'
 import { getMigrationStatus, MigrationError, runMigrations } from './migrate'
 import {
+  parseResetArguments,
+  ResetError,
+  resetDevelopmentDatabase,
+  resetUsage,
+} from './dev-reset'
+import {
   devFixtureVersion,
   FixtureError,
   seedDevFixtures,
@@ -52,6 +58,7 @@ async function runDatabaseTests(target: 'dev' | 'test'): Promise<void> {
         require.resolve('ts-node/register'),
         'test/db/migrate.test.ts',
         'test/db/dev-fixtures-postgres.test.ts',
+        'test/db/dev-reset-postgres.test.ts',
       ],
       {
         cwd: apiRoot,
@@ -86,9 +93,9 @@ async function runDatabaseTests(target: 'dev' | 'test'): Promise<void> {
 export async function devDatabaseMain(args = process.argv.slice(2)): Promise<void> {
   try {
     const [command, ...flags] = args
-    if (!['status', 'migrate', 'test', 'seed'].includes(command)) {
+    if (!['status', 'migrate', 'test', 'seed', 'reset'].includes(command)) {
       throw new ConfigurationError(
-        'Expected database command: status, migrate, seed or test'
+        'Expected database command: status, migrate, seed, reset or test'
       )
     }
     if (flags.length === 1 && flags[0] === '--help') {
@@ -98,8 +105,21 @@ export async function devDatabaseMain(args = process.argv.slice(2)): Promise<voi
           migrate: 'Usage: pnpm db:migrate [--to <NNN>]',
           test: 'Usage: pnpm db:test --target <dev|test>',
           seed: 'Usage: pnpm db:dev-seed --date <YYYY-MM-DD>',
+          reset: resetUsage,
         }[command]
       )
+      return
+    }
+    if (command === 'reset') {
+      const request = parseResetArguments(flags)
+      const config = loadConfiguration({ context: 'dev' })
+      console.log(
+        JSON.stringify({
+          ...config.databaseIdentity,
+          host: config.databaseTarget.directHost,
+        })
+      )
+      console.log(JSON.stringify(await resetDevelopmentDatabase(config, request)))
       return
     }
     if (command === 'test') {
@@ -152,6 +172,7 @@ export async function devDatabaseMain(args = process.argv.slice(2)): Promise<voi
     console.error(
       error instanceof ConfigurationError ||
         error instanceof MigrationError ||
+        error instanceof ResetError ||
         error instanceof FixtureError
         ? error.message
         : 'Database command failed: connection, migration history, target version or PostgreSQL check failed; no automatic repair was performed'

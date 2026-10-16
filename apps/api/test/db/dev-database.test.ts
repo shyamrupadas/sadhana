@@ -29,7 +29,7 @@ test('database commands explain usage and reject invalid arguments without conne
     DB_ENVIRONMENT: 'production',
     MIGRATION_TEST_DATABASE_URL: 'postgres://private:secret@foreign.invalid/live',
   })
-  for (const command of ['status', 'migrate', 'test', 'seed']) {
+  for (const command of ['status', 'migrate', 'test', 'seed', 'reset']) {
     process.exitCode = 0
     await devDatabaseMain([command, '--help'])
     assert.equal(process.exitCode, 0)
@@ -46,15 +46,50 @@ test('database commands explain usage and reject invalid arguments without conne
     ['seed'],
     ['seed', '--date', '2026-02-30'],
     ['seed', '--date', '2026-01-02', '--production'],
+    ['reset'],
+    [
+      'reset',
+      '--allow-reset',
+      '--source-ref',
+      'HEAD',
+      '--to',
+      'latest',
+      '--date',
+      '2026-01-02',
+    ],
+    ['reset', '--source-ref', 'HEAD', '--to', '006', '--date', '2026-01-02'],
+    [
+      'reset',
+      '--allow-reset',
+      '--source-ref',
+      'HEAD',
+      '--to',
+      '006',
+      '--date',
+      '2026-02-30',
+    ],
   ]) {
     process.exitCode = 0
     await devDatabaseMain(args)
     assert.equal(process.exitCode, 1)
   }
-  for (const command of ['status', 'migrate', 'seed']) {
+  for (const command of ['status', 'migrate', 'seed', 'reset']) {
     process.exitCode = 0
     await devDatabaseMain(
-      command === 'seed' ? [command, '--date', '2026-01-02'] : [command]
+      command === 'reset'
+        ? [
+            command,
+            '--allow-reset',
+            '--source-ref',
+            'HEAD',
+            '--to',
+            '006',
+            '--date',
+            '2026-01-02',
+          ]
+        : command === 'seed'
+          ? [command, '--date', '2026-01-02']
+          : [command]
     )
     assert.equal(process.exitCode, 1)
     assert.match(messages.at(-1)!, /conflicts with the fixed launch context/)
