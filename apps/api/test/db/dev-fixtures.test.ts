@@ -7,6 +7,7 @@ import {
   buildDevFixtures,
   devFixtureVersion,
   seedDevFixtures,
+  reseedDevFixtures,
 } from '../../src/db/dev-fixtures'
 
 test('versioned fixtures reproduce linked profiles and known Moscow sleep records', () => {
@@ -60,6 +61,66 @@ test('versioned fixtures reproduce linked profiles and known Moscow sleep record
   }
 })
 
+test('reseed clears, fills and verifies using one connection and one transaction', async (t) => {
+  const fixtures = buildDevFixtures('2026-01-02')
+  const migrationsDir = join(__dirname, '../../src/db/migrations')
+  const connections = new Set<Client>()
+  const statements: string[] = []
+  let inTransaction = false
+  const connect = t.mock.method(
+    Client.prototype,
+    'connect',
+    async function (this: Client) {
+      connections.add(this)
+    }
+  )
+  t.mock.method(Client.prototype, 'end', async () => undefined)
+  t.mock.method(Client.prototype, 'query', async function (this: Client, sql: string) {
+    assert.ok(connections.has(this), 'All phases use the connected session')
+    statements.push(sql)
+    if (sql === 'BEGIN') {
+      assert.equal(inTransaction, false)
+      inTransaction = true
+    } else if (sql === 'COMMIT') {
+      assert.equal(inTransaction, true)
+      inTransaction = false
+    } else assert.equal(inTransaction, true)
+    if (sql.startsWith('SELECT id, checksum'))
+      return { rows: loadMigrations(migrationsDir) }
+    if (sql.includes('AS idle')) return { rows: [{ idle: true }] }
+    if (sql.includes('AS unsupported')) return { rows: [{ unsupported: false }] }
+    if (sql.includes('FROM pg_class'))
+      return {
+        rows: ['users', 'habits', 'daily_entries', 'schema_migrations'].map((name) => ({
+          name,
+        })),
+      }
+    if (sql.startsWith('SELECT id, email')) return { rows: fixtures.users }
+    if (sql.startsWith('SELECT id, user_id, key')) return { rows: fixtures.habits }
+    if (sql.startsWith('SELECT id, user_id, date')) return { rows: fixtures.entries }
+    return { rows: [] }
+  })
+  await reseedDevFixtures({
+    connectionString: 'postgres://fixture:private@db.invalid/app',
+    migrationsDir,
+    date: '2026-01-02',
+    password: 'local-fixture-password',
+  })
+  assert.equal(connections.size, 1)
+  assert.equal(connect.mock.callCount(), 1)
+  assert.equal(statements.filter((sql) => sql === 'BEGIN').length, 1)
+  assert.equal(statements.filter((sql) => sql === 'COMMIT').length, 1)
+  assert.ok(
+    statements.findIndex((sql) => sql.startsWith('TRUNCATE')) <
+      statements.findIndex((sql) => sql.startsWith('INSERT'))
+  )
+  assert.ok(
+    statements.findIndex((sql) => sql.startsWith('SELECT id, email')) >
+      statements.findLastIndex((sql) => sql.startsWith('INSERT'))
+  )
+  assert.equal(statements.at(-1), 'COMMIT')
+})
+
 test('fixture dates are explicit real calendar dates and independent of timezone or today', () => {
   for (const date of [
     '',
@@ -87,13 +148,12 @@ test('invalid fixture passwords and dates fail before a connection is opened', a
     date: '2026-01-02',
     password: 'valid-password',
   }
-  for (const password of ['', 'short', 'x'.repeat(73), 'я'.repeat(37)]) {
-    await assert.rejects(
-      seedDevFixtures({ ...options, password }),
-      /DEV_FIXTURE_PASSWORD/
-    )
+  for (const fill of [seedDevFixtures, reseedDevFixtures]) {
+    for (const password of ['', 'short', 'x'.repeat(73), 'я'.repeat(37)]) {
+      await assert.rejects(fill({ ...options, password }), /DEV_FIXTURE_PASSWORD/)
+    }
+    await assert.rejects(fill({ ...options, date: '2026-02-30' }), /date/)
   }
-  await assert.rejects(seedDevFixtures({ ...options, date: '2026-02-30' }), /date/)
   assert.equal(connect.mock.callCount(), 0)
 })
 

@@ -11,8 +11,6 @@ type Target = {
   port: number
   database: string
   role: string
-  maintenanceDatabase?: string
-  resetDatabase?: string
 }
 
 export type Configuration = {
@@ -70,9 +68,7 @@ function readTarget(
     ) ||
     !Number.isInteger(target.port) ||
     target.port < 1 ||
-    target.port > 65535 ||
-    (environment === 'dev' &&
-      (!target.maintenanceDatabase || target.maintenanceDatabase === target.database))
+    target.port > 65535
   ) {
     throw new ConfigurationError('Incomplete database target configuration')
   }

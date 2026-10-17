@@ -106,7 +106,6 @@ test('fixed local context keeps dev secrets under NODE_ENV=production and refuse
         port: 5432,
         database: 'development',
         role: 'developer',
-        maintenanceDatabase: 'postgres',
       },
     })
   )

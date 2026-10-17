@@ -1,4 +1,5 @@
 import { execFileSync, spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   mkdirSync,
   mkdtempSync,
@@ -25,6 +26,12 @@ export type PreparedFixtureSource = {
 }
 
 const apiRoot = join(__dirname, '../..')
+
+// Reviewed SQL 001–006 from 259975c only affects public and installs uuid-ossp.
+// A new SQL prefix needs an explicit scope review, not just a generator declaration.
+const supportedSqlPrefixes: Record<string, string> = {
+  '006': '130a4c36d800ac386f6f2283a969daf09ddc22402afce565eba7faf3b236cfab',
+}
 
 // This small source format deliberately supports the saved v1 generator, not arbitrary
 // historical applications. No env/config data, install scripts or Git hooks are extracted.
@@ -154,8 +161,12 @@ export async function prepareFixtureSource(options: {
       )
       writeFileSync(join(migrationsDir, name), bytes)
     }
-    if (!loadMigrations(migrationsDir).some(({ id }) => id === options.to))
-      throw new SourceError()
+    const migrations = loadMigrations(migrationsDir)
+    const prefix = migrations.filter(({ id }) => id <= options.to)
+    const fingerprint = createHash('sha256')
+      .update(prefix.map(({ id, checksum }) => `${id}:${checksum}`).join('\n'))
+      .digest('hex')
+    if (fingerprint !== supportedSqlPrefixes[options.to]) throw new SourceError()
     writeFileSync(join(directory, 'runner.cjs'), runner)
     symlinkSync(join(apiRoot, 'node_modules'), join(directory, 'node_modules'), 'dir')
     const input = { to: options.to, date: options.date }

@@ -4,8 +4,7 @@
     "runtimeHost": "ep-REPLACE-pooler.eu-central-1.aws.neon.tech",
     "port": 5432,
     "database": "sadhana_dev",
-    "role": "sadhana_dev",
-    "maintenanceDatabase": "postgres"
+    "role": "sadhana_dev"
   },
   "test": {
     "directHost": "db.invalid",

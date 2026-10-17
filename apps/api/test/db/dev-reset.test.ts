@@ -21,7 +21,6 @@ const config: Configuration = {
     port: 5432,
     database: 'dev',
     role: 'fixture',
-    maintenanceDatabase: 'postgres',
   },
   databaseIdentity: {
     environment: 'dev',
@@ -46,31 +45,48 @@ test('reset rejects invalid targets and incomplete inputs before preparing or co
     { ...config, DEV_FIXTURE_PASSWORD: '' },
     {
       ...config,
-      databaseTarget: { ...config.databaseTarget, maintenanceDatabase: 'dev' },
+      databaseTarget: { ...config.databaseTarget, database: 'postgres' },
     },
   ]) {
     await assert.rejects(
       resetDevelopmentDatabase(invalid, request, {
         prepareSource: async () =>
           assert.fail('Invalid inputs must not prepare a source'),
-        maintenance: () => assert.fail('Invalid inputs must not connect'),
+        structure: () => assert.fail('Invalid inputs must not connect'),
       }),
       /preparation.*preserved/i
     )
   }
 })
 
-test('maintenance refuses insufficient rights or active sessions before deleting the allowed database', async (t) => {
-  let deleted = false
+test('public reset refuses missing rights, unsupported extensions and external dependencies before cleanup', async (t) => {
+  let cleared = false
   t.mock.method(Client.prototype, 'connect', async () => undefined)
   t.mock.method(Client.prototype, 'end', async () => undefined)
-  let rights = { can_create: true, owns_database: true, idle: true }
+  let failure = ''
   t.mock.method(Client.prototype, 'query', async (sql: string) => {
-    if (sql.startsWith('DROP')) deleted = true
-    return { rows: sql.includes('pg_roles') ? [rights] : [] }
+    if (sql.startsWith('DROP SCHEMA')) cleared = true
+    if (sql.includes('AS correct_target'))
+      return {
+        rows: [
+          {
+            correct_target: true,
+            owns_schema: failure !== 'rights',
+            can_create: true,
+            extension_available: true,
+            idle: failure !== 'sessions',
+          },
+        ],
+      }
+    if (sql.includes('FROM pg_extension'))
+      return { rows: failure === 'extension' ? [{ extname: 'hstore' }] : [] }
+    if (sql.includes("to_regnamespace('public')"))
+      return { rows: [{ namespace: 'public' }] }
+    if (sql.includes('WITH RECURSIVE'))
+      return { rows: [{ outside: failure === 'dependency' }] }
+    return { rows: [] }
   })
-  for (const denied of ['can_create', 'owns_database', 'idle'] as const) {
-    rights = { can_create: true, owns_database: true, idle: true, [denied]: false }
+  for (failure of ['rights', 'sessions', 'extension', 'dependency']) {
     await assert.rejects(
       resetDevelopmentDatabase(config, request, {
         prepareSource: async () => ({
@@ -78,14 +94,14 @@ test('maintenance refuses insufficient rights or active sessions before deleting
           generator: '1',
           directory: '/prepared',
           migrationsDir: '/prepared/sql',
-          seed: async () => assert.fail('Must preserve database'),
-          verify: async () => assert.fail('Must preserve database'),
+          seed: async () => assert.fail('Must preserve data'),
+          verify: async () => assert.fail('Must preserve data'),
           cleanup: async () => undefined,
         }),
       }),
       /preparation.*preserved/i
     )
-    assert.equal(deleted, false)
+    assert.equal(cleared, false)
   }
 })
 
@@ -110,14 +126,11 @@ test('reset preserves the existing database on every preparation failure and cle
         if (failure === 'source') throw new Error('private source details')
         return source
       },
-      maintenance: () => ({
+      structure: () => ({
         check: async () => {
           throw new Error('private role details')
         },
-        drop: async () => {
-          database = 'absent'
-        },
-        create: async () => {
+        reset: async () => {
           database = 'empty'
         },
         close: async () => {
@@ -138,7 +151,7 @@ test('reset preserves the existing database on every preparation failure and cle
 })
 
 test('reset reports the failed stage and observed version without leaking diagnostics, and can be repeated', async () => {
-  for (const failure of ['drop', 'create', 'migrate', 'seed', 'verify', 'none']) {
+  for (const failure of ['clear', 'migrate', 'seed', 'verify', 'none']) {
     let database: string | null = 'existing work'
     let cleaned = false
     let closed = false
@@ -163,14 +176,10 @@ test('reset reports the failed stage and observed version without leaking diagno
           cleaned = true
         },
       }),
-      maintenance: () => ({
+      structure: () => ({
         check: async () => undefined,
-        drop: async () => {
-          fail('drop')
-          database = null
-        },
-        create: async () => {
-          fail('create')
+        reset: async () => {
+          fail('clear')
           database = 'empty'
         },
         close: async () => {
@@ -210,7 +219,6 @@ test('reset reports the failed stage and observed version without leaking diagno
         resetDevelopmentDatabase(config, request, operations),
         (error: Error) => {
           assert.match(error.message, new RegExp(`stage=${failure}`))
-          if (failure === 'create') assert.match(error.message, /unavailable/)
           if (failure === 'migrate') assert.match(error.message, /version=002/)
           assert.doesNotMatch(error.message, /private|JWT|SQL|postgres:/)
           return true

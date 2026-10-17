@@ -8,11 +8,15 @@ import {
   ResetError,
   resetDevelopmentDatabase,
   resetUsage,
+  parseReseedArguments,
+  reseedUsage,
 } from './dev-reset'
+import { publicDatabaseUrl } from './dev-schema'
 import {
   devFixtureVersion,
   FixtureError,
   seedDevFixtures,
+  reseedDevFixtures,
   validateFixtureDate,
   validateFixturePassword,
 } from './dev-fixtures'
@@ -93,9 +97,9 @@ async function runDatabaseTests(target: 'dev' | 'test'): Promise<void> {
 export async function devDatabaseMain(args = process.argv.slice(2)): Promise<void> {
   try {
     const [command, ...flags] = args
-    if (!['status', 'migrate', 'test', 'seed', 'reset'].includes(command)) {
+    if (!['status', 'migrate', 'test', 'seed', 'reset', 'reseed'].includes(command)) {
       throw new ConfigurationError(
-        'Expected database command: status, migrate, seed, reset or test'
+        'Expected database command: status, migrate, seed, reseed, reset or test'
       )
     }
     if (flags.length === 1 && flags[0] === '--help') {
@@ -106,6 +110,7 @@ export async function devDatabaseMain(args = process.argv.slice(2)): Promise<voi
           test: 'Usage: pnpm db:test --target <dev|test>',
           seed: 'Usage: pnpm db:dev-seed --date <YYYY-MM-DD>',
           reset: resetUsage,
+          reseed: reseedUsage,
         }[command]
       )
       return
@@ -133,7 +138,9 @@ export async function devDatabaseMain(args = process.argv.slice(2)): Promise<voi
       await runDatabaseTests(flags[1] as 'dev' | 'test')
       return
     }
+    const reseedDate = command === 'reseed' ? parseReseedArguments(flags) : undefined
     if (
+      command !== 'reseed' &&
       flags.length &&
       !(
         ['migrate', 'seed'].includes(command) &&
@@ -156,12 +163,26 @@ export async function devDatabaseMain(args = process.argv.slice(2)): Promise<voi
       connectionString: config.MIGRATION_DATABASE_URL,
       migrationsDir: join(apiRoot, 'src', 'db', 'migrations'),
     }
-    if (command === 'seed') {
+    if (command === 'seed' || command === 'reseed') {
       const password = config.DEV_FIXTURE_PASSWORD
       validateFixturePassword(password)
-      await seedDevFixtures({ ...options, date: flags[1], password })
+      const date = reseedDate ?? flags[1]
+      const fill = command === 'reseed' ? reseedDevFixtures : seedDevFixtures
+      await fill({
+        ...options,
+        connectionString:
+          command === 'reseed'
+            ? publicDatabaseUrl(options.connectionString)
+            : options.connectionString,
+        date,
+        password,
+      })
       console.log(
-        JSON.stringify({ fixtures: devFixtureVersion, date: flags[1], result: 'seeded' })
+        JSON.stringify({
+          fixtures: devFixtureVersion,
+          date,
+          result: command === 'reseed' ? 'reseeded' : 'seeded',
+        })
       )
     } else if (command === 'status') {
       console.log(JSON.stringify(await getMigrationStatus(options)))

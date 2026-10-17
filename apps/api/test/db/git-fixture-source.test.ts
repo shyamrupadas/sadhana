@@ -87,6 +87,21 @@ test('historical fixture source is pinned and runnable without reading secrets o
   git('add', sql)
   git('commit', '-qm', 'restore prefix')
 
+  // Even a valid sequence and compatible generator cannot authorize SQL outside public.
+  const changedSql =
+    'apps/api/src/db/migrations/006_set_duration_min_null_for_missing_times.sql'
+  const originalSql = git('show', `${commit}:${changedSql}`)
+  writeFileSync(
+    join(repo, changedSql),
+    `${originalSql}\nCREATE TABLE outside_reset.unexpected (id int);\n`
+  )
+  git('add', changedSql)
+  git('commit', '-qm', 'unsupported SQL scope')
+  await assert.rejects(prepareFixtureSource(options), /source preparation failed/i)
+  writeFileSync(join(repo, changedSql), originalSql)
+  git('add', changedSql)
+  git('commit', '-qm', 'restore supported SQL')
+
   // A valid schema declaration cannot hide an unavailable historical dependency/check.
   writeFileSync(
     join(repo, 'apps/api/src/db/dev-fixtures.ts'),

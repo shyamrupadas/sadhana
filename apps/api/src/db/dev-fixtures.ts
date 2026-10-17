@@ -164,30 +164,132 @@ async function checkRecords(client: Client, fixtures: Fixtures): Promise<void> {
 export async function seedDevFixtures(
   options: FixtureOptions & { password: string }
 ): Promise<void> {
+  await writeDevFixtures(options, false)
+}
+
+export async function reseedDevFixtures(
+  options: FixtureOptions & { password: string }
+): Promise<void> {
+  await writeDevFixtures(options, true)
+}
+
+async function writeDevFixtures(
+  options: FixtureOptions & { password: string },
+  replace: boolean
+): Promise<void> {
   const fixtures = buildDevFixtures(options.date)
   validateFixturePassword(options.password)
   const client = new Client({
     connectionString: options.connectionString,
     connectionTimeoutMillis: 10_000,
   })
+  let committing = false
   try {
     await client.connect()
     await client.query('BEGIN')
     await client.query("SET LOCAL statement_timeout = '5min'")
     await client.query("SET LOCAL lock_timeout = '10s'")
-    // Serialize seeds and block application writes until the empty check and all inserts commit.
+    if (replace) {
+      const sessions = await client.query<{ idle: boolean }>(
+        'SELECT NOT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid()) AS idle'
+      )
+      if (sessions.rows[0]?.idle !== true)
+        throw new FixtureError(
+          'Fixture replacement requires stopped application sessions'
+        )
+    }
+    // Keep validation, optional cleanup, inserts and verification on this transaction's session.
     await client.query('LOCK TABLE schema_migrations IN SHARE ROW EXCLUSIVE MODE')
     await checkSchema(client, options.migrationsDir)
     await client.query(
       'LOCK TABLE users, habits, daily_entries IN SHARE ROW EXCLUSIVE MODE'
     )
-    const existing = await client.query<{ populated: boolean }>(
-      'SELECT EXISTS (SELECT 1 FROM users UNION ALL SELECT 1 FROM habits UNION ALL SELECT 1 FROM daily_entries) AS populated'
-    )
-    if (existing.rows[0].populated)
-      throw new FixtureError(
-        'Fixtures require empty application tables; existing work was preserved'
+    let journal: unknown[] | undefined
+    if (replace) {
+      const tables = await client.query<{ name: string }>(
+        `SELECT c.relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p', 'f', 'm')`
       )
+      const supported = new Set(['users', 'habits', 'daily_entries', 'schema_migrations'])
+      if (tables.rows.some(({ name }) => !supported.has(name))) {
+        throw new FixtureError(
+          'Fixture replacement requires the known application tables'
+        )
+      }
+      // Schema 006 has ordinary tables, reviewed defaults and internal FK triggers.
+      // Pinned built-ins (e.g. dynamic nextval) need not appear in pg_depend, so
+      // accept only the known expressions rather than infer safety from dependencies.
+      const dependencies = await client.query<{ unsupported: boolean }>(`
+        WITH RECURSIVE attached(classid, objid) AS (
+          SELECT 'pg_class'::regclass::oid, c.oid FROM pg_class c
+          WHERE c.oid IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+          UNION
+          SELECT d.classid, d.objid FROM pg_depend d JOIN attached t
+            ON d.refclassid=t.classid AND d.refobjid=t.objid WHERE d.deptype IN ('a', 'i')
+        )
+        SELECT EXISTS (
+          SELECT 1 FROM attached t JOIN pg_depend d ON d.classid=t.classid AND d.objid=t.objid
+          CROSS JOIN LATERAL pg_identify_object(d.refclassid, d.refobjid, 0) referenced
+          LEFT JOIN pg_class relation ON d.refclassid='pg_class'::regclass AND relation.oid=d.refobjid
+          WHERE (d.refclassid IN ('pg_proc'::regclass, 'pg_operator'::regclass, 'pg_collation'::regclass, 'pg_type'::regclass, 'pg_opclass'::regclass, 'pg_opfamily'::regclass)
+            AND d.classid <> 'pg_type'::regclass
+            AND referenced.schema IS DISTINCT FROM 'pg_catalog')
+            OR relation.relkind='S'
+        ) OR EXISTS (
+          SELECT 1 FROM pg_attrdef def JOIN pg_attribute col ON col.attrelid=def.adrelid AND col.attnum=def.adnum
+          WHERE def.adrelid IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+            AND NOT (
+              (col.attname='id' AND def.adrelid IN ('users'::regclass, 'habits'::regclass) AND pg_get_expr(def.adbin, def.adrelid)='gen_random_uuid()')
+              OR (col.attname IN ('created_at', 'updated_at', 'recorded_at') AND pg_get_expr(def.adbin, def.adrelid)='now()')
+              OR (col.attname='habits' AND def.adrelid='daily_entries'::regclass AND pg_get_expr(def.adbin, def.adrelid)=quote_literal('[]') || '::jsonb')
+              OR (col.attname='sleep_data' AND def.adrelid='daily_entries'::regclass AND pg_get_expr(def.adbin, def.adrelid)=quote_literal('{"bedtime":null,"wakeTime":null,"napDuration":null,"duration":null}'::jsonb::text) || '::jsonb')
+              OR (col.attname='recorded_retrospectively' AND def.adrelid='schema_migrations'::regclass AND pg_get_expr(def.adbin, def.adrelid)='false')
+            )
+        ) OR EXISTS (
+          SELECT 1 FROM pg_constraint WHERE contype IN ('c', 'x') AND conrelid IN
+            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+        ) OR EXISTS (
+          SELECT 1 FROM pg_index idx JOIN pg_class relation ON relation.oid=idx.indexrelid WHERE indrelid IN
+            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+            AND (indexprs IS NOT NULL OR indpred IS NOT NULL OR relation.relam<>(SELECT oid FROM pg_am WHERE amname='btree'))
+        ) OR EXISTS (
+          SELECT 1 FROM pg_trigger WHERE NOT tgisinternal AND tgrelid IN
+            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+        ) OR EXISTS (
+          SELECT 1 FROM pg_rewrite WHERE ev_class IN
+            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+        ) OR EXISTS (
+          SELECT 1 FROM pg_constraint WHERE contype='f' AND
+            ((conrelid IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass)
+              AND confrelid NOT IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass))
+            OR (confrelid IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass)
+              AND conrelid NOT IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass)))
+        ) OR EXISTS (
+          SELECT 1 FROM pg_class WHERE oid IN
+            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+            AND (relkind <> 'r' OR relrowsecurity OR reloftype <> 0 OR relispartition)
+        ) OR EXISTS (
+          SELECT 1 FROM pg_inherits WHERE inhrelid IN
+            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+            OR inhparent IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+        ) AS unsupported
+      `)
+      if (dependencies.rows[0]?.unsupported !== false)
+        throw new FixtureError(
+          'Fixture replacement refuses unsupported table dependencies'
+        )
+      journal = (await client.query('SELECT * FROM schema_migrations ORDER BY id')).rows
+      // No CASCADE: foreign dependencies must fail and roll back rather than lose other data.
+      await client.query('TRUNCATE TABLE users, habits, daily_entries')
+    } else {
+      const existing = await client.query<{ populated: boolean }>(
+        'SELECT EXISTS (SELECT 1 FROM users UNION ALL SELECT 1 FROM habits UNION ALL SELECT 1 FROM daily_entries) AS populated'
+      )
+      if (existing.rows[0].populated)
+        throw new FixtureError(
+          'Fixtures require empty application tables; existing work was preserved'
+        )
+    }
     for (const user of fixtures.users) {
       const hash = await bcrypt.hash(options.password, 10)
       await client.query(
@@ -214,9 +316,27 @@ export async function seedDevFixtures(
       )
     }
     await checkRecords(client, fixtures)
+    if (
+      replace &&
+      !isDeepStrictEqual(
+        journal,
+        (await client.query('SELECT * FROM schema_migrations ORDER BY id')).rows
+      )
+    )
+      throw new FixtureError('Fixture replacement changed the migration journal')
+    committing = true
     await client.query('COMMIT')
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined)
+    if (replace) {
+      if (committing)
+        throw new FixtureError(
+          'Fixture replacement commit could not be confirmed; inspect the dataset before retrying'
+        )
+      throw new FixtureError(
+        `${error instanceof FixtureError ? error.message : 'Fixture replacement transaction failed'}; previous records preserved`
+      )
+    }
     throw error instanceof FixtureError
       ? error
       : new FixtureError('Fixture transaction failed; no partial dataset was committed')
