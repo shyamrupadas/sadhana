@@ -21,6 +21,7 @@
     "db:dev-seed": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts seed",
     "db:dev-reseed": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts reseed",
     "db:dev-reset": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts reset",
+    "db:rehearse": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts rehearse",
     "db:test": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts test"
   },
   "devDependencies": {

@@ -29,7 +29,15 @@ test('database commands explain usage and reject invalid arguments without conne
     DB_ENVIRONMENT: 'production',
     MIGRATION_TEST_DATABASE_URL: 'postgres://private:secret@foreign.invalid/live',
   })
-  for (const command of ['status', 'migrate', 'test', 'seed', 'reset', 'reseed']) {
+  for (const command of [
+    'status',
+    'migrate',
+    'test',
+    'seed',
+    'reset',
+    'reseed',
+    'rehearse',
+  ]) {
     process.exitCode = 0
     await devDatabaseMain([command, '--help'])
     assert.equal(process.exitCode, 0)
@@ -51,6 +59,35 @@ test('database commands explain usage and reject invalid arguments without conne
     ['reseed', '--allow-reset', '--date', '2026-02-30'],
     ['reseed', '--allow-reset', '--date', '2026-01-02', '--to', '006'],
     ['reseed', '--allow-reset', '--allow-reset', '--date', '2026-01-02'],
+    ['rehearse'],
+    [
+      'rehearse',
+      '--allow-reset',
+      '--source-ref',
+      'HEAD',
+      '--from',
+      '006',
+      '--to',
+      '006',
+      '--date',
+      '2026-01-02',
+      '--checks',
+      'example',
+    ],
+    [
+      'rehearse',
+      '--allow-reset',
+      '--source-ref',
+      'HEAD',
+      '--from',
+      '006',
+      '--to',
+      '007',
+      '--date',
+      '2026-01-02',
+      '--checks',
+      '../private',
+    ],
     ['reset'],
     [
       'reset',
@@ -78,25 +115,40 @@ test('database commands explain usage and reject invalid arguments without conne
     await devDatabaseMain(args)
     assert.equal(process.exitCode, 1)
   }
-  for (const command of ['status', 'migrate', 'seed', 'reset', 'reseed']) {
+  for (const command of ['status', 'migrate', 'seed', 'reset', 'reseed', 'rehearse']) {
     process.exitCode = 0
     await devDatabaseMain(
-      command === 'reseed'
-        ? [command, '--date', '2026-01-02', '--allow-reset']
-        : command === 'reset'
-          ? [
-              command,
-              '--allow-reset',
-              '--source-ref',
-              'HEAD',
-              '--to',
-              '006',
-              '--date',
-              '2026-01-02',
-            ]
-          : command === 'seed'
-            ? [command, '--date', '2026-01-02']
-            : [command]
+      command === 'rehearse'
+        ? [
+            command,
+            '--allow-reset',
+            '--source-ref',
+            'HEAD',
+            '--from',
+            '006',
+            '--to',
+            '007',
+            '--date',
+            '2026-01-02',
+            '--checks',
+            'example',
+          ]
+        : command === 'reseed'
+          ? [command, '--date', '2026-01-02', '--allow-reset']
+          : command === 'reset'
+            ? [
+                command,
+                '--allow-reset',
+                '--source-ref',
+                'HEAD',
+                '--to',
+                '006',
+                '--date',
+                '2026-01-02',
+              ]
+            : command === 'seed'
+              ? [command, '--date', '2026-01-02']
+              : [command]
     )
     assert.equal(process.exitCode, 1)
     assert.match(messages.at(-1)!, /conflicts with the fixed launch context/)

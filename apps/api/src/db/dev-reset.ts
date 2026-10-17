@@ -70,6 +70,25 @@ const defaultOperations: ResetOperations = {
   status: getMigrationStatus,
 }
 
+export function validateResetConfiguration(config: Configuration, date: string): string {
+  if (!['dev', 'test'].includes(config.DB_ENVIRONMENT))
+    throw new ConfigurationError('Reset requires dev context')
+  validateDatabaseUrls(config)
+  const { database, role } = config.databaseTarget
+  if (
+    ['postgres', 'template0', 'template1'].includes(database) ||
+    ![database, role].every(
+      (name) => /^[a-zA-Z0-9_.-]+$/.test(name) && Buffer.byteLength(name) <= 63
+    )
+  )
+    throw new ConfigurationError(
+      'Reset requires the configured application database and role'
+    )
+  validateFixtureDate(date)
+  validateFixturePassword(config.DEV_FIXTURE_PASSWORD)
+  return config.DEV_FIXTURE_PASSWORD
+}
+
 export async function resetDevelopmentDatabase(
   config: Configuration,
   request: ResetRequest,
@@ -80,24 +99,10 @@ export async function resetDevelopmentDatabase(
   let structure: PublicSchemaSession | undefined
   let stage = 'preparation'
   try {
-    if (!['dev', 'test'].includes(config.DB_ENVIRONMENT))
-      throw new ConfigurationError('Reset requires dev context')
-    validateDatabaseUrls(config)
-    const { database, role } = config.databaseTarget
-    if (
-      ['postgres', 'template0', 'template1'].includes(database) ||
-      ![database, role].every(
-        (name) => /^[a-zA-Z0-9_.-]+$/.test(name) && Buffer.byteLength(name) <= 63
-      )
-    )
-      throw new ConfigurationError(
-        'Reset requires the configured application database and role'
-      )
-    validateFixtureDate(request.date)
-    validateFixturePassword(config.DEV_FIXTURE_PASSWORD)
+    const password = validateResetConfiguration(config, request.date)
     source = await actions.prepareSource({
       ...request,
-      password: config.DEV_FIXTURE_PASSWORD,
+      password,
       repoRoot: join(__dirname, '../../../..'),
     })
     structure = actions.structure(config)
@@ -111,7 +116,7 @@ export async function resetDevelopmentDatabase(
     stage = 'migrate'
     await actions.migrate({ ...options, to: request.to })
     stage = 'seed'
-    await source.seed(options.connectionString, config.DEV_FIXTURE_PASSWORD)
+    await source.seed(options.connectionString, password)
     stage = 'verify'
     await source.verify(options.connectionString)
     return {

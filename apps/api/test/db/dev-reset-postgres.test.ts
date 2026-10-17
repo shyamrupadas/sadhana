@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { test, type TestContext } from 'node:test'
 import { Client, type QueryResult } from 'pg'
@@ -12,7 +21,13 @@ import {
   seedDevFixtures,
   verifyDevFixtures,
 } from '../../src/db/dev-fixtures'
-import { getMigrationStatus, runMigrations } from '../../src/db/migrate'
+import { rehearseDevelopmentDatabase } from '../../src/db/dev-rehearse'
+import {
+  prepareRehearsalTarget,
+  type PreparedRehearsalTarget,
+} from '../../src/db/rehearsal-checks'
+import { publicDatabaseUrl } from '../../src/db/dev-schema'
+import { loadMigrations, getMigrationStatus, runMigrations } from '../../src/db/migrate'
 import { prepareFixtureSource } from '../../src/db/git-fixture-source'
 
 const repoRoot = join(__dirname, '../../../..')
@@ -524,5 +539,131 @@ test('reset test harness refuses existing functions and types as well as relatio
         await client.query(cleanup)
       }
     })
+  })
+})
+
+test('rehearsal freezes SQL/checks before reset, verifies a real transformation and intentional deletion, and detects a wrong result', async (t) => {
+  await withResetDatabase(t, async (config) => {
+    const directory = mkdtempSync(join(tmpdir(), 'sadhana-rehearsal-pg-'))
+    t.after(() => rmSync(directory, { recursive: true, force: true }))
+    const targetSql = join(directory, 'sql')
+    const checksDir = join(directory, 'checks')
+    mkdirSync(targetSql)
+    mkdirSync(checksDir)
+    const fixture = join(__dirname, 'fixtures/rehearsal')
+    const scenarioPath = join(checksDir, 'profile-kind.json')
+    const nextSql = join(targetSql, '007_profile_kind.sql')
+    const copyInputs = () => {
+      for (const migration of loadMigrations(migrationsDir).filter(
+        ({ id }) => id <= '006'
+      ))
+        copyFileSync(join(migrationsDir, migration.file), join(targetSql, migration.file))
+      copyFileSync(join(fixture, 'profile-kind.sql'), nextSql)
+      copyFileSync(join(fixture, 'profile-kind.json'), scenarioPath)
+    }
+    // Reviewed test-only prefix: only public tables/sequence, no new extensions.
+    const reviewedPrefixes = {
+      '007': '8f0560a9162b528543c4c1b67ab28b9b2e1a2d6b5d560679f4e6372b908d64f4',
+    }
+    let prepared: PreparedRehearsalTarget | undefined
+    let frozenDirectory = ''
+    const target = async (options: Parameters<typeof prepareRehearsalTarget>[0]) => {
+      prepared = await prepareRehearsalTarget({
+        ...options,
+        migrationsDir: targetSql,
+        checksDir,
+        reviewedPrefixes,
+      })
+      frozenDirectory = prepared.migrationsDir
+      return prepared
+    }
+    const rehearsal = { ...request, from: '006', to: '007', checks: 'profile-kind' }
+    copyInputs()
+    let repeatVerified = false
+    const result = await rehearseDevelopmentDatabase(config, rehearsal, {
+      prepareTarget: async (options) => {
+        const frozen = await target(options)
+        // Mutable files now contain a destructive SQL and invalid JSON. Neither may execute.
+        writeFileSync(nextSql, 'DROP TABLE public.users CASCADE;')
+        writeFileSync(scenarioPath, '{}')
+        return frozen
+      },
+      migrate: async (options) => {
+        const before =
+          options.to === '007' ? await getMigrationStatus(options) : undefined
+        const snapshotBefore =
+          before?.applied.at(-1) === '007'
+            ? await prepared!.snapshot(publicDatabaseUrl(config.MIGRATION_DATABASE_URL))
+            : undefined
+        await runMigrations(options)
+        if (snapshotBefore) {
+          assert.deepEqual(
+            await prepared!.snapshot(publicDatabaseUrl(config.MIGRATION_DATABASE_URL)),
+            snapshotBefore
+          )
+          repeatVerified = true
+        }
+      },
+    })
+    assert.equal(result.to, '007')
+    assert.equal(repeatVerified, true)
+    assert.equal(existsSync(frozenDirectory), false)
+    await withClient(config, async (client) => {
+      assert.deepEqual(
+        (await client.query('SELECT email, profile_kind FROM users ORDER BY email')).rows,
+        [
+          { email: 'daily@example.test', profile_kind: 'daily' },
+          { email: 'empty@example.test', profile_kind: 'empty' },
+          { email: 'history@example.test', profile_kind: 'history' },
+        ]
+      )
+      assert.equal(
+        (await client.query('SELECT count(*)::int AS count FROM schema_migrations'))
+          .rows[0].count,
+        7
+      )
+    })
+    copyInputs()
+    const incorrect = JSON.parse(readFileSync(scenarioPath, 'utf8'))
+    incorrect.data[0].rows[0].profile_kind = 'incorrect-expectation'
+    writeFileSync(scenarioPath, JSON.stringify(incorrect))
+    await assert.rejects(
+      rehearseDevelopmentDatabase(config, rehearsal, { prepareTarget: target }),
+      /stage=data; version=007/
+    )
+    assert.equal(existsSync(frozenDirectory), false)
+    // Neither journal times nor precise numeric values may change unnoticed on repeat.
+    for (const corruption of ['journal', 'numeric']) {
+      copyInputs()
+      let targetRuns = 0
+      await assert.rejects(
+        rehearseDevelopmentDatabase(config, rehearsal, {
+          prepareTarget: target,
+          migrate: async (options) => {
+            await runMigrations(options)
+            if (options.to !== '007') return
+            targetRuns++
+            await withClient(config, async (client) => {
+              if (corruption === 'numeric' && targetRuns === 1) {
+                await client.query(
+                  'CREATE TABLE public.precision_probe (value numeric(30)); INSERT INTO public.precision_probe VALUES (9007199254740992)'
+                )
+              } else if (targetRuns === 2) {
+                await client.query(
+                  corruption === 'journal'
+                    ? "UPDATE schema_migrations SET recorded_at=recorded_at + interval '1 day' WHERE id='007'"
+                    : 'UPDATE public.precision_probe SET value=9007199254740993'
+                )
+              }
+            })
+          },
+        }),
+        /stage=repeat; version=007/
+      )
+      assert.equal(existsSync(frozenDirectory), false)
+    }
+    // Rehearsal starts afresh after a failure, rather than treating already-applied SQL as proof.
+    copyInputs()
+    await rehearseDevelopmentDatabase(config, rehearsal, { prepareTarget: target })
   })
 })

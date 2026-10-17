@@ -1,0 +1,84 @@
+{
+  "source": [
+    {
+      "sql": "SELECT count(*)::int AS count FROM public.daily_entries e JOIN public.users u ON u.id=e.user_id WHERE u.email='daily@example.test'",
+      "rows": [
+        {
+          "count": 31
+        }
+      ]
+    }
+  ],
+  "schema": [
+    {
+      "sql": "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='users' AND column_name='profile_kind'",
+      "rows": [
+        {
+          "data_type": "text",
+          "is_nullable": "NO"
+        }
+      ]
+    }
+  ],
+  "data": [
+    {
+      "sql": "SELECT email, profile_kind FROM public.users ORDER BY email",
+      "rows": [
+        {
+          "email": "daily@example.test",
+          "profile_kind": "daily"
+        },
+        {
+          "email": "empty@example.test",
+          "profile_kind": "empty"
+        },
+        {
+          "email": "history@example.test",
+          "profile_kind": "history"
+        }
+      ]
+    },
+    {
+      "sql": "SELECT count(*)::int AS count FROM public.daily_entries e JOIN public.users u ON u.id=e.user_id WHERE u.email='daily@example.test'",
+      "rows": [
+        {
+          "count": 0
+        }
+      ]
+    }
+  ],
+  "preservation": [
+    {
+      "sql": "SELECT key, label, count(*)::int AS count FROM public.habits GROUP BY key,label ORDER BY key",
+      "rows": [
+        {
+          "key": "reading",
+          "label": "Чтение",
+          "count": 2
+        },
+        {
+          "key": "walk",
+          "label": "Прогулка",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "sql": "SELECT e.date, e.sleep_data, e.habits FROM public.daily_entries e JOIN public.users u ON u.id=e.user_id WHERE u.email='history@example.test' AND e.date=current_setting('sadhana.fixture_date')",
+      "rows": [
+        {
+          "date": "2026-01-02",
+          "sleep_data": {
+            "bedtime": null,
+            "wakeTime": "2026-01-02T07:00:00+03:00",
+            "napDuration": null,
+            "duration": 480
+          },
+          "habits": []
+        }
+      ]
+    }
+  ],
+  "from": "006",
+  "to": "007"
+}

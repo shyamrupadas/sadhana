@@ -13,6 +13,12 @@ import {
 } from './dev-reset'
 import { publicDatabaseUrl } from './dev-schema'
 import {
+  parseRehearsalArguments,
+  rehearsalUsage,
+  rehearseDevelopmentDatabase,
+  RehearsalError,
+} from './dev-rehearse'
+import {
   devFixtureVersion,
   FixtureError,
   seedDevFixtures,
@@ -97,9 +103,13 @@ async function runDatabaseTests(target: 'dev' | 'test'): Promise<void> {
 export async function devDatabaseMain(args = process.argv.slice(2)): Promise<void> {
   try {
     const [command, ...flags] = args
-    if (!['status', 'migrate', 'test', 'seed', 'reset', 'reseed'].includes(command)) {
+    if (
+      !['status', 'migrate', 'test', 'seed', 'reset', 'reseed', 'rehearse'].includes(
+        command
+      )
+    ) {
       throw new ConfigurationError(
-        'Expected database command: status, migrate, seed, reseed, reset or test'
+        'Expected database command: status, migrate, seed, reseed, reset, rehearse or test'
       )
     }
     if (flags.length === 1 && flags[0] === '--help') {
@@ -111,8 +121,21 @@ export async function devDatabaseMain(args = process.argv.slice(2)): Promise<voi
           seed: 'Usage: pnpm db:dev-seed --date <YYYY-MM-DD>',
           reset: resetUsage,
           reseed: reseedUsage,
+          rehearse: rehearsalUsage,
         }[command]
       )
+      return
+    }
+    if (command === 'rehearse') {
+      const request = parseRehearsalArguments(flags)
+      const config = loadConfiguration({ context: 'dev' })
+      console.log(
+        JSON.stringify({
+          ...config.databaseIdentity,
+          host: config.databaseTarget.directHost,
+        })
+      )
+      console.log(JSON.stringify(await rehearseDevelopmentDatabase(config, request)))
       return
     }
     if (command === 'reset') {
@@ -194,6 +217,7 @@ export async function devDatabaseMain(args = process.argv.slice(2)): Promise<voi
       error instanceof ConfigurationError ||
         error instanceof MigrationError ||
         error instanceof ResetError ||
+        error instanceof RehearsalError ||
         error instanceof FixtureError
         ? error.message
         : 'Database command failed: connection, migration history, target version or PostgreSQL check failed; no automatic repair was performed'
