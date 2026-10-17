@@ -34,8 +34,10 @@ const externalDependencies = `
     LEFT JOIN pg_attrdef ad ON t.classid = 'pg_attrdef'::regclass AND ad.oid = t.objid
     LEFT JOIN pg_trigger tr ON t.classid = 'pg_trigger'::regclass AND tr.oid = t.objid
     LEFT JOIN pg_policy pol ON t.classid = 'pg_policy'::regclass AND pol.oid = t.objid
+    LEFT JOIN pg_default_acl acl ON t.classid = 'pg_default_acl'::regclass AND acl.oid = t.objid
     LEFT JOIN pg_class parent ON parent.oid = COALESCE(rw.ev_class, ad.adrelid, tr.tgrelid, pol.polrelid)
-    LEFT JOIN pg_namespace ns ON ns.oid = parent.relnamespace
+    -- pg_identify_object omits the schema of default privileges; use their namespace.
+    LEFT JOIN pg_namespace ns ON ns.oid = COALESCE(parent.relnamespace, acl.defaclnamespace)
     LEFT JOIN pg_extension ext ON t.classid = 'pg_extension'::regclass AND ext.oid = t.objid
     WHERE CASE
       WHEN t.classid = 'pg_namespace'::regclass THEN t.objid <> 'public'::regnamespace

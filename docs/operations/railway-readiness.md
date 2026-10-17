@@ -23,4 +23,19 @@ Web workflow реагирует на `apps/web/**`, `packages/api-contract/**`, 
 
 Перед выпуском защиты окружений заполнить `DB_ENVIRONMENT=production` и независимые `DB_EXPECTED_DIRECT_HOST`, `DB_EXPECTED_RUNTIME_HOST`, `DB_EXPECTED_PORT`, `DB_EXPECTED_NAME`, `DB_EXPECTED_ROLE` для runtime и Railway Pre-Deploy. Сверить их с выбранным production-ресурсом; не вычислять ожидания из проверяемых URL. Затем выпускать новый образ. Иначе API и Pre-Deploy остановятся до подключения. Действующие подключения/JWT, журнал и `node dist/db/migrate.js` сохраняются; baseline повторно не запускается. Подробный порядок и таблица настроек — в [руководстве API](../../apps/api/README.md#production-и-порядок-включения-защиты). Внешние настройки в тикете 01 не меняются.
 
+### Подготовленные значения для действующего production
+
+Проверено 2026-10-17 чтением метаданных Neon: проект `sadhana-tracker` (`old-hill-95915061`), default-ветка `production` (`br-autumn-cake-ag06rp2m`), read-write endpoint `ep-flat-darkness-ag44hig2`, БД `neondb`, владелец/существующая роль `neondb_owner`. Это независимые ожидаемые идентификаторы ресурса, без чтения предметных записей или production-паролей. Pooled-хост соответствует тому же endpoint и ранее зафиксированному production-подключению в [инвентаризации](../../.scratch/monorepo-migration/decisions/10-production-migration-inventory.md).
+
+| Переменная Railway | Подготовленное значение |
+| --- | --- |
+| `DB_ENVIRONMENT` | `production` |
+| `DB_EXPECTED_DIRECT_HOST` | `ep-flat-darkness-ag44hig2.c-2.eu-central-1.aws.neon.tech` |
+| `DB_EXPECTED_RUNTIME_HOST` | `ep-flat-darkness-ag44hig2-pooler.c-2.eu-central-1.aws.neon.tech` |
+| `DB_EXPECTED_PORT` | `5432` |
+| `DB_EXPECTED_NAME` | `neondb` |
+| `DB_EXPECTED_ROLE` | `neondb_owner` |
+
+Значения подготовлены для действующего сервиса `sadhana-backend` проекта Railway `sadhana-tracker`, environment `production`. На этом шаге Railway не изменялся; наличие этих переменных в нём не подтверждалось. До выпуска кода с guard сверить текущие runtime/direct URL с ожидаемым ресурсом и внести подготовленные значения в согласованном внешнем шаге, чтобы они были доступны и API, и Pre-Deploy. Существующие `DATABASE_URL`, `MIGRATION_DATABASE_URL`, JWT-секреты и команду `node dist/db/migrate.js` сохранить. Production-подключения остаются в Railway; локальный `.env.dev.local` для этой настройки не используется. Изменение переменных и запуск выпуска не входят в подготовку этого набора.
+
 CI запускает образ с `DB_ENVIRONMENT=test`, двумя URL фиктивной БД и отдельной версионируемой тестовой целью. Production-секреты для проверки запуска не требуются.

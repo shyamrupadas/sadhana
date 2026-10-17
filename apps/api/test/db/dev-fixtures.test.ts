@@ -13,7 +13,7 @@ import {
 test('versioned fixtures reproduce linked profiles and known Moscow sleep records', () => {
   const fixtures = buildDevFixtures('2026-01-02')
   assert.deepEqual(buildDevFixtures('2026-01-02'), fixtures)
-  assert.deepEqual(devFixtureVersion, { generator: '1', schema: '006' })
+  assert.deepEqual(devFixtureVersion, { generator: '2', schema: '006' })
   assert.deepEqual(
     fixtures.users.map(({ email }) => email),
     ['empty@example.test', 'daily@example.test', 'history@example.test']
@@ -26,14 +26,14 @@ test('versioned fixtures reproduce linked profiles and known Moscow sleep record
   assert.equal(recent[0].date, '2025-12-03')
   assert.equal(recent.at(-1)!.date, '2026-01-02')
   assert.deepEqual(recent[1].sleep_data, {
-    bedtime: '2025-12-04T23:00:00+03:00',
+    bedtime: '2025-12-04 23:00',
     wakeTime: null,
     napDuration: null,
     duration: null,
   })
   assert.deepEqual(recent[4].sleep_data, {
-    bedtime: '2025-12-07T23:00:00+03:00',
-    wakeTime: '2025-12-07T07:00:00+03:00',
+    bedtime: '2025-12-07 23:00',
+    wakeTime: '2025-12-07 07:00',
     napDuration: 30,
     duration: 510,
   })

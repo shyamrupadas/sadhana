@@ -159,11 +159,11 @@ async function snapshot(config: Configuration) {
   }))
 }
 
-test('reset removes experimental public objects in the same database without CREATEDB and recovers after SQL failure', async (t) => {
+test('reset removes experimental public objects and schema default privileges without CREATEDB and recovers after SQL failure', async (t) => {
   await withResetDatabase(t, async (config) => {
     await withClient(config, async (client) => {
       await client.query(
-        'CREATE TABLE experiment (value int); INSERT INTO experiment VALUES (42); CREATE SCHEMA outside_reset; CREATE TABLE outside_reset.keep (value int); INSERT INTO outside_reset.keep VALUES (7)'
+        'CREATE TABLE experiment (value int); INSERT INTO experiment VALUES (42); CREATE SCHEMA outside_reset; CREATE TABLE outside_reset.keep (value int); INSERT INTO outside_reset.keep VALUES (7); ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO PUBLIC; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO PUBLIC'
       )
     })
     const before = await withClient(
@@ -214,6 +214,14 @@ test('reset removes experimental public objects in the same database without CRE
         (await client.query("SELECT to_regclass('experiment') AS relation")).rows[0]
           .relation,
         null
+      )
+      assert.equal(
+        (
+          await client.query(
+            "SELECT count(*)::int AS count FROM pg_default_acl WHERE defaclnamespace='public'::regnamespace"
+          )
+        ).rows[0].count,
+        0
       )
       assert.deepEqual((await client.query('SELECT * FROM outside_reset.keep')).rows, [
         { value: 7 },

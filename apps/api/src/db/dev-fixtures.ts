@@ -7,7 +7,7 @@ import { getPendingMigrations, loadMigrations } from './migrate'
 
 export class FixtureError extends Error {}
 
-export const devFixtureVersion = { generator: '1', schema: '006' } as const
+export const devFixtureVersion = { generator: '2', schema: '006' } as const
 
 type Fixtures = {
   users: { id: string; email: string }[]
@@ -88,8 +88,8 @@ export function buildDevFixtures(date: string): Fixtures {
         previous = undefined
         continue
       }
-      const bedtime = index % 7 === 2 ? null : `${current}T23:00:00+03:00`
-      const wakeTime = index % 7 === 1 ? null : `${current}T07:00:00+03:00`
+      const bedtime = index % 7 === 2 ? null : `${current} 23:00`
+      const wakeTime = index % 7 === 1 ? null : `${current} 07:00`
       const napDuration = index % 7 === 4 ? 30 : null
       const duration =
         previous?.sleep_data.bedtime && wakeTime ? 480 + (napDuration ?? 0) : null

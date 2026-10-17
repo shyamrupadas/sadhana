@@ -1,5 +1,11 @@
 {
-  "dev": null,
+  "dev": {
+    "directHost": "ep-green-meadow-aglyz4ha.c-2.eu-central-1.aws.neon.tech",
+    "runtimeHost": "ep-green-meadow-aglyz4ha-pooler.c-2.eu-central-1.aws.neon.tech",
+    "port": 5432,
+    "database": "neondb",
+    "role": "sadhana_dev"
+  },
   "test": {
     "directHost": "db.invalid",
     "runtimeHost": "db.invalid",

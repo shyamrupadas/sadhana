@@ -122,8 +122,8 @@ test('PostgreSQL fixtures preserve known stored records, normal login and applic
       id: `${daily.id}-2025-12-07`,
       date: '2025-12-07',
       sleep_data: {
-        bedtime: '2025-12-07T23:00:00+03:00',
-        wakeTime: '2025-12-07T07:00:00+03:00',
+        bedtime: '2025-12-07 23:00',
+        wakeTime: '2025-12-07 07:00',
         napDuration: 30,
         duration: 510,
       },

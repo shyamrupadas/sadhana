@@ -36,7 +36,7 @@ test('historical fixture source is pinned and runnable without reading secrets o
     mkdirSync(dirname(destination), { recursive: true })
     let content = readFileSync(join(__dirname, '../../', file), 'utf8')
     if (file === 'src/db/dev-fixtures.ts')
-      content = content.replace("generator: '1'", "generator: 'historical-fixture'")
+      content = content.replace(/generator: '[^']+'/, "generator: 'historical-fixture'")
     writeFileSync(destination, content)
   }
   writeFileSync(

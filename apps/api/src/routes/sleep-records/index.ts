@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify'
 import type { ApiSchemas } from '@sadhana/api-contract'
-import { AppError } from '../../utils/errors'
+import { AppError, BadRequestError } from '../../utils/errors'
 import { authenticate } from '../../middleware/auth'
 
 const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> => {
@@ -9,6 +9,10 @@ const sleepRecordsRoutes: FastifyPluginAsync = async (fastify): Promise<void> =>
   fastify.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {
       return reply.code(error.statusCode).send(error.toJSON())
+    }
+
+    if (error instanceof Error && 'validation' in error && error.validation) {
+      return reply.code(400).send(new BadRequestError(error.message).toJSON())
     }
 
     fastify.log.error(error)

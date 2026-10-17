@@ -8,6 +8,7 @@ import timezone from 'dayjs/plugin/timezone'
 import { ApiClient, ApiClientError } from '@sadhana/api-contract'
 import sleepRecordsRoutes from '../../src/routes/sleep-records'
 import { createApiHandlers } from '../../src/api-handlers'
+import { buildDevFixtures } from '../../src/db/dev-fixtures'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -108,8 +109,8 @@ test('daily habit marks create a day, accept unknown keys, change values and rem
   assert.equal((await app.inject({ method: 'DELETE', url, headers })).statusCode, 200)
 
   const invalidValue = await app.inject({ method: 'PATCH', url, headers, payload: { value: 'yes' } })
-  assert.equal(invalidValue.statusCode, 500)
-  assert.deepEqual(invalidValue.json(), { message: 'Internal Server Error', code: 'INTERNAL_ERROR' })
+  assert.equal(invalidValue.statusCode, 400)
+  assert.equal(invalidValue.json().code, 'BAD_REQUEST')
 })
 
 test('generated client can change and remove marks through the existing HTTP routes', async (t) => {
@@ -166,8 +167,72 @@ test('sleep record create and read preserve missing times, zero nap, duration, a
   assert.equal((await app.inject({ method: 'GET', url: '/sleep-records/2026-10-02', headers: auth('bob') })).statusCode, 404)
 
   const invalid = await put('2026-10-03', {})
-  assert.equal(invalid.statusCode, 500)
-  assert.deepEqual(invalid.json(), { message: 'Internal Server Error', code: 'INTERNAL_ERROR' })
+  assert.equal(invalid.statusCode, 400)
+  assert.equal(invalid.json().code, 'BAD_REQUEST')
+})
+
+test('fixture sleep records can be read and edited while preserving the other time', async (t) => {
+  const date = '2026-10-17'
+  const fixtures = buildDevFixtures(date)
+  const user = fixtures.users.find(({ email }) => email === 'daily@example.test')!
+  const rows: Row[] = fixtures.entries
+    .filter(({ user_id }) => user_id === user.id)
+    .map(({ user_id, ...entry }) => ({ ...entry, userId: user_id }))
+  const { app, auth } = await makeApp(rows)
+  t.after(() => app.close())
+  const headers = auth(user.id)
+  const url = `/sleep-records/${date}`
+  const original = await app.inject({ method: 'GET', url, headers })
+  assert.equal(original.statusCode, 200)
+  const { bedtime, wakeTime, napDuration } = original.json().sleep
+  assert.equal(wakeTime, null)
+
+  const wakeEdit = await app.inject({
+    method: 'PUT', url, headers,
+    payload: { bedtime, wakeTime: `${date} 07:00`, napDuration },
+  })
+  assert.equal(wakeEdit.statusCode, 200)
+  assert.equal(wakeEdit.json().sleep.bedtime, bedtime)
+  assert.equal(wakeEdit.json().sleep.wakeTime, `${date} 07:00`)
+
+  const bedEdit = await app.inject({
+    method: 'PUT', url, headers,
+    payload: { bedtime: `${date} 22:30`, wakeTime: wakeEdit.json().sleep.wakeTime, napDuration },
+  })
+  assert.equal(bedEdit.statusCode, 200)
+  const saved = await app.inject({ method: 'GET', url, headers })
+  assert.equal(saved.json().sleep.bedtime, `${date} 22:30`)
+  assert.equal(saved.json().sleep.wakeTime, `${date} 07:00`)
+})
+
+test('invalid sleep times return a bad request without changing stored records', async (t) => {
+  const rows: Row[] = []
+  const { app, auth } = await makeApp(rows)
+  t.after(() => app.close())
+  for (const field of ['bedtime', 'wakeTime']) {
+    const response = await app.inject({
+      method: 'PUT', url: '/sleep-records/2026-10-17', headers: auth('alice'),
+      payload: { [field]: '2026-10-17T23:00:00+03:00', napDuration: null },
+    })
+    assert.equal(response.statusCode, 400)
+    assert.equal(response.json().code, 'BAD_REQUEST')
+    assert.match(response.json().message, new RegExp(`body/${field}`))
+    assert.deepEqual(rows, [])
+  }
+})
+
+test('unexpected sleep handler failures remain internal errors with private details hidden', async (t) => {
+  const { app, auth } = await makeApp([])
+  t.after(() => app.close())
+  t.mock.method(app.apiHandlers, 'putSleepRecord', async () => {
+    throw new Error('private database details')
+  })
+  const response = await app.inject({
+    method: 'PUT', url: '/sleep-records/2026-10-17', headers: auth('alice'),
+    payload: { wakeTime: '2026-10-17 07:00', napDuration: null },
+  })
+  assert.equal(response.statusCode, 500)
+  assert.deepEqual(response.json(), { message: 'Internal Server Error', code: 'INTERNAL_ERROR' })
 })
 
 test('yesterday check uses the two Moscow calendar dates and the generated client preserves its response', async (t) => {
