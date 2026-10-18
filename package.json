@@ -5,7 +5,7 @@
   "engines": {
     "node": ">=24.15.0 <25"
   },
-  "packageManager": "pnpm@12.4.1",
+  "packageManager": "pnpm@12.6.0",
   "scripts": {
     "build": "turbo run build",
     "build:api": "turbo run build --filter=@sadhana/api",

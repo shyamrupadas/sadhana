@@ -27,7 +27,7 @@
 ## 📋 Требования
 
 - Node.js >=24.15.0 <25
-- Corepack (pnpm 12.4.1 закреплён в `package.json`)
+- Corepack (pnpm 12.6.0 закреплён в `package.json`)
 
 ## 🚀 Запуск проекта
 
