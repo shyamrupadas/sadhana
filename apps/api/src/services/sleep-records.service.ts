@@ -388,7 +388,7 @@ export class SleepRecordsService {
         `INSERT INTO daily_entries (id, user_id, date, sleep_data, habits)
          VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)
          ON CONFLICT (user_id, date)
-         DO UPDATE SET habits = $5::jsonb, sleep_data = $4::jsonb, updated_at = NOW()
+         DO UPDATE SET habits = $5::jsonb, updated_at = NOW()
          RETURNING id, date, sleep_data, habits`,
         [entryId, userId, date, JSON.stringify(updatedSleepData), JSON.stringify(habits)]
       )
@@ -478,10 +478,10 @@ export class SleepRecordsService {
 
       const result = await client.query(
         `UPDATE daily_entries
-         SET habits = $1::jsonb, sleep_data = $2::jsonb, updated_at = NOW()
-         WHERE user_id = $3 AND date = $4
+         SET habits = $1::jsonb, updated_at = NOW()
+         WHERE user_id = $2 AND date = $3
          RETURNING id, date, sleep_data, habits`,
-        [JSON.stringify(habits), JSON.stringify(updatedSleepData), userId, date]
+        [JSON.stringify(habits), userId, date]
       )
 
       const row = result.rows[0]

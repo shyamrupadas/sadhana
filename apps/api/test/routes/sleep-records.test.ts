@@ -49,10 +49,9 @@ async function makeApp(rows: Row[]) {
         }
         if (sql.includes('UPDATE daily_entries')) {
           const habitUpdate = sql.includes('SET habits =')
-          const row = rows.find((item) => item.userId === params[habitUpdate ? 2 : 1] && item.date === params[habitUpdate ? 3 : 2])
+          const row = rows.find((item) => item.userId === params[1] && item.date === params[2])
           if (row && habitUpdate) {
             row.habits = JSON.parse(String(params[0]))
-            row.sleep_data = JSON.parse(String(params[1]))
           } else if (row) row.sleep_data = JSON.parse(String(params[0]))
           return { rows: row ? [row] : [] }
         }

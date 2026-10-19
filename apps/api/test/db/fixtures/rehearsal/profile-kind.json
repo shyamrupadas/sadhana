@@ -70,7 +70,7 @@
           "date": "2026-01-02",
           "sleep_data": {
             "bedtime": null,
-            "wakeTime": "2026-01-02T07:00:00+03:00",
+            "wakeTime": "2026-01-02 07:00",
             "napDuration": null,
             "duration": 480
           },

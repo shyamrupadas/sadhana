@@ -47,12 +47,19 @@ function readTarget(
 ): Target {
   let target: Target | null
   if (environment === 'production') {
-    target = {
-      directHost: required(env, 'DB_EXPECTED_DIRECT_HOST'),
-      runtimeHost: required(env, 'DB_EXPECTED_RUNTIME_HOST'),
-      port: Number(required(env, 'DB_EXPECTED_PORT')),
-      database: required(env, 'DB_EXPECTED_NAME'),
-      role: required(env, 'DB_EXPECTED_ROLE'),
+    // Production keeps its existing connections. Only dev/test require an independent target.
+    try {
+      const direct = new URL(required(env, 'MIGRATION_DATABASE_URL'))
+      const runtime = new URL(required(env, 'DATABASE_URL'))
+      target = {
+        directHost: direct.hostname,
+        runtimeHost: runtime.hostname,
+        port: Number(direct.port || 5432),
+        database: decodeURIComponent(direct.pathname.slice(1)),
+        role: decodeURIComponent(direct.username),
+      }
+    } catch {
+      throw new ConfigurationError('Invalid production PostgreSQL connections')
     }
   } else {
     try {

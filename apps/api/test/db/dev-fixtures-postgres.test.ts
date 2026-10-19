@@ -67,6 +67,19 @@ async function authApp(connectionString: string) {
   return app
 }
 
+async function waitForBlockedRequest(client: Client) {
+  const deadline = Date.now() + 10_000
+  while (
+    !(
+      await client.query(
+        'SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE pg_backend_pid() = ANY(pg_blocking_pids(pid))) AS waiting'
+      )
+    ).rows[0].waiting
+  ) {
+    assert.ok(Date.now() < deadline, 'Request must reach the controlled database barrier')
+  }
+}
+
 test('PostgreSQL fixtures preserve known stored records, normal login and application edits across restart', async (t) => {
   await withDatabase(t, async (client, connectionString) => {
     const options = { connectionString, migrationsDir, date, password }
@@ -218,6 +231,67 @@ test('PostgreSQL fixture failure rolls back users, habits and earlier daily entr
   })
 })
 
+test('concurrent first habit mark preserves sleep saved while the mark is pending', async (t) => {
+  await withDatabase(t, async (client, connectionString) => {
+    await runMigrations({ connectionString, migrationsDir })
+    await seedDevFixtures({ connectionString, migrationsDir, date, password })
+    // Pause the mark's INSERT after its initial read, while a sleep request can commit.
+    await client.query(`
+      CREATE FUNCTION pause_first_mark() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.date = '2026-01-03' AND NEW.sleep_data->>'wakeTime' IS NULL THEN
+          PERFORM pg_advisory_xact_lock(hashtext(TG_TABLE_SCHEMA), 1);
+        END IF;
+        RETURN NEW;
+      END $$;
+      CREATE TRIGGER pause_first_mark BEFORE INSERT ON daily_entries
+      FOR EACH ROW EXECUTE FUNCTION pause_first_mark();
+      SELECT pg_advisory_lock(hashtext(current_schema()), 1);
+    `)
+    const app = await authApp(connectionString)
+    let mark: Promise<unknown> | undefined
+    try {
+      const login = await app.inject({
+        method: 'POST',
+        url: '/auth/login',
+        payload: { email: 'empty@example.test', password },
+      })
+      assert.equal(login.statusCode, 200)
+      const headers = { authorization: `Bearer ${login.json().accessToken}` }
+      const url = '/sleep-records/2026-01-03'
+      mark = app
+        .inject({
+          method: 'PATCH',
+          url: `${url}/habits/walk`,
+          headers,
+          payload: { value: true },
+        })
+        .then((response) => assert.equal(response.statusCode, 200))
+      await waitForBlockedRequest(client)
+      const saved = await app.inject({
+        method: 'PUT',
+        url,
+        headers,
+        payload: { bedtime: null, wakeTime: '2026-01-03 07:30', napDuration: null },
+      })
+      assert.equal(saved.statusCode, 200)
+      await client.query('SELECT pg_advisory_unlock(hashtext(current_schema()), 1)')
+      await mark
+      const entry = await app.inject({ method: 'GET', url, headers })
+      assert.equal(entry.statusCode, 200)
+      assert.equal(entry.json().sleep.wakeTime, '2026-01-03 07:30')
+      assert.deepEqual(entry.json().habits, [{ key: 'walk', value: true }])
+    } finally {
+      try {
+        await client.query('SELECT pg_advisory_unlock(hashtext(current_schema()), 1)')
+        await mark
+      } finally {
+        await app.close()
+      }
+    }
+  })
+})
+
 test('PostgreSQL fixtures refuse an earlier schema without applying migrations or records', async (t) => {
   await withDatabase(t, async (client, connectionString) => {
     await runMigrations({ connectionString, migrationsDir, to: '005' })
@@ -235,5 +309,55 @@ test('PostgreSQL fixtures refuse an earlier schema without applying migrations o
       (await client.query('SELECT count(*)::int AS count FROM users')).rows[0].count,
       0
     )
+  })
+})
+
+test('removing a habit mark preserves sleep committed while removal is pending', async (t) => {
+  await withDatabase(t, async (client, connectionString) => {
+    await runMigrations({ connectionString, migrationsDir })
+    await seedDevFixtures({ connectionString, migrationsDir, date, password })
+    const app = await authApp(connectionString)
+    let removal: Promise<unknown> | undefined
+    try {
+      const login = await app.inject({
+        method: 'POST',
+        url: '/auth/login',
+        payload: { email: 'empty@example.test', password },
+      })
+      assert.equal(login.statusCode, 200)
+      const headers = { authorization: `Bearer ${login.json().accessToken}` }
+      const url = '/sleep-records/2026-01-03'
+      const marked = await app.inject({
+        method: 'PATCH',
+        url: `${url}/habits/walk`,
+        headers,
+        payload: { value: true },
+      })
+      assert.equal(marked.statusCode, 200)
+      await client.query('BEGIN')
+      await client.query(
+        "SELECT id FROM daily_entries WHERE date='2026-01-03' FOR UPDATE"
+      )
+      removal = app
+        .inject({ method: 'DELETE', url: `${url}/habits/walk`, headers })
+        .then((response) => assert.equal(response.statusCode, 200))
+      await waitForBlockedRequest(client)
+      await client.query(`UPDATE daily_entries SET sleep_data =
+        '{"bedtime":null,"wakeTime":"2026-01-03 07:45","napDuration":null,"duration":null}'::jsonb
+        WHERE date='2026-01-03'`)
+      await client.query('COMMIT')
+      await removal
+      const entry = await app.inject({ method: 'GET', url, headers })
+      assert.equal(entry.statusCode, 200)
+      assert.equal(entry.json().sleep.wakeTime, '2026-01-03 07:45')
+      assert.deepEqual(entry.json().habits, [])
+    } finally {
+      try {
+        await client.query('ROLLBACK')
+        await removal
+      } finally {
+        await app.close()
+      }
+    }
   })
 })

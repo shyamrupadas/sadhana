@@ -153,7 +153,7 @@ test('fixed local context keeps dev secrets under NODE_ENV=production and refuse
   assert.throws(() => loadConfiguration(options), /conflicts/)
 })
 
-test('production requires independently configured identifiers even under NODE_ENV=production', () => {
+test('production uses existing connections without expected-target variables or local configuration', () => {
   const env = {
     DB_ENVIRONMENT: 'production',
     NODE_ENV: 'production',
@@ -161,16 +161,27 @@ test('production requires independently configured identifiers even under NODE_E
     MIGRATION_DATABASE_URL: 'postgres://owner:secret@prod.invalid/live',
     JWT_SECRET: 'test-access',
     JWT_REFRESH_SECRET: 'test-refresh',
-    DB_EXPECTED_DIRECT_HOST: 'prod.invalid',
-    DB_EXPECTED_RUNTIME_HOST: 'prod-pooler.invalid',
-    DB_EXPECTED_PORT: '5432',
-    DB_EXPECTED_NAME: 'live',
-    DB_EXPECTED_ROLE: 'owner',
   }
-  assert.equal(loadConfiguration({ env }).DB_ENVIRONMENT, 'production')
+  const config = loadConfiguration({
+    env,
+    targetsPath: '/missing-targets.json',
+    localEnvPath: '/missing-dev-env',
+  })
+  assert.equal(config.DATABASE_URL, env.DATABASE_URL)
+  assert.equal(config.MIGRATION_DATABASE_URL, env.MIGRATION_DATABASE_URL)
+  assert.equal(config.JWT_SECRET, env.JWT_SECRET)
+  assert.deepEqual(config.databaseIdentity, {
+    environment: 'production',
+    host: 'prod-pooler.invalid',
+    database: 'live',
+    role: 'owner',
+  })
   assert.throws(
-    () => loadConfiguration({ env: { ...env, DB_EXPECTED_ROLE: undefined } }),
-    /Missing configuration/
+    () =>
+      loadConfiguration({
+        env: { ...env, MIGRATION_DATABASE_URL: env.DATABASE_URL },
+      }),
+    /direct migration/
   )
   assert.throws(
     () => loadConfiguration({ env: { ...env, DB_ENVIRONMENT: undefined } }),
