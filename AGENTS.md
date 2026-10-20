@@ -16,6 +16,7 @@
 - Formatting is handled by Prettier via ESLint config; keep changes consistent.
 
 ## Testing Guidelines
+- Before completing any implementation task, follow [Task Completion Order](docs/testing/guide.md#порядок-завершения-задачи), even when no test files changed.
 - Do a quick manual pass in `pnpm dev:web` for affected web flows.
 - Change test expectations only when the intended behavior changes or the test is demonstrably incorrect.
 - For API contract or generator changes, follow the Contract Tests section in `docs/testing/guide.md`.

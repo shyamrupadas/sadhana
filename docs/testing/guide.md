@@ -11,11 +11,22 @@
 - `web integration` - page/feature behavior с providers, React Router, React Query, session state и mocked API;
 - `api` - backend service, repository, handler, database utility или migration behavior через `node:test`;
 - `contract` - TypeSpec/OpenAPI-generated API surface;
-- `web e2e` - критичный browser-level flow, route redirects, navigation и storage/session behavior через Playwright.
+- `web e2e` - критичный путь через настоящий браузер, frontend, API и PostgreSQL без подмены собственного API и хранилища; синтетические данные допустимы.
 
 E2E используй точечно. Если поведение можно надежно защитить Vitest/RTL или API test, не поднимай уровень до Playwright.
 
 Добавляй тест только для критичного пользовательского пути или достоверности сохранённых данных. Если ценность сценария сомнительна, согласуй его с человеком. Категории не задают количество тестов.
+
+## Порядок завершения задачи
+
+Этот порядок применяется ко всей задаче или тикету, в том числе когда тестовые файлы не менялись.
+
+1. Во время разработки запускай адресные тесты нижних уровней для изменяемого поведения. Обычный `pnpm test` выполняет тесты пакетов без браузера; Playwright запускается отдельно через `pnpm test:e2e`.
+2. Перед E2E заверши реализацию всей задачи, исправь обнаруженные дефекты и получи успешные результаты остальных необходимых проверок: обычных тестов, а также релевантных lint, typecheck, build и отдельных DB-проверок. Полный набор проверок не нужно повторять после каждой правки.
+3. На финальном этапе запусти небольшой полный E2E-набор через `pnpm test:e2e`. E2E не запускаются автоматически при каждом редактировании, через watch или hooks. Более ранний запуск возможен по явному запросу пользователя.
+4. Если финальный E2E упал, исправь причину, адресно перепроверь затронутые проверки и затем повтори небольшой полный E2E-набор на итоговом состоянии задачи. Повтор «до зелёного» без исправления причины не считается проверкой.
+
+Изменения только документации, комментариев и текстовых опечаток по умолчанию не требуют lint, build, тестов или E2E. Если среда не позволяет выполнить необходимые E2E, сообщи причину; не объявляй их пройденными.
 
 ## Запуск Тестов
 
@@ -23,8 +34,8 @@ E2E используй точечно. Если поведение можно н
 
 ```bash
 pnpm test
-pnpm --filter @sadhana/web test:unit
-pnpm --filter @sadhana/web test:e2e
+pnpm --filter @sadhana/web test
+pnpm test:e2e
 pnpm --filter @sadhana/api test
 pnpm --filter @sadhana/api-contract test
 ```
@@ -32,8 +43,8 @@ pnpm --filter @sadhana/api-contract test
 Targeted запуск:
 
 ```bash
-pnpm --filter @sadhana/web test:unit -- src/features/main/main.page.test.tsx
-pnpm --filter @sadhana/web test:e2e -- e2e/habit-mark.test.ts
+pnpm --filter @sadhana/web test src/features/main/main.page.test.tsx
+pnpm test:e2e e2e/habit-mark.test.ts
 pnpm --filter @sadhana/api exec node --test -r ts-node/register test/routes/habits.test.ts
 pnpm --filter @sadhana/api-contract exec node --test test/contract.test.mjs
 ```
@@ -111,19 +122,21 @@ DB migrations в production-коде требуют отдельного упо�
 
 ## Playwright E2E
 
-E2E tests живут в `apps/web/e2e` и запускаются через preview-like Vite server из `apps/web/playwright.config.ts`.
+E2E tests живут в `apps/web/e2e` и используют настоящий dev-web, API и PostgreSQL. Playwright переиспользует работающие dev-web/API, запускает недостающие на время прогона и завершает только запущенные им процессы. CI на этом этапе E2E не запускает.
 
 Правила:
 
-- мокай API через `page.route` конкретными path patterns;
-- unexpected API request должен явно падать или возвращать диагностичный 404;
+- используй настоящий собственный API и PostgreSQL без `page.route`/подмены хранилища;
+- создавай отдельные синтетические аккаунты и записи для сценариев, не используй постоянные dev-профили;
+- очищай только данные своего прогона, включая неуспешные сценарии; сохраняй локальный список своих аккаунтов для повторной очистки после аварийного прерывания;
+- проверяй dev-цель и готовность схемы; необходимые миграции применяются отдельно, а не автоматически тестами;
 - используй accessible locators: `getByRole`, `getByLabel`, `getByText`;
 - не используй arbitrary `waitForTimeout`;
 - проверяй URL, visible UI и browser storage только когда это часть пользовательского контракта;
 - не добавляй screenshots/visual regression без отдельного запроса;
-- не подключай live backend/DB без явного согласования.
+- выполняй E2E напрямую, без кэширования результата проверки живого API и БД.
 
-E2E нужен для критичных маршрутов и browser-level интеграции. Для локальной логики, отдельной страницы или API error state предпочитай более низкий уровень.
+E2E защищает критичные сквозные пути: регистрацию с последующим входом, вход/выход, сохранение отметки привычки и сна. Ошибки ввода, перенаправление гостя и API error states проверяй через Vitest/RTL. Успешные сценарии на нескольких уровнях дублируй только ради дополнительной полезной гарантии. Порядок запуска смотри в разделе «Порядок завершения задачи».
 
 ## Fixtures And Builders
 

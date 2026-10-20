@@ -15,6 +15,7 @@
     "dev:web": "turbo run dev --filter=@sadhana/web...",
     "lint": "turbo run lint",
     "test": "turbo run test",
+    "test:e2e": "pnpm --filter @sadhana/web test:e2e",
     "typecheck": "turbo run typecheck",
     "db:status": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts status",
     "db:migrate": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts migrate",

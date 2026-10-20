@@ -38,7 +38,8 @@ Web integration test проверяет часть frontend-фичи вмест�
 
 Что покрывать:
 
-- auth guards, redirects и route composition;
+- auth guards, перенаправление гостя и route composition;
+- ошибки ввода в формах;
 - page-level сценарии;
 - API success/error flows через точный `mockApi` handler;
 - взаимодействие нескольких компонентов внутри фичи.
@@ -72,17 +73,17 @@ Contract test не заменяет backend service test и frontend behavior te
 
 ## Web E2E Tests
 
-E2E test проверяет критичный browser-level пользовательский flow через Playwright в `apps/web/e2e`.
+E2E test проверяет критичный пользовательский путь через настоящий браузер, frontend, API и PostgreSQL без подмены собственного API и хранилища. Синтетические тестовые данные допустимы. Такие тесты используют Playwright и живут в `apps/web/e2e`.
 
 Что покрывать:
 
-- auth/login/register/logout flow;
-- protected route redirects;
+- регистрация: создание аккаунта, открытие приложения и последующий вход с зарегистрированными данными;
+- вход и выход;
 - создание привычки и сохранение отметок дня;
 - cross-page navigation, которую дешевле или надежнее проверить в браузере;
 - browser storage/session behavior, видимое пользователю на нескольких маршрутах.
 
-Текущие e2e tests мокают API через `page.route` и не требуют live backend/DB. Не превращай e2e в full environment test без отдельного запроса пользователя.
+Ошибки форм и перенаправление гостя проверяй через Vitest/RTL как `web integration`. Успешный сценарий на нескольких уровнях дублируй только когда каждый тест защищает дополнительную полезную гарантию. Порядок запуска E2E установлен в [Testing Guide](guide.md#порядок-завершения-задачи).
 
 ## Naming And Placement
 

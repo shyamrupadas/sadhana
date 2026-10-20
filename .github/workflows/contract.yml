@@ -77,7 +77,7 @@ jobs:
         run: |
           pnpm --filter @sadhana/api test
           pnpm --filter @sadhana/api-contract test
-          pnpm --filter @sadhana/web test:unit
+          pnpm --filter @sadhana/web test
         env:
           DB_ENVIRONMENT: test
           DATABASE_URL: postgres://fixture:fixture@db.invalid/app

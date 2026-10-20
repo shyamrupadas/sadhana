@@ -37,8 +37,8 @@ description: "Используй, когда нужно написать, дор
    Критерий завершения: planned cases покрывают только критичный MVP scope, без тестов "на всякий случай".
 6. Напиши test-focused diff.
    Критерий завершения: изменены только разрешенные test files, локальные fixtures/builders или testing docs, если задача прямо про правила.
-7. Запусти targeted validation для измененного теста.
-   Критерий завершения: результат команды прочитан и отражен в финальном ответе.
+7. Выполни validation в момент, установленный [порядком завершения задачи](../../../docs/testing/guide.md#порядок-завершения-задачи): обычные тесты проверяй по ходу разработки, E2E — на финальном этапе всей задачи.
+   Критерий завершения: результаты выполненных проверок прочитаны и отражены в финальном ответе.
 
 ## Выбор Уровня
 
@@ -47,7 +47,7 @@ description: "Используй, когда нужно написать, дор
 - `web integration` - frontend page/feature с providers, routing, React Query, session state или mocked API.
 - `api` - backend service, repository, handler, database utility или migration behavior через `node:test`.
 - `contract` - TypeSpec/OpenAPI-generated API surface между пакетами.
-- `web e2e` - критичный browser-level flow через Playwright: auth, redirects, cross-page navigation, storage/session behavior.
+- `web e2e` - критичный пользовательский путь через настоящий браузер, frontend, API и PostgreSQL без подмены собственного API и хранилища. Синтетические тестовые данные допустимы.
 
 Если пользователь просит уровень выше минимально достаточного, объясни, какой уровень дешевле и почему. Если пользователь явно настаивает на более дорогом уровне, уточни перед реализацией.
 
@@ -92,18 +92,18 @@ description: "Используй, когда нужно написать, дор
 - Для web API mocks задавай конкретные `method` и `path`; unexpected request должен быть диагностичным.
 - Для API tests предпочитай fake repositories/database executors реальному PostgreSQL.
 - Для contract changes проверяй generated OpenAPI surface через contract tests и запускай generation только когда меняется contract source.
-- Для Playwright e2e мокай API через точные route patterns и не подключай live backend/DB без явного запроса.
+- Для Playwright E2E используй настоящий frontend, API и PostgreSQL. Ошибки форм, перенаправления гостя и другие frontend-сценарии с API-моками проверяй через Vitest/RTL на уровне `web integration`.
 - Не проверяй generated CSS classes, private implementation details или internal state без публичного контракта.
 - Fixtures/builders держи локальными для теста; не создавай shared fixtures без явной необходимости и разрешения scope.
 - Пиши минимальное количество тестов для самого важного поведения. Если сомневаешься, важно ли пользователю покрыть конкретную ветку, уточни.
 
 ## Validation
 
-Всегда пытайся запустить targeted command по выбранному уровню:
+Обычные тесты проверяй адресно по ходу разработки. E2E запускай по [порядку завершения задачи](../../../docs/testing/guide.md#порядок-завершения-задачи), после готовности всей задачи и успешных остальных необходимых проверок. Команды по выбранному уровню:
 
 ```bash
-pnpm --filter @sadhana/web test:unit -- <test-file>
-pnpm --filter @sadhana/web test:e2e -- <e2e-test-file>
+pnpm --filter @sadhana/web test <test-file>
+pnpm test:e2e <e2e-test-file>
 pnpm --filter @sadhana/api exec node -r ts-node/register --test <api-test-file>
 pnpm --filter @sadhana/api-contract exec node --test <contract-test-file>
 ```

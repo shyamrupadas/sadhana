@@ -9,8 +9,7 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "lint": "eslint .",
-    "test": "vitest run && playwright test",
-    "test:unit": "vitest run",
+    "test": "vitest run",
     "test:e2e": "playwright test",
     "preview": "vite preview"
   },
