@@ -13,7 +13,7 @@ import {
 test('versioned fixtures reproduce linked profiles and known Moscow sleep records', () => {
   const fixtures = buildDevFixtures('2026-01-02')
   assert.deepEqual(buildDevFixtures('2026-01-02'), fixtures)
-  assert.deepEqual(devFixtureVersion, { generator: '2', schema: '006' })
+  assert.deepEqual(devFixtureVersion, { generator: '2', schema: '007' })
   assert.deepEqual(
     fixtures.users.map(({ email }) => email),
     ['empty@example.test', 'daily@example.test', 'history@example.test']
@@ -180,11 +180,11 @@ test('seeding refuses incompatible history and existing application data before 
     date: '2026-01-02',
     password: 'fixture-test-password',
   }
-  await assert.rejects(seedDevFixtures(options), /schema 006/)
+  await assert.rejects(seedDevFixtures(options), /schema 007/)
   history = journal.map((row, index) =>
     index === 0 ? { ...row, checksum: 'changed' } : row
   )
-  await assert.rejects(seedDevFixtures(options), /schema 006/)
+  await assert.rejects(seedDevFixtures(options), /schema 007/)
   history = journal
   populated = true
   await assert.rejects(seedDevFixtures(options), /empty application/)

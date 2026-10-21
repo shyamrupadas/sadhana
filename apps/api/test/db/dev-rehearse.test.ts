@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, cpSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, cpSync, readdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -45,7 +45,11 @@ test('rehearsal preserves existing work on invalid targets, unavailable checks, 
   const sql = join(directory, 'sql')
   const checks = join(directory, 'checks')
   const changedSource = join(directory, 'changed-source')
-  cpSync(join(__dirname, '../../src/db/migrations'), sql, { recursive: true })
+  const sourceSql = join(__dirname, '../../src/db/migrations')
+  mkdirSync(sql)
+  for (const name of readdirSync(sourceSql).filter((name) => name.slice(0, 3) <= '006')) {
+    cpSync(join(sourceSql, name), join(sql, name))
+  }
   mkdirSync(checks)
   cpSync(sql, changedSource, { recursive: true })
   writeFileSync(

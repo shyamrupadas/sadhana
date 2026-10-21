@@ -1,0 +1,153 @@
+{
+  "from": "006",
+  "to": "007",
+  "preserveTables": ["users", "habits", "daily_entries"],
+  "source": [
+    {
+      "sql": "SELECT current_setting('sadhana.fixture_date') AS date",
+      "rows": [
+        {
+          "date": "2026-01-02"
+        }
+      ]
+    },
+    {
+      "sql": "SELECT c.relname AS name, i.indisunique AS unique, i.indisvalid AS valid, pg_get_indexdef(i.indexrelid, 1, true) AS first_column, CASE WHEN i.indnkeyatts > 1 THEN pg_get_indexdef(i.indexrelid, 2, true) ELSE NULL END AS second_column FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid WHERE c.relnamespace='public'::regnamespace AND c.relname IN ('daily_entries_pkey','daily_entries_user_id_date_key','idx_daily_entries_user_date','idx_users_email','users_email_key') ORDER BY c.relname",
+      "rows": [
+        {
+          "name": "daily_entries_pkey",
+          "unique": true,
+          "valid": true,
+          "first_column": "user_id",
+          "second_column": "date"
+        },
+        {
+          "name": "daily_entries_user_id_date_key",
+          "unique": true,
+          "valid": true,
+          "first_column": "user_id",
+          "second_column": "date"
+        },
+        {
+          "name": "idx_daily_entries_user_date",
+          "unique": false,
+          "valid": true,
+          "first_column": "user_id",
+          "second_column": "date"
+        },
+        {
+          "name": "idx_users_email",
+          "unique": false,
+          "valid": true,
+          "first_column": "email",
+          "second_column": null
+        },
+        {
+          "name": "users_email_key",
+          "unique": true,
+          "valid": true,
+          "first_column": "email",
+          "second_column": null
+        }
+      ]
+    },
+    {
+      "sql": "SELECT 'users' AS table_name, count(*)::int AS count, md5(COALESCE(jsonb_agg(jsonb_build_object('id',id,'email',email) ORDER BY id)::text,'[]')) AS digest FROM public.users UNION ALL SELECT 'habits', count(*)::int, md5(COALESCE(jsonb_agg(jsonb_build_object('id',id,'user_id',user_id,'key',key,'label',label) ORDER BY id)::text,'[]')) FROM public.habits UNION ALL SELECT 'daily_entries', count(*)::int, md5(COALESCE(jsonb_agg(jsonb_build_object('id',id,'user_id',user_id,'date',date,'sleep_data',sleep_data,'habits',habits) ORDER BY id)::text,'[]')) FROM public.daily_entries ORDER BY table_name",
+      "rows": [
+        {
+          "table_name": "daily_entries",
+          "count": 658,
+          "digest": "31f386341ece0ba23a225affdbf9e2e8"
+        },
+        {
+          "table_name": "habits",
+          "count": 4,
+          "digest": "d6f4f6851e2729a3bc95978bed59b253"
+        },
+        {
+          "table_name": "users",
+          "count": 3,
+          "digest": "157d8e9dae73b654d60f3f4c5ec0467f"
+        }
+      ]
+    }
+  ],
+  "schema": [
+    {
+      "sql": "SELECT c.relname AS name, i.indisunique AS unique, i.indisvalid AS valid, pg_get_indexdef(i.indexrelid, 1, true) AS first_column, CASE WHEN i.indnkeyatts > 1 THEN pg_get_indexdef(i.indexrelid, 2, true) ELSE NULL END AS second_column FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid WHERE c.relnamespace='public'::regnamespace AND c.relname IN ('daily_entries_pkey','daily_entries_user_id_date_key','idx_daily_entries_user_date','idx_users_email','users_email_key') ORDER BY c.relname",
+      "rows": [
+        {
+          "name": "daily_entries_pkey",
+          "unique": true,
+          "valid": true,
+          "first_column": "user_id",
+          "second_column": "date"
+        },
+        {
+          "name": "users_email_key",
+          "unique": true,
+          "valid": true,
+          "first_column": "email",
+          "second_column": null
+        }
+      ]
+    },
+    {
+      "sql": "SELECT conname, contype::text AS type FROM pg_constraint WHERE connamespace='public'::regnamespace AND conname IN ('daily_entries_pkey','daily_entries_user_id_date_key','users_email_key') ORDER BY conname",
+      "rows": [
+        {
+          "conname": "daily_entries_pkey",
+          "type": "p"
+        },
+        {
+          "conname": "users_email_key",
+          "type": "u"
+        }
+      ]
+    }
+  ],
+  "data": [
+    {
+      "sql": "SELECT 'users' AS table_name, count(*)::int AS count, md5(COALESCE(jsonb_agg(jsonb_build_object('id',id,'email',email) ORDER BY id)::text,'[]')) AS digest FROM public.users UNION ALL SELECT 'habits', count(*)::int, md5(COALESCE(jsonb_agg(jsonb_build_object('id',id,'user_id',user_id,'key',key,'label',label) ORDER BY id)::text,'[]')) FROM public.habits UNION ALL SELECT 'daily_entries', count(*)::int, md5(COALESCE(jsonb_agg(jsonb_build_object('id',id,'user_id',user_id,'date',date,'sleep_data',sleep_data,'habits',habits) ORDER BY id)::text,'[]')) FROM public.daily_entries ORDER BY table_name",
+      "rows": [
+        {
+          "table_name": "daily_entries",
+          "count": 658,
+          "digest": "31f386341ece0ba23a225affdbf9e2e8"
+        },
+        {
+          "table_name": "habits",
+          "count": 4,
+          "digest": "d6f4f6851e2729a3bc95978bed59b253"
+        },
+        {
+          "table_name": "users",
+          "count": 3,
+          "digest": "157d8e9dae73b654d60f3f4c5ec0467f"
+        }
+      ]
+    }
+  ],
+  "preservation": [
+    {
+      "sql": "SELECT email, password_hash ~ '^\\$2b\\$10\\$' AS password_hash_valid, created_at IS NOT NULL AND updated_at IS NOT NULL AS timestamps_present FROM public.users ORDER BY email",
+      "rows": [
+        {
+          "email": "daily@example.test",
+          "password_hash_valid": true,
+          "timestamps_present": true
+        },
+        {
+          "email": "empty@example.test",
+          "password_hash_valid": true,
+          "timestamps_present": true
+        },
+        {
+          "email": "history@example.test",
+          "password_hash_valid": true,
+          "timestamps_present": true
+        }
+      ]
+    }
+  ]
+}

@@ -156,6 +156,31 @@ test('PostgreSQL fixtures preserve known stored records, normal login and applic
         assert.match(login.headers['set-cookie'] as string, /HttpOnly/)
         if (user.id === daily.id) accessToken = login.json().accessToken
       }
+      const newAccount = { email: 'registered@example.test', password }
+      const registered = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: newAccount,
+      })
+      assert.equal(registered.statusCode, 201)
+      assert.equal(
+        (await app.inject({ method: 'POST', url: '/auth/login', payload: newAccount }))
+          .statusCode,
+        200
+      )
+      assert.equal(
+        (await app.inject({ method: 'POST', url: '/auth/register', payload: newAccount }))
+          .statusCode,
+        400
+      )
+      await assert.rejects(
+        client.query('INSERT INTO users (email, password_hash) VALUES ($1, $2)', [
+          newAccount.email,
+          'duplicate-hash',
+        ]),
+        { code: '23505' }
+      )
+      await client.query('DELETE FROM users WHERE email = $1', [newAccount.email])
       const wrong = await app.inject({
         method: 'POST',
         url: '/auth/login',
@@ -203,6 +228,8 @@ test('PostgreSQL fixtures preserve known stored records, normal login and applic
 test('PostgreSQL fixture failure rolls back users, habits and earlier daily entries', async (t) => {
   await withDatabase(t, async (client, connectionString) => {
     await runMigrations({ connectionString, migrationsDir })
+    const journal = (await client.query('SELECT * FROM schema_migrations ORDER BY id'))
+      .rows
     await client.query(
       `CREATE FUNCTION reject_fixture() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.date = '2026-01-02' THEN RAISE EXCEPTION 'private SQL details'; END IF; RETURN NEW; END $$`
     )
@@ -223,10 +250,9 @@ test('PostgreSQL fixture failure rolls back users, habits and earlier daily entr
         0
       )
     }
-    assert.equal(
-      (await client.query('SELECT count(*)::int AS count FROM schema_migrations')).rows[0]
-        .count,
-      6
+    assert.deepEqual(
+      (await client.query('SELECT * FROM schema_migrations ORDER BY id')).rows,
+      journal
     )
   })
 })
@@ -299,7 +325,7 @@ test('PostgreSQL fixtures refuse an earlier schema without applying migrations o
       .rows
     await assert.rejects(
       seedDevFixtures({ connectionString, migrationsDir, date, password }),
-      /schema 006/
+      /schema 007/
     )
     assert.deepEqual(
       (await client.query('SELECT * FROM schema_migrations ORDER BY id')).rows,

@@ -7,7 +7,7 @@ import { getPendingMigrations, loadMigrations } from './migrate'
 
 export class FixtureError extends Error {}
 
-export const devFixtureVersion = { generator: '2', schema: '006' } as const
+export const devFixtureVersion = { generator: '2', schema: '007' } as const
 
 type Fixtures = {
   users: { id: string; email: string }[]
@@ -135,7 +135,7 @@ async function checkSchema(client: Client, migrationsDir: string): Promise<void>
     if (recorded.rows.at(-1)?.id !== devFixtureVersion.schema) throw new FixtureError()
   } catch {
     throw new FixtureError(
-      'Fixtures require compatible schema 006 and an unchanged migration history'
+      `Fixtures require compatible schema ${devFixtureVersion.schema} and an unchanged migration history`
     )
   }
 }

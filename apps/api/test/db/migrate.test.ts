@@ -89,6 +89,145 @@ test('clean database applies the real chain once and preserves user data on repe
   }, true)
 })
 
+test('index cleanup preserves records and enforces day and email uniqueness', async (t) => {
+  await withDatabase(
+    t,
+    async ({ client, connectionString, migrationsDir, schema }) => {
+      await client.query(`SET search_path TO "${schema}"`)
+      const options = { connectionString, migrationsDir }
+      await runMigrations({ ...options, to: '006' })
+      const users = (
+        await client.query(
+          "INSERT INTO users (email, password_hash) VALUES ('first@example.test', 'hash-one'), ('second@example.test', 'hash-two') RETURNING id"
+        )
+      ).rows
+      await client.query(
+        "INSERT INTO habits (user_id, key, label) VALUES ($1, 'read', 'Чтение')",
+        [users[0].id]
+      )
+      await client.query(
+        `INSERT INTO daily_entries (id, user_id, date, sleep_data, habits)
+       VALUES ('original', $1, '2026-01-02', '{"bedtime":null,"wakeTime":"2026-01-02 07:00","napDuration":30,"duration":510}', '[{"key":"read","value":false}]')`,
+        [users[0].id]
+      )
+      const records = async () => {
+        const rows = []
+        for (const table of ['users', 'habits', 'daily_entries']) {
+          rows.push((await client.query(`SELECT * FROM ${table} ORDER BY id`)).rows)
+        }
+        return rows
+      }
+      const indexes = async () =>
+        (
+          await client.query(
+            'SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = $1 ORDER BY indexname',
+            [schema]
+          )
+        ).rows
+      const constraints = async () =>
+        (
+          await client.query(
+            `SELECT conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint
+       WHERE connamespace = $1::regnamespace ORDER BY conname`,
+            [schema]
+          )
+        ).rows
+      const before = await records()
+      const oldIndexes = await indexes()
+      const oldConstraints = await constraints()
+      await runMigrations(options)
+      assert.deepEqual(await records(), before)
+      assert.deepEqual(
+        await indexes(),
+        oldIndexes.filter(
+          ({ indexname }) =>
+            ![
+              'idx_daily_entries_user_date',
+              'daily_entries_user_id_date_key',
+              'idx_users_email',
+            ].includes(indexname)
+        )
+      )
+      assert.deepEqual(
+        await constraints(),
+        oldConstraints.filter(
+          ({ conname }) => conname !== 'daily_entries_user_id_date_key'
+        )
+      )
+      assert.equal((await getMigrationStatus(options)).applied.at(-1), '007')
+      const journal = (await client.query('SELECT * FROM schema_migrations ORDER BY id'))
+        .rows
+      await runMigrations(options)
+      assert.deepEqual(await records(), before)
+      assert.deepEqual(
+        (await client.query('SELECT * FROM schema_migrations ORDER BY id')).rows,
+        journal
+      )
+      await assert.rejects(
+        client.query(
+          "INSERT INTO users (email, password_hash) VALUES ('first@example.test', 'other')"
+        ),
+        { code: '23505' }
+      )
+      await assert.rejects(
+        client.query(
+          "INSERT INTO daily_entries (id, user_id, date) VALUES ('duplicate', $1, '2026-01-02')",
+          [users[0].id]
+        ),
+        { code: '23505' }
+      )
+      await client.query(
+        "INSERT INTO daily_entries (id, user_id, date) VALUES ('other-user', $1, '2026-01-02')",
+        [users[1].id]
+      )
+      await client.query(
+        'UPDATE daily_entries SET habits = \'[{"key":"read","value":true}]\' WHERE id = \'original\''
+      )
+      assert.deepEqual(
+        (await client.query("SELECT habits FROM daily_entries WHERE id = 'original'"))
+          .rows,
+        [{ habits: [{ key: 'read', value: true }] }]
+      )
+    },
+    true
+  )
+})
+
+test('index cleanup refuses changed definitions and dependencies without partial changes', async (t) => {
+  for (const setup of [
+    'DROP INDEX idx_users_email; CREATE INDEX idx_users_email ON users (lower(email))',
+    'CREATE TABLE dependent (user_id uuid, date varchar(10), FOREIGN KEY (user_id, date) REFERENCES daily_entries (user_id, date))',
+  ]) {
+    await withDatabase(
+      t,
+      async ({ client, connectionString, migrationsDir, schema }) => {
+        await client.query(`SET search_path TO "${schema}"`)
+        const options = { connectionString, migrationsDir }
+        await runMigrations({ ...options, to: '006' })
+        await client.query(setup)
+        const structure = async () =>
+          (
+            await client.query(
+              'SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = $1 ORDER BY indexname',
+              [schema]
+            )
+          ).rows
+        const before = await structure()
+        const journal = (
+          await client.query('SELECT * FROM schema_migrations ORDER BY id')
+        ).rows
+        await assert.rejects(runMigrations(options))
+        assert.deepEqual(await structure(), before)
+        assert.deepEqual(
+          (await client.query('SELECT * FROM schema_migrations ORDER BY id')).rows,
+          journal
+        )
+      },
+      true
+    )
+  }
+})
+
 test('baseline records reviewed history without rerunning SQL or inventing application dates', async (t) => {
   await withDatabase(t, async ({ client, connectionString, migrationsDir, schema }) => {
     await client.query(`SET search_path TO ${schema}`)

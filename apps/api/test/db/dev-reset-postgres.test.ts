@@ -34,7 +34,8 @@ const repoRoot = join(__dirname, '../../../..')
 const migrationsDir = join(__dirname, '../../src/db/migrations')
 const date = '2026-01-02'
 const password = 'local-reset-fixture-only'
-const request = { sourceRef: 'HEAD', to: '006', date }
+// The saved generator must remain compatible with 006 after HEAD moves to 007.
+const request = { sourceRef: 'e232bb629fa98b7455886c572e7341a4e8180a4c', to: '006', date }
 
 async function withClient<T>(
   config: Configuration,
@@ -194,13 +195,21 @@ test('reset removes experimental public objects and schema default privileges wi
     const result = await resetDevelopmentDatabase(config, request)
     assert.equal(
       result.commit,
-      execFileSync('git', ['rev-parse', 'HEAD'], {
+      execFileSync('git', ['rev-parse', request.sourceRef], {
         cwd: repoRoot,
         encoding: 'utf8',
       }).trim()
     )
     assert.equal((await getMigrationStatus(fixtureOptions(config))).applied.at(-1), '006')
-    await verifyDevFixtures(fixtureOptions(config))
+    const verifyHistorical = async () => {
+      const source = await prepareFixtureSource({ repoRoot, ...request, password })
+      try {
+        await source.verify(config.MIGRATION_DATABASE_URL)
+      } finally {
+        await source.cleanup()
+      }
+    }
+    await verifyHistorical()
     await withClient(config, async (client) => {
       assert.equal(
         (
@@ -256,7 +265,7 @@ test('reset removes experimental public objects and schema default privileges wi
       /stage=migrate; version=005/
     )
     await resetDevelopmentDatabase(config, request)
-    await verifyDevFixtures(fixtureOptions(config))
+    await verifyHistorical()
   })
 })
 
@@ -547,6 +556,38 @@ test('reset test harness refuses existing functions and types as well as relatio
         await client.query(cleanup)
       }
     })
+  })
+})
+
+test('index cleanup rehearsal preserves every stored field and leaves usable 007 fixtures', async (t) => {
+  await withResetDatabase(t, async (config) => {
+    const rehearsal = { ...request, from: '006', to: '007', checks: 'duplicate-indexes' }
+    const result = await rehearseDevelopmentDatabase(config, rehearsal)
+    assert.deepEqual(result.results, [
+      'restore',
+      'source',
+      'migrate',
+      'schema',
+      'data',
+      'preservation',
+      'repeat',
+    ])
+    await verifyDevFixtures(fixtureOptions(config))
+    await assert.rejects(
+      rehearseDevelopmentDatabase(config, rehearsal, {
+        migrate: async (options) => {
+          await runMigrations(options)
+          if (options.to === '007') {
+            await withClient(config, async (client) => {
+              await client.query(
+                "UPDATE users SET updated_at = updated_at + INTERVAL '1 second'"
+              )
+            })
+          }
+        },
+      }),
+      /stage=preservation; version=007/
+    )
   })
 })
 

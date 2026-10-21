@@ -8,7 +8,10 @@ import { requirePublicSqlScope } from './dev-sql-scope'
 
 type Check = { sql: string; rows: Record<string, unknown>[] }
 type Phase = 'source' | 'schema' | 'data' | 'preservation'
-type Scenario = { from: string; to: string } & Record<Phase, Check[]>
+type Scenario = { from: string; to: string; preserveTables?: string[] } & Record<
+  Phase,
+  Check[]
+>
 
 function readScenario(path: string, from: string, to: string): Scenario {
   const scenario = JSON.parse(readFileSync(path, 'utf8'))
@@ -17,7 +20,16 @@ function readScenario(path: string, from: string, to: string): Scenario {
     !scenario ||
     scenario.from !== from ||
     scenario.to !== to ||
-    Object.keys(scenario).some((key) => !['from', 'to', ...phases].includes(key)) ||
+    Object.keys(scenario).some(
+      (key) => !['from', 'to', 'preserveTables', ...phases].includes(key)
+    ) ||
+    (scenario.preserveTables !== undefined &&
+      (!Array.isArray(scenario.preserveTables) ||
+        !scenario.preserveTables.length ||
+        new Set(scenario.preserveTables).size !== scenario.preserveTables.length ||
+        scenario.preserveTables.some(
+          (name: string) => !['users', 'habits', 'daily_entries'].includes(name)
+        ))) ||
     phases.some(
       (phase) =>
         !Array.isArray(scenario[phase]) ||
@@ -117,7 +129,8 @@ export async function prepareRehearsalTarget(options: {
     )
       throw new Error('Target SQL prefix differs from Git source')
     requirePublicSqlScope(target, options.to, options.reviewedPrefixes)
-    return {
+    let preserved: unknown
+    const prepared: PreparedRehearsalTarget = {
       migrationsDir,
       async check(phase, connectionString, date) {
         await readPublic(connectionString, async (client) => {
@@ -135,6 +148,20 @@ export async function prepareRehearsalTarget(options: {
               throw new Error('Stored rehearsal result differs')
           }
         })
+        if (scenario.preserveTables && (phase === 'source' || phase === 'preservation')) {
+          const stored = (await prepared.snapshot(connectionString)) as Record<
+            string,
+            unknown
+          >
+          const selected = scenario.preserveTables.map((table) => {
+            if (!Object.hasOwn(stored, table))
+              throw new Error('Preserved table is missing')
+            return [table, stored[table]]
+          })
+          if (phase === 'source') preserved = selected
+          else if (!isDeepStrictEqual(selected, preserved))
+            throw new Error('Migration changed preserved application records')
+        }
       },
       async snapshot(connectionString) {
         return readPublic(connectionString, async (client) => {
@@ -164,6 +191,7 @@ export async function prepareRehearsalTarget(options: {
       },
       cleanup,
     }
+    return prepared
   } catch {
     await cleanup()
     throw new Error('Rehearsal target preparation failed')
