@@ -4,14 +4,7 @@
 
 ## Выбор Уровня
 
-Выбирай самый низкий достаточный уровень:
-
-- `web unit` - чистая frontend-логика без render, DOM и сети;
-- `web component` - UI-компонент или небольшая композиция через RTL;
-- `web integration` - page/feature behavior с providers, React Router, React Query, session state и mocked API;
-- `api` - backend service, repository, handler, database utility или migration behavior через `node:test`;
-- `contract` - TypeSpec/OpenAPI-generated API surface;
-- `web e2e` - критичный путь через настоящий браузер, frontend, API и PostgreSQL без подмены собственного API и хранилища; синтетические данные допустимы.
+Выбирай самый низкий достаточный уровень по [классификации тестов](classification.md).
 
 E2E используй точечно. Если поведение можно надежно защитить Vitest/RTL или API test, не поднимай уровень до Playwright.
 

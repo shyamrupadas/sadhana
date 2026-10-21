@@ -42,12 +42,7 @@ description: "Используй, когда нужно написать, дор
 
 ## Выбор Уровня
 
-- `web unit` - чистая frontend-логика без React render, DOM и сети.
-- `web component` - отдельный компонент или небольшая композиция через React Testing Library.
-- `web integration` - frontend page/feature с providers, routing, React Query, session state или mocked API.
-- `api` - backend service, repository, handler, database utility или migration behavior через `node:test`.
-- `contract` - TypeSpec/OpenAPI-generated API surface между пакетами.
-- `web e2e` - критичный пользовательский путь через настоящий браузер, frontend, API и PostgreSQL без подмены собственного API и хранилища. Синтетические тестовые данные допустимы.
+Определения уровней и границы между ними смотри в [классификации тестов](../../../docs/testing/classification.md).
 
 Если пользователь просит уровень выше минимально достаточного, объясни, какой уровень дешевле и почему. Если пользователь явно настаивает на более дорогом уровне, уточни перед реализацией.
 
@@ -99,24 +94,7 @@ description: "Используй, когда нужно написать, дор
 
 ## Validation
 
-Обычные тесты проверяй адресно по ходу разработки. E2E запускай по [порядку завершения задачи](../../../docs/testing/guide.md#порядок-завершения-задачи), после готовности всей задачи и успешных остальных необходимых проверок. Команды по выбранному уровню:
-
-```bash
-pnpm --filter @sadhana/web test <test-file>
-pnpm test:e2e <e2e-test-file>
-pnpm --filter @sadhana/api exec node -r ts-node/register --test <api-test-file>
-pnpm --filter @sadhana/api-contract exec node --test <contract-test-file>
-```
-
-Если изменение затрагивает нетривиальные types/imports, package boundaries или generated contract, добавь релевантные проверки:
-
-```bash
-pnpm lint
-pnpm typecheck
-pnpm --filter @sadhana/api-contract generate
-```
-
-Если targeted command не запускается из-за окружения, не заявляй, что тест проверен. Зафиксируй команду, краткий output summary и причину, почему validation не получена.
+Команды адресного запуска, дополнительные проверки и правила отчёта о результатах смотри в [Testing Guide — Запуск Тестов](../../../docs/testing/guide.md#запуск-тестов). Момент запуска проверок установлен в шаге 7 рабочего порядка.
 
 ## Финальный Ответ
 
