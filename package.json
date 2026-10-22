@@ -23,7 +23,8 @@
     "db:dev-reseed": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts reseed",
     "db:dev-reset": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts reset",
     "db:rehearse": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts rehearse",
-    "db:test": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts test"
+    "db:test": "pnpm --filter @sadhana/api exec tsx src/db/dev-database.ts test",
+    "db:test:docker": "pnpm --filter @sadhana/api exec tsx src/db/docker-database-tests.ts"
   },
   "devDependencies": {
     "turbo": "2.11.7"
