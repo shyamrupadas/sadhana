@@ -42,7 +42,9 @@ export const publicApiClient = new ApiClient({
 export const apiClient = new ApiClient({
   baseUrl: CONFIG.API_BASE_URL,
   fetch: async (input, init) => {
+    const owner = useSession.getState().session?.userId
     const token = await authorizedToken()
+    if (useSession.getState().session?.userId !== owner) throw new DOMException('Session changed', 'AbortError')
     if (token instanceof Response) return token
 
     const headers = new Headers(init?.headers)

@@ -67,8 +67,8 @@ export class ApiClient {
     return this.request(`/sleep-records/${encodeURIComponent(date)}/habits/${encodeURIComponent(habitKey)}`, { method: "PATCH", signal: options.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   }
 
-  getSleepStats(options: { signal?: AbortSignal } = {}): Promise<Operations["SleepStats_getSleepStats"]['responses'][200]['content']['application/json']> {
-    return this.request("/sleep-stats", { method: "GET", signal: options.signal })
+  getStatistics(query: NonNullable<Operations["Statistics_getStatistics"]['parameters']['query']>, options: { signal?: AbortSignal } = {}): Promise<Operations["Statistics_getStatistics"]['responses'][200]['content']['application/json']> {
+    return this.request("/statistics" + '?' + new URLSearchParams(Object.entries(query).filter(([, value]) => value !== undefined).map(([key, value]) => [key, String(value)])), { method: "GET", signal: options.signal })
   }
 
   private async request<T>(path: string, init: RequestInit): Promise<T> {

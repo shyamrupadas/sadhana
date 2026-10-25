@@ -111,7 +111,7 @@ model SleepData {
 model SleepDataInput {
   @pattern("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$") bedtime?: string | null;
   @pattern("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$") wakeTime?: string | null;
-  /** Zero is stored as null. */
+  /** Original nonnegative minutes; absent nap is null. */
   @minValue(0) napDuration: int32 | null;
 }
 
@@ -150,21 +150,36 @@ model CheckYesterdayResponse {
   @body body: CheckYesterdayData;
 }
 
-model SleepStatsPeriod {
-  @pattern("^\\d{2}:\\d{2}$") bedtime: string | null;
-  @pattern("^\\d{2}:\\d{2}$") wakeTime: string | null;
-  @pattern("^\\d+:\\d{2}$") duration: string | null;
+enum StatisticsGranularity { day, week, month, year }
+
+model SleepMetric {
+  value: float64 | null;
+  sum: float64;
+  count: int32;
 }
 
-model SleepStatsData {
-  week: SleepStatsPeriod;
-  month: SleepStatsPeriod;
-  year: SleepStatsPeriod;
+model SleepStatisticsColumn {
+  from: CalendarDate;
+  toExclusive: CalendarDate;
+  source?: SleepData;
+  bedtime: SleepMetric;
+  wakeTime: SleepMetric;
+  nap: SleepMetric;
+  duration: SleepMetric;
 }
 
-model SleepStatsResponse {
+model StatisticsData {
+  granularity: StatisticsGranularity;
+  from: CalendarDate;
+  toExclusive: CalendarDate;
+  asOfDate: CalendarDate;
+  historyFrom: CalendarDate;
+  columns: SleepStatisticsColumn[];
+}
+
+model StatisticsResponse {
   @statusCode statusCode: 200;
-  @body body: SleepStatsData;
+  @body body: StatisticsData;
 }
 
 @route("/sleep-records")
@@ -176,7 +191,7 @@ interface SleepRecords {
   @get @route("/{date}") getSleepRecord(@path date: CalendarDate): DailyEntryResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
 
   /** Creates or replaces sleep data. Duration uses the previous day's bedtime and this day's wake time. */
-  @put @route("/{date}") putSleepRecord(@path date: CalendarDate, @body body: SleepDataInput): DailyEntryResponse | UnauthorizedResponse | InternalErrorResponse;
+  @put @route("/{date}") putSleepRecord(@path date: CalendarDate, @body body: SleepDataInput): DailyEntryResponse | BadRequestResponse | UnauthorizedResponse | InternalErrorResponse;
 
   /** Creates the daily entry if absent. The habit key need not exist in the habit list. */
   @patch @route("/{date}/habits/{habitKey}") setDailyHabitMark(@path date: CalendarDate, @path habitKey: string, @body body: DailyHabitMarkInput): DailyEntryResponse | UnauthorizedResponse | InternalErrorResponse;
@@ -188,11 +203,16 @@ interface SleepRecords {
   @get @route("/yesterday/check") checkYesterday(): CheckYesterdayResponse | UnauthorizedResponse | InternalErrorResponse;
 }
 
-@route("/sleep-stats")
+@route("/statistics")
 @useAuth(BearerAuth)
-interface SleepStats {
-  /** Sleep averages for the last seven and thirty days, and the previous twelve completed calendar months. Periods without complete sleep return null values. */
-  @get getSleepStats(): SleepStatsResponse | UnauthorizedResponse | InternalErrorResponse;
+interface Statistics {
+  /** Calendar-aligned bounded history. The device supplies today's date; no server timezone conversion. */
+  @get getStatistics(
+    @query granularity: StatisticsGranularity,
+    @query from: CalendarDate,
+    @query toExclusive: CalendarDate,
+    @query asOfDate: CalendarDate
+  ): StatisticsResponse | BadRequestResponse | UnauthorizedResponse | InternalErrorResponse;
 }
 
 @route("/auth")

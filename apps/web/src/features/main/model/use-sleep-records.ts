@@ -1,30 +1,35 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/shared/api/instance'
+import { getSessionVersion, useSession } from '@/shared/model/session'
 import type { ApiSchemas } from '@sadhana/api-contract'
 
 type OptimisticContext = {
   previousEntries: ApiSchemas['DailyEntry'][]
+  queryKey: SleepRecordsQueryKey
+  sessionVersion: number
 }
 
-const QUERY_KEY = ['get', '/sleep-records'] as const
+type SleepRecordsQueryKey = readonly ['get', '/sleep-records', string]
 
 const createOptimisticContext = async (
   queryClient: QueryClient,
-  queryKey: typeof QUERY_KEY
+  queryKey: SleepRecordsQueryKey
 ): Promise<OptimisticContext> => {
+  const sessionVersion = getSessionVersion()
   await queryClient.cancelQueries({ queryKey })
+  if (sessionVersion !== getSessionVersion())
+    throw new DOMException('Session changed', 'AbortError')
   const previousEntries =
     queryClient.getQueryData<ApiSchemas['DailyEntry'][]>(queryKey) ?? []
-  return { previousEntries }
+  return { previousEntries, queryKey, sessionVersion }
 }
 
 const rollbackOptimisticUpdate = (
   queryClient: QueryClient,
-  queryKey: typeof QUERY_KEY,
   context: OptimisticContext | undefined
 ) => {
-  if (context?.previousEntries) {
-    queryClient.setQueryData(queryKey, context.previousEntries)
+  if (context && context.sessionVersion === getSessionVersion()) {
+    queryClient.setQueryData(context.queryKey, context.previousEntries)
   }
 }
 
@@ -116,32 +121,47 @@ const removeEntryHabit = (
 
 export const useSleepRecords = () => {
   const queryClient = useQueryClient()
+  const { session } = useSession()
+  const QUERY_KEY: SleepRecordsQueryKey = ['get', '/sleep-records', session?.userId ?? '']
   const sleepRecordsQuery = useQuery({
     queryKey: QUERY_KEY,
     queryFn: ({ signal }) => apiClient.getSleepRecords({ signal }),
   })
 
   const updateSleep = useMutation({
-    mutationFn: ({ date, sleep }: { date: string; sleep: ApiSchemas['SleepDataInput'] }) =>
-      apiClient.putSleepRecord(date, sleep),
+    mutationFn: ({
+      date,
+      sleep,
+    }: {
+      date: string
+      sleep: ApiSchemas['SleepDataInput']
+    }) => apiClient.putSleepRecord(date, sleep),
     onMutate: async ({ date, sleep }): Promise<OptimisticContext> => {
       const context = await createOptimisticContext(queryClient, QUERY_KEY)
 
       const updatedEntries = updateEntrySleep(context.previousEntries, date, sleep)
 
-      queryClient.setQueryData(QUERY_KEY, updatedEntries)
+      queryClient.setQueryData(context.queryKey, updatedEntries)
 
       return context
     },
     onError: (_error, _variables, onMutateResult) => {
       rollbackOptimisticUpdate(
         queryClient,
-        QUERY_KEY,
         onMutateResult as OptimisticContext | undefined
       )
     },
-    onSettled: () => {
-      sleepRecordsQuery.refetch()
+    onSuccess: (_data, _variables, context) => {
+      if (context?.sessionVersion === getSessionVersion()) {
+        void queryClient.invalidateQueries({
+          queryKey: ['statistics', context.queryKey[2]],
+        })
+      }
+    },
+    onSettled: (_data, _error, _variables, context) => {
+      if (context?.sessionVersion === getSessionVersion()) {
+        void queryClient.invalidateQueries({ queryKey: context.queryKey })
+      }
     },
   })
 
@@ -165,19 +185,27 @@ export const useSleepRecords = () => {
         value
       )
 
-      queryClient.setQueryData(QUERY_KEY, updatedEntries)
+      queryClient.setQueryData(context.queryKey, updatedEntries)
 
       return context
     },
     onError: (_error, _variables, onMutateResult) => {
       rollbackOptimisticUpdate(
         queryClient,
-        QUERY_KEY,
         onMutateResult as OptimisticContext | undefined
       )
     },
-    onSettled: () => {
-      sleepRecordsQuery.refetch()
+    onSuccess: (_data, _variables, context) => {
+      if (context?.sessionVersion === getSessionVersion()) {
+        void queryClient.invalidateQueries({
+          queryKey: ['statistics', context.queryKey[2]],
+        })
+      }
+    },
+    onSettled: (_data, _error, _variables, context) => {
+      if (context?.sessionVersion === getSessionVersion()) {
+        void queryClient.invalidateQueries({ queryKey: context.queryKey })
+      }
     },
   })
 
@@ -189,19 +217,27 @@ export const useSleepRecords = () => {
 
       const updatedEntries = removeEntryHabit(context.previousEntries, date, habitKey)
 
-      queryClient.setQueryData(QUERY_KEY, updatedEntries)
+      queryClient.setQueryData(context.queryKey, updatedEntries)
 
       return context
     },
     onError: (_error, _variables, onMutateResult) => {
       rollbackOptimisticUpdate(
         queryClient,
-        QUERY_KEY,
         onMutateResult as OptimisticContext | undefined
       )
     },
-    onSettled: () => {
-      sleepRecordsQuery.refetch()
+    onSuccess: (_data, _variables, context) => {
+      if (context?.sessionVersion === getSessionVersion()) {
+        void queryClient.invalidateQueries({
+          queryKey: ['statistics', context.queryKey[2]],
+        })
+      }
+    },
+    onSettled: (_data, _error, _variables, context) => {
+      if (context?.sessionVersion === getSessionVersion()) {
+        void queryClient.invalidateQueries({ queryKey: context.queryKey })
+      }
     },
   })
 

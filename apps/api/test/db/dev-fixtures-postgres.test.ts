@@ -127,19 +127,16 @@ test('PostgreSQL fixtures preserve known stored records, normal login and applic
     }
     const known = (
       await client.query(
-        'SELECT id, date, sleep_data, habits FROM daily_entries WHERE user_id = $1 AND date = $2',
+        `SELECT d.id, d.date, d.habits, to_char(s.bedtime, 'YYYY-MM-DD HH24:MI') AS bedtime, to_char(s.wake_time, 'YYYY-MM-DD HH24:MI') AS wake_time, s.nap_minutes FROM daily_entries d JOIN sleep_records s ON s.user_id = d.user_id AND s.date = d.date::date WHERE d.user_id = $1 AND d.date = $2`,
         [daily.id, '2025-12-07']
       )
     ).rows[0]
     assert.deepEqual(known, {
       id: `${daily.id}-2025-12-07`,
       date: '2025-12-07',
-      sleep_data: {
-        bedtime: '2025-12-07 23:00',
-        wakeTime: '2025-12-07 07:00',
-        napDuration: 30,
-        duration: 510,
-      },
+      bedtime: '2025-12-07 23:00',
+      wake_time: '2025-12-07 07:00',
+      nap_minutes: 30,
       habits: [],
     })
     let app = await authApp(connectionString)
@@ -265,7 +262,7 @@ test('concurrent first habit mark preserves sleep saved while the mark is pendin
     await client.query(`
       CREATE FUNCTION pause_first_mark() RETURNS trigger LANGUAGE plpgsql AS $$
       BEGIN
-        IF NEW.date = '2026-01-03' AND NEW.sleep_data->>'wakeTime' IS NULL THEN
+        IF NEW.date = '2026-01-03' AND NEW.habits <> '[]'::jsonb THEN
           PERFORM pg_advisory_xact_lock(hashtext(TG_TABLE_SCHEMA), 1);
         END IF;
         RETURN NEW;
@@ -325,7 +322,7 @@ test('PostgreSQL fixtures refuse an earlier schema without applying migrations o
       .rows
     await assert.rejects(
       seedDevFixtures({ connectionString, migrationsDir, date, password }),
-      /schema 007/
+      /schema 008/
     )
     assert.deepEqual(
       (await client.query('SELECT * FROM schema_migrations ORDER BY id')).rows,
@@ -368,9 +365,7 @@ test('removing a habit mark preserves sleep committed while removal is pending',
         .inject({ method: 'DELETE', url: `${url}/habits/walk`, headers })
         .then((response) => assert.equal(response.statusCode, 200))
       await waitForBlockedRequest(client)
-      await client.query(`UPDATE daily_entries SET sleep_data =
-        '{"bedtime":null,"wakeTime":"2026-01-03 07:45","napDuration":null,"duration":null}'::jsonb
-        WHERE date='2026-01-03'`)
+      await client.query(`INSERT INTO sleep_records (user_id, date, wake_time) SELECT user_id, date::date, '2026-01-03 07:45'::timestamp FROM daily_entries WHERE date='2026-01-03'`)
       await client.query('COMMIT')
       await removal
       const entry = await app.inject({ method: 'GET', url, headers })

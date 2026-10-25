@@ -577,6 +577,16 @@
               }
             }
           },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Access is unauthorized.",
             "content": {
@@ -755,18 +765,65 @@
         ]
       }
     },
-    "/sleep-stats": {
+    "/statistics": {
       "get": {
-        "operationId": "SleepStats_getSleepStats",
-        "description": "Sleep averages for the last seven and thirty days, and the previous twelve completed calendar months. Periods without complete sleep return null values.",
-        "parameters": [],
+        "operationId": "Statistics_getStatistics",
+        "description": "Calendar-aligned bounded history. The device supplies today's date; no server timezone conversion.",
+        "parameters": [
+          {
+            "name": "granularity",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/StatisticsGranularity"
+            },
+            "explode": false
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CalendarDate"
+            },
+            "explode": false
+          },
+          {
+            "name": "toExclusive",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CalendarDate"
+            },
+            "explode": false
+          },
+          {
+            "name": "asOfDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CalendarDate"
+            },
+            "explode": false
+          }
+        ],
         "responses": {
           "200": {
             "description": "The request has succeeded.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SleepStatsData"
+                  "$ref": "#/components/schemas/StatisticsData"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -1018,53 +1075,109 @@
             "format": "int32",
             "nullable": true,
             "minimum": 0,
-            "description": "Zero is stored as null."
+            "description": "Original nonnegative minutes; absent nap is null."
           }
         }
       },
-      "SleepStatsData": {
+      "SleepMetric": {
         "type": "object",
         "required": [
-          "week",
-          "month",
-          "year"
+          "value",
+          "sum",
+          "count"
         ],
         "properties": {
-          "week": {
-            "$ref": "#/components/schemas/SleepStatsPeriod"
+          "value": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
           },
-          "month": {
-            "$ref": "#/components/schemas/SleepStatsPeriod"
+          "sum": {
+            "type": "number",
+            "format": "double"
           },
-          "year": {
-            "$ref": "#/components/schemas/SleepStatsPeriod"
+          "count": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
-      "SleepStatsPeriod": {
+      "SleepStatisticsColumn": {
         "type": "object",
         "required": [
+          "from",
+          "toExclusive",
           "bedtime",
           "wakeTime",
+          "nap",
           "duration"
         ],
         "properties": {
+          "from": {
+            "$ref": "#/components/schemas/CalendarDate"
+          },
+          "toExclusive": {
+            "$ref": "#/components/schemas/CalendarDate"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SleepData"
+          },
           "bedtime": {
-            "type": "string",
-            "nullable": true,
-            "pattern": "^\\d{2}:\\d{2}$"
+            "$ref": "#/components/schemas/SleepMetric"
           },
           "wakeTime": {
-            "type": "string",
-            "nullable": true,
-            "pattern": "^\\d{2}:\\d{2}$"
+            "$ref": "#/components/schemas/SleepMetric"
+          },
+          "nap": {
+            "$ref": "#/components/schemas/SleepMetric"
           },
           "duration": {
-            "type": "string",
-            "nullable": true,
-            "pattern": "^\\d+:\\d{2}$"
+            "$ref": "#/components/schemas/SleepMetric"
           }
         }
+      },
+      "StatisticsData": {
+        "type": "object",
+        "required": [
+          "granularity",
+          "from",
+          "toExclusive",
+          "asOfDate",
+          "historyFrom",
+          "columns"
+        ],
+        "properties": {
+          "granularity": {
+            "$ref": "#/components/schemas/StatisticsGranularity"
+          },
+          "from": {
+            "$ref": "#/components/schemas/CalendarDate"
+          },
+          "toExclusive": {
+            "$ref": "#/components/schemas/CalendarDate"
+          },
+          "asOfDate": {
+            "$ref": "#/components/schemas/CalendarDate"
+          },
+          "historyFrom": {
+            "$ref": "#/components/schemas/CalendarDate"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SleepStatisticsColumn"
+            }
+          }
+        }
+      },
+      "StatisticsGranularity": {
+        "type": "string",
+        "enum": [
+          "day",
+          "week",
+          "month",
+          "year"
+        ]
       },
       "User": {
         "type": "object",

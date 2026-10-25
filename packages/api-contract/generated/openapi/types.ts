@@ -155,15 +155,15 @@ export interface paths {
         patch: operations["SleepRecords_setDailyHabitMark"];
         trace?: never;
     };
-    "/sleep-stats": {
+    "/statistics": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description Sleep averages for the last seven and thirty days, and the previous twelve completed calendar months. Periods without complete sleep return null values. */
-        get: operations["SleepStats_getSleepStats"];
+        /** @description Calendar-aligned bounded history. The device supplies today's date; no server timezone conversion. */
+        get: operations["Statistics_getStatistics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -236,20 +236,37 @@ export interface components {
             wakeTime?: string | null;
             /**
              * Format: int32
-             * @description Zero is stored as null.
+             * @description Original nonnegative minutes; absent nap is null.
              */
             napDuration: number | null;
         };
-        SleepStatsData: {
-            week: components["schemas"]["SleepStatsPeriod"];
-            month: components["schemas"]["SleepStatsPeriod"];
-            year: components["schemas"]["SleepStatsPeriod"];
+        SleepMetric: {
+            /** Format: double */
+            value: number | null;
+            /** Format: double */
+            sum: number;
+            /** Format: int32 */
+            count: number;
         };
-        SleepStatsPeriod: {
-            bedtime: string | null;
-            wakeTime: string | null;
-            duration: string | null;
+        SleepStatisticsColumn: {
+            from: components["schemas"]["CalendarDate"];
+            toExclusive: components["schemas"]["CalendarDate"];
+            source?: components["schemas"]["SleepData"];
+            bedtime: components["schemas"]["SleepMetric"];
+            wakeTime: components["schemas"]["SleepMetric"];
+            nap: components["schemas"]["SleepMetric"];
+            duration: components["schemas"]["SleepMetric"];
         };
+        StatisticsData: {
+            granularity: components["schemas"]["StatisticsGranularity"];
+            from: components["schemas"]["CalendarDate"];
+            toExclusive: components["schemas"]["CalendarDate"];
+            asOfDate: components["schemas"]["CalendarDate"];
+            historyFrom: components["schemas"]["CalendarDate"];
+            columns: components["schemas"]["SleepStatisticsColumn"][];
+        };
+        /** @enum {string} */
+        StatisticsGranularity: "day" | "week" | "month" | "year";
         User: {
             id: string;
             /** Format: email */
@@ -723,6 +740,15 @@ export interface operations {
                     "application/json": components["schemas"]["DailyEntry"];
                 };
             };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Access is unauthorized. */
             401: {
                 headers: {
@@ -838,9 +864,14 @@ export interface operations {
             };
         };
     };
-    SleepStats_getSleepStats: {
+    Statistics_getStatistics: {
         parameters: {
-            query?: never;
+            query: {
+                granularity: components["schemas"]["StatisticsGranularity"];
+                from: components["schemas"]["CalendarDate"];
+                toExclusive: components["schemas"]["CalendarDate"];
+                asOfDate: components["schemas"]["CalendarDate"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -853,7 +884,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SleepStatsData"];
+                    "application/json": components["schemas"]["StatisticsData"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
             /** @description Access is unauthorized. */

@@ -13,7 +13,7 @@ import {
 test('versioned fixtures reproduce linked profiles and known Moscow sleep records', () => {
   const fixtures = buildDevFixtures('2026-01-02')
   assert.deepEqual(buildDevFixtures('2026-01-02'), fixtures)
-  assert.deepEqual(devFixtureVersion, { generator: '2', schema: '007' })
+  assert.deepEqual(devFixtureVersion, { generator: '2', schema: '008' })
   assert.deepEqual(
     fixtures.users.map(({ email }) => email),
     ['empty@example.test', 'daily@example.test', 'history@example.test']
@@ -97,7 +97,8 @@ test('reseed clears, fills and verifies using one connection and one transaction
       }
     if (sql.startsWith('SELECT id, email')) return { rows: fixtures.users }
     if (sql.startsWith('SELECT id, user_id, key')) return { rows: fixtures.habits }
-    if (sql.startsWith('SELECT id, user_id, date')) return { rows: fixtures.entries }
+    if (sql.startsWith('SELECT id, user_id, date')) return { rows: fixtures.entries.map(entry => ({ id: entry.id, user_id: entry.user_id, date: entry.date, habits: entry.habits })) }
+    if (sql.includes('AS wake_time')) return { rows: fixtures.entries.map(entry => ({ id: entry.id, bedtime: entry.sleep_data.bedtime, wake_time: entry.sleep_data.wakeTime, nap_minutes: entry.sleep_data.napDuration })) }
     return { rows: [] }
   })
   await reseedDevFixtures({
@@ -180,11 +181,11 @@ test('seeding refuses incompatible history and existing application data before 
     date: '2026-01-02',
     password: 'fixture-test-password',
   }
-  await assert.rejects(seedDevFixtures(options), /schema 007/)
+  await assert.rejects(seedDevFixtures(options), /schema 008/)
   history = journal.map((row, index) =>
     index === 0 ? { ...row, checksum: 'changed' } : row
   )
-  await assert.rejects(seedDevFixtures(options), /schema 007/)
+  await assert.rejects(seedDevFixtures(options), /schema 008/)
   history = journal
   populated = true
   await assert.rejects(seedDevFixtures(options), /empty application/)

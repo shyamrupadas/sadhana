@@ -116,23 +116,9 @@ test('daily habit mark client encodes both path values and sends the selected va
   assert.equal(calls[1].init.body, undefined)
 })
 
-test('yesterday check and sleep stats keep their nullable HTTP response shapes', async () => {
-  const calls = []
-  const stats = {
-    week: { bedtime: '23:00', wakeTime: '07:00', duration: '8:00' },
-    month: { bedtime: null, wakeTime: null, duration: null },
-    year: { bedtime: null, wakeTime: null, duration: null },
-  }
-  const client = new ApiClient({ fetch: async (input, init) => {
-    calls.push([input, init.method])
-    return new Response(JSON.stringify(input === '/sleep-stats' ? stats : { hasData: true }), { status: 200 })
-  } })
+test('yesterday check retains its HTTP response', async () => {
+  const client = new ApiClient({ fetch: async () => new Response(JSON.stringify({ hasData: true }), { status: 200 }) })
   assert.deepEqual(await client.checkYesterday(), { hasData: true })
-  assert.deepEqual(await client.getSleepStats(), stats)
-  assert.deepEqual(calls, [
-    ['/sleep-records/yesterday/check', 'GET'],
-    ['/sleep-stats', 'GET'],
-  ])
 })
 
 test('sleep time fields keep nullable values and date-time patterns in the same OpenAPI schema', async () => {
@@ -160,11 +146,11 @@ test('generated HTTP contract covers the inventoried operations and response sta
     'DELETE /habits/{key}': [204, 401, 404, 500],
     'GET /sleep-records': [200, 401, 500],
     'GET /sleep-records/{date}': [200, 401, 404, 500],
-    'PUT /sleep-records/{date}': [200, 401, 500],
+    'PUT /sleep-records/{date}': [200, 400, 401, 500],
     'PATCH /sleep-records/{date}/habits/{habitKey}': [200, 401, 500],
     'DELETE /sleep-records/{date}/habits/{habitKey}': [200, 401, 404, 500],
     'GET /sleep-records/yesterday/check': [200, 401, 500],
-    'GET /sleep-stats': [200, 401, 500],
+    'GET /statistics': [200, 400, 401, 500],
   }
   const actual = Object.fromEntries(Object.entries(document.paths).flatMap(([path, methods]) =>
     Object.entries(methods).map(([method, operation]) => [
@@ -217,4 +203,18 @@ test('repeated generation leaves committed artifacts unchanged', async () => {
   execFileSync('pnpm', ['generate'], { cwd: packageRoot, stdio: 'pipe' })
   const after = await Promise.all(paths.map((path) => readFile(join(packageRoot, path), 'utf8')))
   assert.deepEqual(after, before)
+})
+
+test('statistics client sends typed calendar query and abort signal', async () => {
+  const calls = []
+  const client = new ApiClient({ fetch: async (input, init) => {
+    calls.push({ input, init })
+    return new Response(JSON.stringify({ columns: [] }), { status: 200 })
+  } })
+  const controller = new AbortController()
+  await client.getStatistics({ granularity: 'week', from: '2026-10-05', toExclusive: '2026-10-12', asOfDate: '2026-10-10' }, { signal: controller.signal })
+  const url = new URL(calls[0].input, 'https://example.test')
+  assert.equal(url.pathname, '/statistics')
+  assert.deepEqual(Object.fromEntries(url.searchParams), { granularity: 'week', from: '2026-10-05', toExclusive: '2026-10-12', asOfDate: '2026-10-10' })
+  assert.equal(calls[0].init.signal, controller.signal)
 })

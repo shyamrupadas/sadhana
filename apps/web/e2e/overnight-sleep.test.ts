@@ -73,4 +73,8 @@ test('сохраняет вечерний отбой и утренний под�
   await expect(
     page.getByRole('row', { name: 'Сон (итого)' }).getByRole('cell').nth(morningColumn)
   ).toHaveText('8:15')
+  await page.goto('/statistics')
+  await expect(page.getByRole('row', { name: /Сон \(итого\)/ })).toContainText('8:15')
+  await expect(page.getByRole('row', { name: /Отбой/ })).toContainText('23:15')
+
 })

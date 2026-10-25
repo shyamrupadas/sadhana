@@ -71,7 +71,7 @@ test('clean database applies the real chain once and preserves user data on repe
     const userId = user.rows[0].id
     await client.query(`INSERT INTO ${schema}.habits (user_id, key, label) VALUES ($1, 'walk', 'Walk')`, [userId])
     await client.query(
-      `INSERT INTO ${schema}.daily_entries (id, user_id, date, sleep_data) VALUES ($1, $2, '2026-10-04', '{"bedtime":null,"wakeTime":null,"napDuration":null,"duration":null}')`,
+      `INSERT INTO ${schema}.daily_entries (id, user_id, date) VALUES ($1, $2, '2026-10-04')`,
       [`${userId}-2026-10-04`, userId],
     )
     const before = []
@@ -135,7 +135,7 @@ test('index cleanup preserves records and enforces day and email uniqueness', as
       const before = await records()
       const oldIndexes = await indexes()
       const oldConstraints = await constraints()
-      await runMigrations(options)
+      await runMigrations({ ...options, to: '007' })
       assert.deepEqual(await records(), before)
       assert.deepEqual(
         await indexes(),
@@ -157,7 +157,7 @@ test('index cleanup preserves records and enforces day and email uniqueness', as
       assert.equal((await getMigrationStatus(options)).applied.at(-1), '007')
       const journal = (await client.query('SELECT * FROM schema_migrations ORDER BY id'))
         .rows
-      await runMigrations(options)
+      await runMigrations({ ...options, to: '007' })
       assert.deepEqual(await records(), before)
       assert.deepEqual(
         (await client.query('SELECT * FROM schema_migrations ORDER BY id')).rows,
@@ -391,5 +391,42 @@ test('real sleep migrations preserve marks and transform stored legacy sleep fie
       { date: '2026-01-02', sleep_data: { bedtime: '2026-01-01T23:00:00', wakeTime: '2026-01-02T07:00:00',
         napDuration: 30, duration: 510 }, habits: [{ key: 'walk', completed: true }] },
     ])
+  }, true)
+})
+
+test('typed sleep migration preserves local facts and habits, rejects invalid source and repeats unchanged', async (t) => {
+  await withDatabase(t, async ({ client, connectionString, migrationsDir, schema }) => {
+    await client.query(`SET search_path TO "${schema}"`)
+    await runMigrations({ connectionString, migrationsDir, to: '007' })
+    const owner = (await client.query("INSERT INTO users (email, password_hash) VALUES ('typed@example.test', 'hash') RETURNING id")).rows[0].id
+    const facts = { bedtime: '2026-10-05T01:15:00', wakeTime: '2026-10-04 08:30', napDuration: 30, duration: 999 }
+    await client.query(`INSERT INTO daily_entries (id, user_id, date, sleep_data, habits) VALUES ('source', $1, '2026-10-04', $2, '[{"key":"read","value":false}]')`, [owner, facts])
+    await client.query(`UPDATE daily_entries SET sleep_data = jsonb_set(sleep_data, '{wakeTime}', '"2026-02-30 08:30"')`)
+    await assert.rejects(runMigrations({ connectionString, migrationsDir, to: '008' }))
+    assert.equal((await client.query("SELECT sleep_data->>'wakeTime' AS value FROM daily_entries")).rows[0].value, '2026-02-30 08:30')
+    assert.equal((await client.query("SELECT to_regclass('sleep_records') AS name")).rows[0].name, null)
+    await client.query('UPDATE daily_entries SET sleep_data = $1', [facts])
+    const transfer = join(migrationsDir, '008_type_sleep_records.sql')
+    const checkedSql = readFileSync(transfer, 'utf8')
+    // Fault injection after copying: a value mismatch must abort before dropping the source.
+    writeFileSync(transfer, checkedSql.replace('DO $$\nBEGIN\n  IF (SELECT count(*)', 'UPDATE sleep_records SET nap_minutes = 99;\nDO $$\nBEGIN\n  IF (SELECT count(*)'))
+    await assert.rejects(runMigrations({ connectionString, migrationsDir, to: '008' }))
+    assert.deepEqual((await client.query('SELECT sleep_data FROM daily_entries')).rows[0].sleep_data, facts)
+    assert.equal((await client.query("SELECT to_regclass('sleep_records') AS name")).rows[0].name, null)
+    writeFileSync(transfer, checkedSql)
+    await runMigrations({ connectionString, migrationsDir, to: '008' })
+    const read = async () => ({
+      sleep: (await client.query("SELECT user_id, date::text, to_char(bedtime, 'YYYY-MM-DD HH24:MI') AS bedtime, to_char(wake_time, 'YYYY-MM-DD HH24:MI') AS wake_time, nap_minutes FROM sleep_records")).rows,
+      days: (await client.query('SELECT * FROM daily_entries')).rows,
+      journal: (await client.query('SELECT * FROM schema_migrations ORDER BY id')).rows,
+    })
+    const before = await read()
+    assert.deepEqual(before.sleep, [{ user_id: owner, date: '2026-10-04', bedtime: '2026-10-05 01:15', wake_time: '2026-10-04 08:30', nap_minutes: 30 }])
+    assert.deepEqual(before.days[0].habits, [{ key: 'read', value: false }])
+    assert.equal('sleep_data' in before.days[0], false)
+    await runMigrations({ connectionString, migrationsDir })
+    assert.deepEqual(await read(), before)
+    await assert.rejects(client.query("INSERT INTO sleep_records (user_id, date, nap_minutes) VALUES ($1, '2026-10-04', 0)", [owner]), { code: '23505' })
+    await assert.rejects(client.query("UPDATE sleep_records SET nap_minutes = -1"), { code: '23514' })
   }, true)
 })

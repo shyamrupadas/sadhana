@@ -7,7 +7,7 @@ import { getPendingMigrations, loadMigrations } from './migrate'
 
 export class FixtureError extends Error {}
 
-export const devFixtureVersion = { generator: '2', schema: '007' } as const
+export const devFixtureVersion = { generator: '2', schema: '008' } as const
 
 type Fixtures = {
   users: { id: string; email: string }[]
@@ -146,14 +146,18 @@ async function checkRecords(client: Client, fixtures: Fixtures): Promise<void> {
     'SELECT id, user_id, key, label FROM habits ORDER BY id'
   )
   const entries = await client.query(
-    'SELECT id, user_id, date, sleep_data, habits FROM daily_entries ORDER BY id'
+    'SELECT id, user_id, date, habits FROM daily_entries ORDER BY id'
   )
+  const sleep = await client.query(`SELECT user_id::text || '-' || date::text AS id,
+    to_char(bedtime, 'YYYY-MM-DD HH24:MI') AS bedtime,
+    to_char(wake_time, 'YYYY-MM-DD HH24:MI') AS wake_time, nap_minutes FROM sleep_records ORDER BY user_id, date`)
   const byId = <T extends { id: string }>(rows: T[]) =>
     [...rows].sort((a, b) => a.id.localeCompare(b.id, 'en'))
   if (
     !isDeepStrictEqual(byId(users.rows), byId(fixtures.users)) ||
     !isDeepStrictEqual(byId(habits.rows), byId(fixtures.habits)) ||
-    !isDeepStrictEqual(byId(entries.rows), byId(fixtures.entries))
+    !isDeepStrictEqual(byId(entries.rows), byId(fixtures.entries.map(entry => ({ id: entry.id, user_id: entry.user_id, date: entry.date, habits: entry.habits })))) ||
+    !isDeepStrictEqual(byId(sleep.rows), byId(fixtures.entries.map(entry => ({ id: entry.id, bedtime: entry.sleep_data.bedtime, wake_time: entry.sleep_data.wakeTime, nap_minutes: entry.sleep_data.napDuration }))))
   ) {
     throw new FixtureError(
       'Stored fixture records differ from the expected initial state'
@@ -202,7 +206,7 @@ async function writeDevFixtures(
     await client.query('LOCK TABLE schema_migrations IN SHARE ROW EXCLUSIVE MODE')
     await checkSchema(client, options.migrationsDir)
     await client.query(
-      'LOCK TABLE users, habits, daily_entries IN SHARE ROW EXCLUSIVE MODE'
+      'LOCK TABLE users, habits, daily_entries, sleep_records IN SHARE ROW EXCLUSIVE MODE'
     )
     let journal: unknown[] | undefined
     if (replace) {
@@ -210,7 +214,7 @@ async function writeDevFixtures(
         `SELECT c.relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p', 'f', 'm')`
       )
-      const supported = new Set(['users', 'habits', 'daily_entries', 'schema_migrations'])
+      const supported = new Set(['users', 'habits', 'daily_entries', 'sleep_records', 'schema_migrations'])
       if (tables.rows.some(({ name }) => !supported.has(name))) {
         throw new FixtureError(
           'Fixture replacement requires the known application tables'
@@ -222,7 +226,7 @@ async function writeDevFixtures(
       const dependencies = await client.query<{ unsupported: boolean }>(`
         WITH RECURSIVE attached(classid, objid) AS (
           SELECT 'pg_class'::regclass::oid, c.oid FROM pg_class c
-          WHERE c.oid IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+          WHERE c.oid IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'sleep_records'::regclass, 'schema_migrations'::regclass)
           UNION
           SELECT d.classid, d.objid FROM pg_depend d JOIN attached t
             ON d.refclassid=t.classid AND d.refobjid=t.objid WHERE d.deptype IN ('a', 'i')
@@ -237,7 +241,7 @@ async function writeDevFixtures(
             OR relation.relkind='S'
         ) OR EXISTS (
           SELECT 1 FROM pg_attrdef def JOIN pg_attribute col ON col.attrelid=def.adrelid AND col.attnum=def.adnum
-          WHERE def.adrelid IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+          WHERE def.adrelid IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'sleep_records'::regclass, 'schema_migrations'::regclass)
             AND NOT (
               (col.attname='id' AND def.adrelid IN ('users'::regclass, 'habits'::regclass) AND pg_get_expr(def.adbin, def.adrelid)='gen_random_uuid()')
               OR (col.attname IN ('created_at', 'updated_at', 'recorded_at') AND pg_get_expr(def.adbin, def.adrelid)='now()')
@@ -246,32 +250,33 @@ async function writeDevFixtures(
               OR (col.attname='recorded_retrospectively' AND def.adrelid='schema_migrations'::regclass AND pg_get_expr(def.adbin, def.adrelid)='false')
             )
         ) OR EXISTS (
-          SELECT 1 FROM pg_constraint WHERE contype IN ('c', 'x') AND conrelid IN
-            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+          SELECT 1 FROM pg_constraint WHERE contype IN ('c', 'x')
+            AND NOT (conrelid = 'sleep_records'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) = 'CHECK ((nap_minutes >= 0))') AND conrelid IN
+            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'sleep_records'::regclass, 'schema_migrations'::regclass)
         ) OR EXISTS (
           SELECT 1 FROM pg_index idx JOIN pg_class relation ON relation.oid=idx.indexrelid WHERE indrelid IN
-            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'sleep_records'::regclass, 'schema_migrations'::regclass)
             AND (indexprs IS NOT NULL OR indpred IS NOT NULL OR relation.relam<>(SELECT oid FROM pg_am WHERE amname='btree'))
         ) OR EXISTS (
           SELECT 1 FROM pg_trigger WHERE NOT tgisinternal AND tgrelid IN
-            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'sleep_records'::regclass, 'schema_migrations'::regclass)
         ) OR EXISTS (
           SELECT 1 FROM pg_rewrite WHERE ev_class IN
-            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'sleep_records'::regclass, 'schema_migrations'::regclass)
         ) OR EXISTS (
           SELECT 1 FROM pg_constraint WHERE contype='f' AND
-            ((conrelid IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass)
-              AND confrelid NOT IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass))
-            OR (confrelid IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass)
-              AND conrelid NOT IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass)))
+            ((conrelid IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'sleep_records'::regclass)
+              AND confrelid NOT IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'sleep_records'::regclass))
+            OR (confrelid IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'sleep_records'::regclass)
+              AND conrelid NOT IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'sleep_records'::regclass)))
         ) OR EXISTS (
           SELECT 1 FROM pg_class WHERE oid IN
-            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'sleep_records'::regclass, 'schema_migrations'::regclass)
             AND (relkind <> 'r' OR relrowsecurity OR reloftype <> 0 OR relispartition)
         ) OR EXISTS (
           SELECT 1 FROM pg_inherits WHERE inhrelid IN
-            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
-            OR inhparent IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'schema_migrations'::regclass)
+            ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'sleep_records'::regclass, 'schema_migrations'::regclass)
+            OR inhparent IN ('users'::regclass, 'habits'::regclass, 'daily_entries'::regclass, 'sleep_records'::regclass, 'schema_migrations'::regclass)
         ) AS unsupported
       `)
       if (dependencies.rows[0]?.unsupported !== false)
@@ -280,10 +285,10 @@ async function writeDevFixtures(
         )
       journal = (await client.query('SELECT * FROM schema_migrations ORDER BY id')).rows
       // No CASCADE: foreign dependencies must fail and roll back rather than lose other data.
-      await client.query('TRUNCATE TABLE users, habits, daily_entries')
+      await client.query('TRUNCATE TABLE users, habits, daily_entries, sleep_records')
     } else {
       const existing = await client.query<{ populated: boolean }>(
-        'SELECT EXISTS (SELECT 1 FROM users UNION ALL SELECT 1 FROM habits UNION ALL SELECT 1 FROM daily_entries) AS populated'
+        'SELECT EXISTS (SELECT 1 FROM users UNION ALL SELECT 1 FROM habits UNION ALL SELECT 1 FROM daily_entries UNION ALL SELECT 1 FROM sleep_records) AS populated'
       )
       if (existing.rows[0].populated)
         throw new FixtureError(
@@ -304,16 +309,8 @@ async function writeDevFixtures(
       )
     }
     for (const entry of fixtures.entries) {
-      await client.query(
-        'INSERT INTO daily_entries (id, user_id, date, sleep_data, habits) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)',
-        [
-          entry.id,
-          entry.user_id,
-          entry.date,
-          JSON.stringify(entry.sleep_data),
-          JSON.stringify(entry.habits),
-        ]
-      )
+      await client.query('INSERT INTO daily_entries (id, user_id, date, habits) VALUES ($1, $2, $3, $4::jsonb)', [entry.id, entry.user_id, entry.date, JSON.stringify(entry.habits)])
+      await client.query('INSERT INTO sleep_records (user_id, date, bedtime, wake_time, nap_minutes) VALUES ($1, $2, $3::timestamp, $4::timestamp, $5)', [entry.user_id, entry.date, entry.sleep_data.bedtime, entry.sleep_data.wakeTime, entry.sleep_data.napDuration])
     }
     await checkRecords(client, fixtures)
     if (

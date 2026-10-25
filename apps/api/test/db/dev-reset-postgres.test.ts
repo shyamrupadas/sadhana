@@ -572,6 +572,7 @@ test('index cleanup rehearsal preserves every stored field and leaves usable 007
       'preservation',
       'repeat',
     ])
+    await runMigrations(fixtureOptions(config))
     await verifyDevFixtures(fixtureOptions(config))
     await assert.rejects(
       rehearseDevelopmentDatabase(config, rehearsal, {

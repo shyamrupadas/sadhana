@@ -1,4 +1,6 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import dayjs from 'dayjs'
+import { QueryClient, useQueryClient } from '@tanstack/react-query'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ApiSchemas } from '@sadhana/api-contract'
 import { afterEach, expect, test } from 'vitest'
@@ -56,4 +58,82 @@ test('возвращает отметку к прежнему состоянию
   rejectMark({ status: 500, body: { code: 'SAVE_FAILED', message: 'Не сохранено' } })
   await waitFor(() => expect(mark).toHaveAccessibleName('Не отмечено'))
   expect(unexpected).toEqual([])
+})
+
+test('поздний отказ отметки не возвращает приватные записи после смены сессии', async () => {
+  const login = (userId: string) =>
+    useSession
+      .getState()
+      .login(`header.${btoa(JSON.stringify({ exp: 4102444800, userId }))}.signature`)
+  login('alice')
+  const date = dayjs().format('YYYY-MM-DD')
+  const entry = (wakeTime: string): ApiSchemas['DailyEntry'] => ({
+    id: date,
+    date,
+    sleep: {
+      bedtime: null,
+      wakeTime: `${date} ${wakeTime}`,
+      napDuration: null,
+      duration: null,
+    },
+    habits: [],
+  })
+  let owner = 'alice'
+  let rejectMark!: (response: { status: number; body: object }) => void
+  const pending = new Promise<{ status: number; body: object }>((resolve) => {
+    rejectMark = resolve
+  })
+  let markStarted = false
+  mockApi(({ method, path }) => {
+    if (method === 'GET' && path === '/test-api/habits')
+      return {
+        status: 200,
+        body: [{ key: 'read', label: 'Чтение', createdAt: '2026-01-01T00:00:00Z' }] satisfies ApiSchemas['HabitDefinition'][],
+      }
+    if (method === 'GET' && path === '/test-api/sleep-records')
+      return { status: 200, body: [entry(owner === 'alice' ? '06:00' : '09:00')] }
+    if (method === 'PATCH' && path === `/test-api/sleep-records/${date}/habits/read`) {
+      markStarted = true
+      return pending
+    }
+    throw new Error(`Unexpected ${method} ${path}`)
+  })
+  let cache!: QueryClient
+  function CacheAccess() {
+    cache = useQueryClient()
+    return null
+  }
+  renderWithTestProviders(
+    <>
+      <MainPage />
+      <CacheAccess />
+    </>
+  )
+  const mark = within(await screen.findByRole('row', { name: /Чтение/ }))
+    .getAllByRole('button', { name: 'Не отмечено' })
+    .at(-1)!
+  await userEvent.click(mark)
+  await waitFor(() => expect(markStarted).toBe(true))
+  owner = 'bob'
+  await act(async () => {
+    useSession.getState().logout()
+    login('bob')
+  })
+  await screen.findByRole('button', { name: '09:00' })
+  // Simulate the same private-cache cleanup used by the application provider.
+  cache.removeQueries({ queryKey: ['get', '/sleep-records', 'alice'] })
+  const leaked: boolean[] = []
+  const unsubscribe = cache.getQueryCache().subscribe((event) => {
+    if (JSON.stringify(event.query.state.data)?.includes('06:00')) leaked.push(true)
+  })
+  await act(async () => {
+    rejectMark({ status: 500, body: { code: 'FAIL', message: 'Failed' } })
+    await pending
+  })
+  await waitFor(() => expect(cache.isMutating()).toBe(0))
+  unsubscribe()
+  expect(leaked).toEqual([])
+  expect(cache.getQueryData(['get', '/sleep-records', 'alice'])).toBeUndefined()
+  expect(screen.queryByRole('button', { name: '06:00' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '09:00' })).toBeVisible()
 })

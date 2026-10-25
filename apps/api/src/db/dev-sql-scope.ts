@@ -7,6 +7,8 @@ export const reviewedSqlPrefixes: Readonly<Record<string, string>> = {
   '006': '130a4c36d800ac386f6f2283a969daf09ddc22402afce565eba7faf3b236cfab',
   // 007 checks catalog metadata and removes only public's redundant indexes/UNIQUE.
   '007': '9346a8a45226f83b52f0e7c7461563cd34ddf565b2e126d467c11d9c55f074e5',
+  // 008 validates and reconciles sleep in the current schema, using one temporary table.
+  '008': 'a096d47f1cbaed3f91b58c97208b7f801982762ba92603b4b5f51078cfd81b3a',
 }
 
 export function requirePublicSqlScope(

@@ -4,7 +4,7 @@ import type { ApiHandlers } from '@sadhana/api-contract'
 import { AuthService } from './services/auth.service'
 import { HabitsService } from './services/habits.service'
 import { SleepRecordsService } from './services/sleep-records.service'
-import { SleepStatsService } from './services/sleep-stats.service'
+import { StatisticsService } from './services/statistics.service'
 
 const buildRefreshCookieOptions = (isHttps: boolean) => {
   // NOTE: Behind a proxy (Railway), HTTPS is usually indicated via x-forwarded-proto.
@@ -24,7 +24,7 @@ export function createApiHandlers(fastify: FastifyInstance): ApiHandlers {
   const authService = new AuthService(fastify)
   const habitsService = new HabitsService(fastify)
   const sleepRecordsService = new SleepRecordsService(fastify)
-  const sleepStatsService = new SleepStatsService(fastify)
+  const statisticsService = new StatisticsService(fastify)
 
   return {
     async register({ body, isHttps }) {
@@ -95,8 +95,8 @@ export function createApiHandlers(fastify: FastifyInstance): ApiHandlers {
     async checkYesterday({ user }) {
       return { status: 200, body: { hasData: await sleepRecordsService.checkYesterdayData(user.id) } }
     },
-    async getSleepStats({ user }) {
-      return { status: 200, body: await sleepStatsService.getSleepStats(user.id) }
+    async getStatistics({ user, query }) {
+      return { status: 200, body: await statisticsService.getStatistics(user.id, query) }
     },
   }
 }

@@ -7,6 +7,7 @@ import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
 import { ApiClient, ApiClientError } from '@sadhana/api-contract'
 import sleepRecordsRoutes from '../../src/routes/sleep-records'
+import statisticsRoutes from '../../src/routes/statistics'
 import { createApiHandlers } from '../../src/api-handlers'
 import { buildDevFixtures } from '../../src/db/dev-fixtures'
 
@@ -30,30 +31,28 @@ async function makeApp(rows: Row[]) {
       query: async (sql: string, params: unknown[] = []) => {
         if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return { rows: [] }
         const userId = String(params[0])
-        if (sql.includes('ORDER BY date DESC')) {
-          return { rows: rows.filter((row) => row.userId === userId && row.date >= String(params[1]) && row.date <= String(params[2])).sort((a, b) => b.date.localeCompare(a.date)) }
-        }
-        if (sql.startsWith('SELECT')) {
-          return { rows: rows.filter((row) => row.userId === userId && row.date === params[1]) }
+        if (sql.includes('min(date)')) return { rows: [{ history_from: rows.filter(row => row.userId === userId && row.date <= String(params[1]) && (row.sleep_data?.bedtime || row.sleep_data?.wakeTime || row.sleep_data?.napDuration)).map(row => row.date).sort()[0] ?? null }] }
+        if (sql.includes('FROM sleep_records s')) return { rows: rows.filter(row => row.userId === userId && row.date >= String(params[1]) && row.date < String(params[2])).map(row => ({ date: row.date, bedtime: row.sleep_data?.bedtime, wake_time: row.sleep_data?.wakeTime, nap_minutes: row.sleep_data?.napDuration })) }
+
+        if (sql.startsWith('SELECT') && sql.includes('FROM daily_entries d')) {
+          return { rows: rows.filter(row => row.userId === userId && row.date >= String(params[1]) && row.date <= String(params[2])).sort((a, b) => b.date.localeCompare(a.date)).map(row => ({ entry_date: row.date, date: row.date, habits: row.habits, bedtime: row.sleep_data?.bedtime ?? null, wake_time: row.sleep_data?.wakeTime ?? null, nap_minutes: row.sleep_data?.napDuration ?? null })) }
         }
         if (sql.includes('INSERT INTO daily_entries')) {
-          const [, owner, date, sleepJson, habitsJson] = params as string[]
-          let row = rows.find((item) => item.userId === owner && item.date === date)
-          if (!row) {
-            row = { id: String(params[0]), userId: owner, date, sleep_data: null, habits: [] }
-            rows.push(row)
-          }
-          row.sleep_data = JSON.parse(sleepJson)
-          row.habits = JSON.parse(habitsJson)
-          return { rows: [row] }
+          const [, owner, date, habitsJson, key] = params as string[]
+          let row = rows.find(item => item.userId === owner && item.date === date)
+          if (!row) { row = { id: String(params[0]), userId: owner, date, sleep_data: null, habits: [] }; rows.push(row) }
+          if (habitsJson) row.habits = [...row.habits.filter(mark => mark.key !== key), ...JSON.parse(habitsJson)]
+          return { rows: [row], rowCount: 1 }
+        }
+        if (sql.includes('INSERT INTO sleep_records')) {
+          const row = rows.find(item => item.userId === userId && item.date === params[1])!
+          row.sleep_data = { bedtime: params[2] as string | null, wakeTime: params[3] as string | null, napDuration: params[4] as number | null, duration: null }
+          return { rows: [], rowCount: 1 }
         }
         if (sql.includes('UPDATE daily_entries')) {
-          const habitUpdate = sql.includes('SET habits =')
-          const row = rows.find((item) => item.userId === params[1] && item.date === params[2])
-          if (row && habitUpdate) {
-            row.habits = JSON.parse(String(params[0]))
-          } else if (row) row.sleep_data = JSON.parse(String(params[0]))
-          return { rows: row ? [row] : [] }
+          const row = rows.find(item => item.userId === userId && item.date === params[1])
+          if (row) row.habits = row.habits.filter(mark => mark.key !== params[2])
+          return { rows: row ? [row] : [], rowCount: row ? 1 : 0 }
         }
         throw new Error(`Unexpected query: ${sql}`)
       },
@@ -63,6 +62,7 @@ async function makeApp(rows: Row[]) {
   await app.register(fastifyJwt, { secret: 'test-secret' })
   app.decorate('apiHandlers', createApiHandlers(app))
   await app.register(sleepRecordsRoutes, { prefix: '/sleep-records' })
+  await app.register(statisticsRoutes, { prefix: '/statistics' })
   await app.ready()
   const auth = (userId: string) => ({ authorization: `Bearer ${app.jwt.sign({ userId, email: `${userId}@example.test`, type: 'access' })}` })
   return { app, auth }
@@ -155,7 +155,7 @@ test('sleep record create and read preserve missing times, zero nap, duration, a
   assert.equal(first.statusCode, 200)
   assert.deepEqual(first.json(), {
     id: '2026-10-01', date: '2026-10-01',
-    sleep: { bedtime: '2026-10-01 23:00', wakeTime: null, napDuration: null, duration: null }, habits: [],
+    sleep: { bedtime: '2026-10-01 23:00', wakeTime: null, napDuration: 0, duration: null }, habits: [],
   })
   assert.deepEqual((await get('2026-10-01')).json(), first.json())
 
@@ -257,4 +257,23 @@ test('yesterday check uses the two Moscow calendar dates and the generated clien
 
   rows[1].sleep_data = emptySleep
   assert.deepEqual((await app.inject({ method: 'GET', url, headers: auth('alice') })).json(), { hasData: false })
+})
+
+test('editing bedtime refreshes next month duration and preserves all habit marks', async (t) => {
+  const { app, auth } = await makeApp([])
+  t.after(() => app.close())
+  const headers = auth('alice')
+  const save = async (date: string, sleep: object) => {
+    assert.equal((await app.inject({ method: 'PUT', url: `/sleep-records/${date}`, headers, payload: { napDuration: null, ...sleep } })).statusCode, 200)
+  }
+  await save('2026-09-30', { bedtime: '2026-09-30 23:00' })
+  await save('2026-10-01', { wakeTime: '2026-10-01 07:00' })
+  await app.inject({ method: 'PATCH', url: '/sleep-records/2026-09-30/habits/read', headers, payload: { value: false } })
+  const stats = async () => (await app.inject({ url: '/statistics?granularity=month&from=2026-10-01&toExclusive=2026-11-01&asOfDate=2026-10-02', headers })).json()
+  assert.equal((await stats()).columns[0].duration.value, 480)
+  await save('2026-09-30', { bedtime: '2026-10-01 01:00' })
+  assert.equal((await stats()).columns[0].duration.value, 360)
+  assert.deepEqual((await app.inject({ url: '/sleep-records/2026-09-30', headers })).json().habits, [{ key: 'read', value: false }])
+  await save('2026-09-30', { bedtime: null })
+  assert.equal((await stats()).columns[0].duration.value, null)
 })
