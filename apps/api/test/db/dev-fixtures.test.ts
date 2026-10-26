@@ -13,7 +13,7 @@ import {
 test('versioned fixtures reproduce linked profiles and known Moscow sleep records', () => {
   const fixtures = buildDevFixtures('2026-01-02')
   assert.deepEqual(buildDevFixtures('2026-01-02'), fixtures)
-  assert.deepEqual(devFixtureVersion, { generator: '2', schema: '008' })
+  assert.deepEqual(devFixtureVersion, { generator: '4', schema: '009' })
   assert.deepEqual(
     fixtures.users.map(({ email }) => email),
     ['empty@example.test', 'daily@example.test', 'history@example.test']
@@ -38,13 +38,25 @@ test('versioned fixtures reproduce linked profiles and known Moscow sleep record
     duration: 510,
   })
   assert.deepEqual(recent[0].habits, [
-    { key: 'walk', value: true },
-    { key: 'reading', value: false },
-  ])
+    { key: fixtures.habits.find(h => h.user_id === daily.id && h.label === 'Прогулка')!.id, value: true },
+    { key: fixtures.habits.find(h => h.user_id === daily.id && h.label === 'Чтение')!.id, value: false },
+  ].sort((a, b) => a.key.localeCompare(b.key)))
   assert.deepEqual(recent[1].habits, [])
   assert.equal(recent[2].sleep_data.bedtime, null)
   assert.equal(recent[3].sleep_data.duration, null)
+  assert.equal(fixtures.habits.filter(habit => habit.user_id === daily.id && habit.archived).length, 0)
+  const archived = fixtures.habits.filter(habit => habit.user_id === history.id && habit.archived)
+  assert.deepEqual(archived.map(habit => habit.label), ['Медитация', 'Зарядка'])
   const long = fixtures.entries.filter(({ user_id }) => user_id === history.id)
+  for (const [habit, cutoff] of [[archived[0], '2025-07-06'], [archived[1], '2025-10-04']] as const) {
+    const marked = long.flatMap(entry => entry.habits.filter(mark => mark.key === habit.id).map(mark => ({ date: entry.date, value: mark.value })))
+    assert.ok(marked.length > 100)
+    assert.ok(marked.some(mark => mark.value === true))
+    assert.ok(marked.some(mark => mark.value === false))
+    assert.ok(marked.every(mark => mark.date <= cutoff))
+    assert.ok(long.some(entry => entry.date <= cutoff && !entry.habits.some(mark => mark.key === habit.id)))
+    assert.ok(!long.at(-1)!.habits.some(mark => mark.key === habit.id))
+  }
   assert.equal(long[0].date, '2024-01-03')
   assert.equal(long.at(-1)!.date, '2026-01-02')
   assert.ok(long.length > 600 && long.length < 731)
@@ -96,7 +108,7 @@ test('reseed clears, fills and verifies using one connection and one transaction
         })),
       }
     if (sql.startsWith('SELECT id, email')) return { rows: fixtures.users }
-    if (sql.startsWith('SELECT id, user_id, key')) return { rows: fixtures.habits }
+    if (sql.startsWith('SELECT id, user_id, id::text AS key')) return { rows: fixtures.habits }
     if (sql.startsWith('SELECT id, user_id, date')) return { rows: fixtures.entries.map(entry => ({ id: entry.id, user_id: entry.user_id, date: entry.date, habits: entry.habits })) }
     if (sql.includes('AS wake_time')) return { rows: fixtures.entries.map(entry => ({ id: entry.id, bedtime: entry.sleep_data.bedtime, wake_time: entry.sleep_data.wakeTime, nap_minutes: entry.sleep_data.napDuration })) }
     return { rows: [] }
@@ -181,11 +193,11 @@ test('seeding refuses incompatible history and existing application data before 
     date: '2026-01-02',
     password: 'fixture-test-password',
   }
-  await assert.rejects(seedDevFixtures(options), /schema 008/)
+  await assert.rejects(seedDevFixtures(options), /schema 009/)
   history = journal.map((row, index) =>
     index === 0 ? { ...row, checksum: 'changed' } : row
   )
-  await assert.rejects(seedDevFixtures(options), /schema 008/)
+  await assert.rejects(seedDevFixtures(options), /schema 009/)
   history = journal
   populated = true
   await assert.rejects(seedDevFixtures(options), /empty application/)

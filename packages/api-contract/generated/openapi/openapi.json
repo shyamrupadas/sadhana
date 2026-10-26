@@ -180,7 +180,7 @@
     "/habits": {
       "get": {
         "operationId": "Habits_getHabits",
-        "description": "List the authenticated user's habits in creation order.",
+        "description": "List active and archived habits of the authenticated user in creation order.",
         "parameters": [],
         "responses": {
           "200": {
@@ -225,7 +225,7 @@
       },
       "post": {
         "operationId": "Habits_createHabit",
-        "description": "An existing derived key returns its original habit with status 201.",
+        "description": "Always creates a new UUID, even when the label has been used before.",
         "parameters": [],
         "responses": {
           "201": {
@@ -234,6 +234,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HabitDefinition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -264,7 +274,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HabitInput"
+                "$ref": "#/components/schemas/HabitCreateInput"
               }
             }
           }
@@ -296,6 +306,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HabitDefinition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -362,6 +382,192 @@
         "responses": {
           "204": {
             "description": "There is no content to send for this request, but the headers may be useful. "
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/habits/{key}/archive": {
+      "post": {
+        "operationId": "Habits_archiveHabit",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HabitDefinition"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/habits/{key}/deletion-summary": {
+      "get": {
+        "operationId": "Habits_getHabitDeletionSummary",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HabitDeletionSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/habits/{key}/restore": {
+      "post": {
+        "operationId": "Habits_restoreHabit",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HabitDefinition"
+                }
+              }
+            }
           },
           "401": {
             "description": "Access is unauthorized.",
@@ -628,7 +834,7 @@
     "/sleep-records/{date}/habits/{habitKey}": {
       "patch": {
         "operationId": "SleepRecords_setDailyHabitMark",
-        "description": "Creates the daily entry if absent. The habit key need not exist in the habit list.",
+        "description": "Creates the daily entry if absent. The habit UUID must belong to the authenticated user.",
         "parameters": [
           {
             "name": "date",
@@ -658,8 +864,28 @@
               }
             }
           },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
             "content": {
               "application/json": {
                 "schema": {
@@ -803,6 +1029,24 @@
             "required": true,
             "schema": {
               "$ref": "#/components/schemas/CalendarDate"
+            },
+            "explode": false
+          },
+          {
+            "name": "includeArchived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "explode": false
+          },
+          {
+            "name": "habitId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
             },
             "explode": false
           }
@@ -956,12 +1200,40 @@
           }
         }
       },
+      "HabitCreateInput": {
+        "type": "object",
+        "required": [
+          "label",
+          "creationDate"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "creationDate": {
+            "$ref": "#/components/schemas/CalendarDate"
+          }
+        }
+      },
+      "HabitDayState": {
+        "type": "string",
+        "enum": [
+          "done",
+          "failed",
+          "unmarked",
+          "notApplicable"
+        ]
+      },
       "HabitDefinition": {
         "type": "object",
         "required": [
           "key",
           "label",
-          "createdAt"
+          "createdAt",
+          "startDate",
+          "archived"
         ],
         "properties": {
           "key": {
@@ -972,7 +1244,36 @@
           },
           "createdAt": {
             "type": "string",
-            "format": "date-time"
+            "nullable": true,
+            "description": "Original local creation timestamp; unknown legacy timestamps remain null."
+          },
+          "startDate": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        }
+      },
+      "HabitDeletionSummary": {
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "markCount"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "markCount": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -983,7 +1284,51 @@
         ],
         "properties": {
           "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        }
+      },
+      "HabitStatisticsValue": {
+        "type": "object",
+        "required": [
+          "habitId",
+          "successRate",
+          "completeness",
+          "trueCount",
+          "falseCount",
+          "eligibleDayCount"
+        ],
+        "properties": {
+          "habitId": {
             "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/HabitDayState"
+          },
+          "successRate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "completeness": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "trueCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "falseCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "eligibleDayCount": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
           }
         }
       },
@@ -1107,6 +1452,7 @@
         "required": [
           "from",
           "toExclusive",
+          "habits",
           "bedtime",
           "wakeTime",
           "nap",
@@ -1121,6 +1467,12 @@
           },
           "source": {
             "$ref": "#/components/schemas/SleepData"
+          },
+          "habits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HabitStatisticsValue"
+            }
           },
           "bedtime": {
             "$ref": "#/components/schemas/SleepMetric"
@@ -1144,6 +1496,7 @@
           "toExclusive",
           "asOfDate",
           "historyFrom",
+          "habits",
           "columns"
         ],
         "properties": {
@@ -1161,6 +1514,12 @@
           },
           "historyFrom": {
             "$ref": "#/components/schemas/CalendarDate"
+          },
+          "habits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HabitDefinition"
+            }
           },
           "columns": {
             "type": "array",

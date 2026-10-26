@@ -8,7 +8,10 @@ namespace Sadhana;
 model HabitDefinition {
   key: string;
   label: string;
-  createdAt: utcDateTime;
+  /** Original local creation timestamp; unknown legacy timestamps remain null. */
+  createdAt: string | null;
+  @pattern("^\\d{4}-\\d{2}-\\d{2}$") startDate: string | null;
+  archived: boolean;
 }
 
 model ApiError {
@@ -22,7 +25,23 @@ model HabitsResponse {
 }
 
 model HabitInput {
+  @minLength(1) @maxLength(255) label: string;
+}
+
+model HabitCreateInput {
+  ...HabitInput;
+  creationDate: CalendarDate;
+}
+
+model HabitDeletionSummary {
+  key: string;
   label: string;
+  markCount: int32;
+}
+
+model HabitDeletionSummaryResponse {
+  @statusCode statusCode: 200;
+  @body body: HabitDeletionSummary;
 }
 
 model CreatedHabitResponse {
@@ -158,10 +177,23 @@ model SleepMetric {
   count: int32;
 }
 
+enum HabitDayState { done, failed, unmarked, notApplicable }
+
+model HabitStatisticsValue {
+  habitId: string;
+  state?: HabitDayState;
+  successRate: float64 | null;
+  completeness: float64 | null;
+  trueCount: int32;
+  falseCount: int32;
+  eligibleDayCount: int32 | null;
+}
+
 model SleepStatisticsColumn {
   from: CalendarDate;
   toExclusive: CalendarDate;
   source?: SleepData;
+  habits: HabitStatisticsValue[];
   bedtime: SleepMetric;
   wakeTime: SleepMetric;
   nap: SleepMetric;
@@ -174,6 +206,7 @@ model StatisticsData {
   toExclusive: CalendarDate;
   asOfDate: CalendarDate;
   historyFrom: CalendarDate;
+  habits: HabitDefinition[];
   columns: SleepStatisticsColumn[];
 }
 
@@ -193,8 +226,8 @@ interface SleepRecords {
   /** Creates or replaces sleep data. Duration uses the previous day's bedtime and this day's wake time. */
   @put @route("/{date}") putSleepRecord(@path date: CalendarDate, @body body: SleepDataInput): DailyEntryResponse | BadRequestResponse | UnauthorizedResponse | InternalErrorResponse;
 
-  /** Creates the daily entry if absent. The habit key need not exist in the habit list. */
-  @patch @route("/{date}/habits/{habitKey}") setDailyHabitMark(@path date: CalendarDate, @path habitKey: string, @body body: DailyHabitMarkInput): DailyEntryResponse | UnauthorizedResponse | InternalErrorResponse;
+  /** Creates the daily entry if absent. The habit UUID must belong to the authenticated user. */
+  @patch @route("/{date}/habits/{habitKey}") setDailyHabitMark(@path date: CalendarDate, @path habitKey: string, @body body: DailyHabitMarkInput): DailyEntryResponse | BadRequestResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
 
   /** Removing an absent mark succeeds when the daily entry exists. */
   @delete @route("/{date}/habits/{habitKey}") removeDailyHabitMark(@path date: CalendarDate, @path habitKey: string): DailyEntryResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
@@ -211,7 +244,9 @@ interface Statistics {
     @query granularity: StatisticsGranularity,
     @query from: CalendarDate,
     @query toExclusive: CalendarDate,
-    @query asOfDate: CalendarDate
+    @query asOfDate: CalendarDate,
+    @query includeArchived?: boolean,
+    @query habitId?: string
   ): StatisticsResponse | BadRequestResponse | UnauthorizedResponse | InternalErrorResponse;
 }
 
@@ -225,13 +260,19 @@ interface Auth {
 @route("/habits")
 @useAuth(BearerAuth)
 interface Habits {
-  /** List the authenticated user's habits in creation order. */
+  /** List active and archived habits of the authenticated user in creation order. */
   @get getHabits(): HabitsResponse | UnauthorizedResponse | InternalErrorResponse;
 
-  /** An existing derived key returns its original habit with status 201. */
-  @post createHabit(@body body: HabitInput): CreatedHabitResponse | UnauthorizedResponse | InternalErrorResponse;
+  /** Always creates a new UUID, even when the label has been used before. */
+  @post createHabit(@body body: HabitCreateInput): CreatedHabitResponse | BadRequestResponse | UnauthorizedResponse | InternalErrorResponse;
 
-  @patch @route("/{key}") updateHabit(@path key: string, @body body: HabitInput): UpdatedHabitResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
+  @patch @route("/{key}") updateHabit(@path key: string, @body body: HabitInput): UpdatedHabitResponse | BadRequestResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
+
+  @post @route("/{key}/archive") archiveHabit(@path key: string): UpdatedHabitResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
+
+  @post @route("/{key}/restore") restoreHabit(@path key: string): UpdatedHabitResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
+
+  @get @route("/{key}/deletion-summary") getHabitDeletionSummary(@path key: string): HabitDeletionSummaryResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
 
   @delete @route("/{key}") deleteHabit(@path key: string): DeletedHabitResponse | UnauthorizedResponse | NotFoundResponse | InternalErrorResponse;
 }

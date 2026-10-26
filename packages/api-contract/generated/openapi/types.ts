@@ -59,10 +59,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List the authenticated user's habits in creation order. */
+        /** @description List active and archived habits of the authenticated user in creation order. */
         get: operations["Habits_getHabits"];
         put?: never;
-        /** @description An existing derived key returns its original habit with status 201. */
+        /** @description Always creates a new UUID, even when the label has been used before. */
         post: operations["Habits_createHabit"];
         delete?: never;
         options?: never;
@@ -84,6 +84,54 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["Habits_updateHabit"];
+        trace?: never;
+    };
+    "/habits/{key}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Habits_archiveHabit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/habits/{key}/deletion-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["Habits_getHabitDeletionSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/habits/{key}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Habits_restoreHabit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/sleep-records": {
@@ -151,7 +199,7 @@ export interface paths {
         delete: operations["SleepRecords_removeDailyHabitMark"];
         options?: never;
         head?: never;
-        /** @description Creates the daily entry if absent. The habit key need not exist in the habit list. */
+        /** @description Creates the daily entry if absent. The habit UUID must belong to the authenticated user. */
         patch: operations["SleepRecords_setDailyHabitMark"];
         trace?: never;
     };
@@ -201,14 +249,42 @@ export interface components {
             key: string;
             value: boolean;
         };
+        HabitCreateInput: {
+            label: string;
+            creationDate: components["schemas"]["CalendarDate"];
+        };
+        /** @enum {string} */
+        HabitDayState: "done" | "failed" | "unmarked" | "notApplicable";
         HabitDefinition: {
             key: string;
             label: string;
-            /** Format: date-time */
-            createdAt: string;
+            /** @description Original local creation timestamp; unknown legacy timestamps remain null. */
+            createdAt: string | null;
+            startDate: string | null;
+            archived: boolean;
+        };
+        HabitDeletionSummary: {
+            key: string;
+            label: string;
+            /** Format: int32 */
+            markCount: number;
         };
         HabitInput: {
             label: string;
+        };
+        HabitStatisticsValue: {
+            habitId: string;
+            state?: components["schemas"]["HabitDayState"];
+            /** Format: double */
+            successRate: number | null;
+            /** Format: double */
+            completeness: number | null;
+            /** Format: int32 */
+            trueCount: number;
+            /** Format: int32 */
+            falseCount: number;
+            /** Format: int32 */
+            eligibleDayCount: number | null;
         };
         LoginRequest: {
             /** Format: email */
@@ -252,6 +328,7 @@ export interface components {
             from: components["schemas"]["CalendarDate"];
             toExclusive: components["schemas"]["CalendarDate"];
             source?: components["schemas"]["SleepData"];
+            habits: components["schemas"]["HabitStatisticsValue"][];
             bedtime: components["schemas"]["SleepMetric"];
             wakeTime: components["schemas"]["SleepMetric"];
             nap: components["schemas"]["SleepMetric"];
@@ -263,6 +340,7 @@ export interface components {
             toExclusive: components["schemas"]["CalendarDate"];
             asOfDate: components["schemas"]["CalendarDate"];
             historyFrom: components["schemas"]["CalendarDate"];
+            habits: components["schemas"]["HabitDefinition"][];
             columns: components["schemas"]["SleepStatisticsColumn"][];
         };
         /** @enum {string} */
@@ -458,7 +536,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["HabitInput"];
+                "application/json": components["schemas"]["HabitCreateInput"];
             };
         };
         responses: {
@@ -469,6 +547,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HabitDefinition"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
             /** @description Access is unauthorized. */
@@ -552,6 +639,162 @@ export interface operations {
                 "application/json": components["schemas"]["HabitInput"];
             };
         };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HabitDefinition"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Habits_archiveHabit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HabitDefinition"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Habits_getHabitDeletionSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HabitDeletionSummary"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Habits_restoreHabit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description The request has succeeded. */
             200: {
@@ -844,8 +1087,26 @@ export interface operations {
                     "application/json": components["schemas"]["DailyEntry"];
                 };
             };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description Access is unauthorized. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -871,6 +1132,8 @@ export interface operations {
                 from: components["schemas"]["CalendarDate"];
                 toExclusive: components["schemas"]["CalendarDate"];
                 asOfDate: components["schemas"]["CalendarDate"];
+                includeArchived?: boolean;
+                habitId?: string;
             };
             header?: never;
             path?: never;

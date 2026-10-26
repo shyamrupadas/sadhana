@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import dayjs from 'dayjs'
-import { PenIcon, XIcon } from 'lucide-react'
+import { MoreHorizontalIcon, PenIcon } from 'lucide-react'
 
 import { useHabits } from '@/features/main/model/use-habits'
 import { useSleepRecords } from '@/features/main/model/use-sleep-records'
 import { TimePicker } from '@/shared/components/time-picker'
 import { DurationPicker } from '@/shared/components/duration-picker'
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover'
 import { Button } from '@/shared/components/ui/button'
+import { apiClient } from '@/shared/api/instance'
+import { getSessionVersion, useSession } from '@/shared/model/session'
 import { cn } from '@/shared/lib/utils'
 
 const getLastNDays = (n = 5): string[] => {
@@ -22,13 +25,18 @@ const LoadingScreen = () => (
 )
 
 const MainPage = () => {
-  const { habitsQuery, addHabit, deleteHabit, renameHabit } = useHabits()
+  const { habitsQuery, addHabit, deleteHabit, renameHabit, archiveHabit, restoreHabit } = useHabits()
   const { sleepRecordsQuery, updateSleep, updateHabit, removeHabit } = useSleepRecords()
   const [newHabitLabel, setNewHabitLabel] = useState<string>('')
   const [editMode, setEditMode] = useState<boolean>(false)
 
+  const [showArchive, setShowArchive] = useState(false)
+  const [archivedKey, setArchivedKey] = useState<string | null>(null)
+  const [deletionError, setDeletionError] = useState(false)
+  const [loadingDeletion, setLoadingDeletion] = useState(false)
   const days = getLastNDays()
-  const habits = habitsQuery.data ?? []
+  const habits = (habitsQuery.data ?? []).filter(habit => !habit.archived)
+  const archivedHabits = (habitsQuery.data ?? []).filter(habit => habit.archived)
   const entries = sleepRecordsQuery.data ?? []
 
   const getEntryByDate = (date: string) => entries.find((e) => e.id === date)
@@ -67,11 +75,27 @@ const MainPage = () => {
     setEditMode(!editMode)
   }
 
-  const handleDeleteHabit = (habitKey: string, habitLabel: string) => {
-    const confirmed = window.confirm(`Удалить привычку "${habitLabel}"?`)
-    if (confirmed) {
-      deleteHabit.mutate(habitKey)
+  const handleDeleteHabit = async (habitKey: string) => {
+    const version = getSessionVersion()
+    setLoadingDeletion(true)
+    setDeletionError(false)
+    try {
+      const summary = await apiClient.getHabitDeletionSummary(habitKey)
+      if (version !== getSessionVersion()) return
+      if (window.confirm(`Удалить “${summary.label}” и все ${summary.markCount} отметки? Восстановить их будет нельзя`)) {
+        await deleteHabit.mutateAsync(habitKey)
+      }
+    } catch {
+      if (version === getSessionVersion()) setDeletionError(true)
+    } finally {
+      if (version === getSessionVersion()) setLoadingDeletion(false)
     }
+  }
+  const handleArchive = (key: string) => {
+    const version = getSessionVersion()
+    archiveHabit.mutate(key, { onSuccess: () => {
+      if (version === getSessionVersion()) setArchivedKey(key)
+    } })
   }
 
   const handleRenameHabit = (habitKey: string, habitLabel: string) => {
@@ -286,25 +310,19 @@ const MainPage = () => {
                   <tr key={habit.key} className="h-9">
                     <td className="border px-2 text-left relative">
                       <span className="block w-full truncate">{habit.label}</span>
-                      {editMode && (
-                        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-white/90 rounded px-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRenameHabit(habit.key, habit.label)}
-                            className="h-6 w-6 text-gray-600 hover:text-blue-600"
-                          >
-                            <PenIcon className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteHabit(habit.key, habit.label)}
-                            className="h-6 w-6 text-gray-600 hover:text-red-600"
-                          >
-                            <XIcon className="h-3 w-3" />
-                          </Button>
-                        </div>
+                              {editMode && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" aria-label={`Меню привычки: ${habit.label}`} className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 bg-background">
+                              <MoreHorizontalIcon className="h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="flex w-52 flex-col gap-1 p-2" align="start">
+                            <Button variant="ghost" aria-label={`Переименовать: ${habit.label}`} onClick={() => handleRenameHabit(habit.key, habit.label)}>Переименовать</Button>
+                            <Button variant="ghost" aria-label={`В архив: ${habit.label}`} onClick={() => handleArchive(habit.key)} disabled={archiveHabit.isPending}>В архив</Button>
+                            <Button variant="ghost" aria-label={`Удалить навсегда: ${habit.label}`} disabled={loadingDeletion} onClick={() => void handleDeleteHabit(habit.key)}>Удалить навсегда</Button>
+                          </PopoverContent>
+                        </Popover>
                       )}
                     </td>
                     {days.map((date) => {
@@ -317,7 +335,7 @@ const MainPage = () => {
                                 handleToggleHabit(date, habit.key, value)
                               }
                             }}
-                            disabled={editMode}
+                            disabled={editMode || Boolean(habit.startDate && date < habit.startDate)}
                             className={cn(
                               'w-6 h-6 rounded border align-middle disabled:cursor-not-allowed disabled:opacity-50',
                               value === true
@@ -346,6 +364,21 @@ const MainPage = () => {
           </div>
         </div>
 
+        {(deletionError || addHabit.isError || renameHabit.isError || archiveHabit.isError || restoreHabit.isError) && <p role="alert" className="mt-3 text-sm text-red-700">Не удалось изменить привычку. Попробуйте ещё раз.</p>}
+        {archivedKey && <div role="status" className="mt-3 flex items-center gap-2 text-sm">
+          <span>Привычка перенесена в архив</span>
+          <Button variant="outline" size="sm" disabled={restoreHabit.isPending} onClick={() => restoreHabit.mutate(archivedKey, { onSuccess: () => setArchivedKey(null) })}>Отменить</Button>
+        </div>}
+        <Button className="mt-3" size="sm" variant="outline" aria-expanded={showArchive} onClick={() => setShowArchive(!showArchive)}>Архив</Button>
+        {showArchive && <section aria-label="Архив привычек" className="mt-3 space-y-3">
+          {archivedHabits.length === 0 && <p className="text-sm">Архив пуст</p>}
+          {archivedHabits.map(habit => <div key={habit.key} className="flex flex-wrap items-center gap-2 text-sm">
+            <span>{habit.label}</span>
+            <a className="underline" aria-label={`История: ${habit.label}`} href={`/statistics?habitId=${encodeURIComponent(habit.key)}`}>История</a>
+            <Button size="sm" variant="outline" aria-label={`Вернуть: ${habit.label}`} disabled={restoreHabit.isPending} onClick={() => restoreHabit.mutate(habit.key, { onSuccess: () => setArchivedKey(null) })}>Вернуть</Button>
+            <Button size="sm" variant="ghost" aria-label={`Удалить навсегда: ${habit.label}`} disabled={loadingDeletion} onClick={() => void handleDeleteHabit(habit.key)}>Удалить навсегда</Button>
+          </div>)}
+        </section>}
         {editMode && (
           <div className="mt-6 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <input
@@ -372,4 +405,7 @@ const MainPage = () => {
   )
 }
 
-export const Component = MainPage
+export const Component = () => {
+  const { session } = useSession()
+  return <MainPage key={session?.userId ?? ''} />
+}

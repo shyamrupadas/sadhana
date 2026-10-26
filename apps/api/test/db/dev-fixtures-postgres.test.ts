@@ -11,6 +11,8 @@ import { createApiHandlers } from '../../src/api-handlers'
 import cookiePlugin from '../../src/plugins/cookie'
 import jwtPlugin from '../../src/plugins/jwt'
 import authRoutes from '../../src/routes/auth'
+import habitsRoutes from '../../src/routes/habits'
+import statisticsRoutes from '../../src/routes/statistics'
 import sleepRoutes from '../../src/routes/sleep-records'
 
 const migrationsDir = join(__dirname, '../../src/db/migrations')
@@ -63,6 +65,8 @@ async function authApp(connectionString: string) {
   app.decorate('apiHandlers', createApiHandlers(app))
   await app.register(authRoutes, { prefix: '/auth' })
   await app.register(sleepRoutes, { prefix: '/sleep-records' })
+  await app.register(habitsRoutes, { prefix: '/habits' })
+  await app.register(statisticsRoutes, { prefix: '/statistics' })
   await app.ready()
   return app
 }
@@ -105,13 +109,13 @@ test('PostgreSQL fixtures preserve known stored records, normal login and applic
     assert.deepEqual(
       (
         await client.query(
-          'SELECT key, label FROM habits WHERE user_id = $1 ORDER BY key',
+          'SELECT label FROM habits WHERE user_id = $1 ORDER BY label',
           [daily.id]
         )
       ).rows,
       [
-        { key: 'reading', label: 'Чтение' },
-        { key: 'walk', label: 'Прогулка' },
+        { label: 'Прогулка' },
+        { label: 'Чтение' },
       ]
     )
     for (const table of ['habits', 'daily_entries']) {
@@ -125,9 +129,25 @@ test('PostgreSQL fixtures preserve known stored records, normal login and applic
         0
       )
     }
+    const history = users.find(({ email }) => email === 'history@example.test')!
+    const archived = (await client.query(
+      `SELECT h.label, count(*) FILTER (WHERE m.value)::int AS done,
+        count(*) FILTER (WHERE NOT m.value)::int AS failed, max(m.date)::text AS last_date
+       FROM habits h JOIN habit_marks m ON m.user_id = h.user_id AND m.habit_id = h.id
+       WHERE h.user_id = $1 AND h.archived GROUP BY h.id ORDER BY h.label`,
+      [history.id]
+    )).rows
+    assert.deepEqual(archived.map(habit => habit.label), ['Зарядка', 'Медитация'])
+    assert.ok(archived.every(habit => habit.done > 100 && habit.failed > 100))
+    assert.ok(archived[0].last_date <= '2025-10-04')
+    assert.ok(archived[1].last_date <= '2025-07-06')
+    await client.query('UPDATE habits SET archived = false WHERE user_id = $1', [history.id])
+    await assert.rejects(verifyDevFixtures(options), /differ/)
+    await client.query("UPDATE habits SET archived = true WHERE user_id = $1 AND label IN ('Медитация', 'Зарядка')", [history.id])
+    await verifyDevFixtures(options)
     const known = (
       await client.query(
-        `SELECT d.id, d.date, d.habits, to_char(s.bedtime, 'YYYY-MM-DD HH24:MI') AS bedtime, to_char(s.wake_time, 'YYYY-MM-DD HH24:MI') AS wake_time, s.nap_minutes FROM daily_entries d JOIN sleep_records s ON s.user_id = d.user_id AND s.date = d.date::date WHERE d.user_id = $1 AND d.date = $2`,
+        `SELECT d.id, d.date, COALESCE((SELECT jsonb_agg(jsonb_build_object('key', habit_id::text, 'value', value)) FROM habit_marks m WHERE m.user_id=d.user_id AND m.date=d.date::date), '[]') AS habits, to_char(s.bedtime, 'YYYY-MM-DD HH24:MI') AS bedtime, to_char(s.wake_time, 'YYYY-MM-DD HH24:MI') AS wake_time, s.nap_minutes FROM daily_entries d JOIN sleep_records s ON s.user_id = d.user_id AND s.date = d.date::date WHERE d.user_id = $1 AND d.date = $2`,
         [daily.id, '2025-12-07']
       )
     ).rows[0]
@@ -184,9 +204,10 @@ test('PostgreSQL fixtures preserve known stored records, normal login and applic
         payload: { email: daily.email, password: 'incorrect' },
       })
       assert.equal(wrong.statusCode, 401)
+      const habitId = (await client.query("SELECT id FROM habits WHERE user_id=$1 AND label='Прогулка'", [daily.id])).rows[0].id
       const edit = await app.inject({
         method: 'PATCH',
-        url: `/sleep-records/${date}/habits/walk`,
+        url: `/sleep-records/${date}/habits/${habitId}`,
         headers: { authorization: `Bearer ${accessToken}` },
         payload: { value: false },
       })
@@ -262,12 +283,12 @@ test('concurrent first habit mark preserves sleep saved while the mark is pendin
     await client.query(`
       CREATE FUNCTION pause_first_mark() RETURNS trigger LANGUAGE plpgsql AS $$
       BEGIN
-        IF NEW.date = '2026-01-03' AND NEW.habits <> '[]'::jsonb THEN
+        IF NEW.date = '2026-01-03' THEN
           PERFORM pg_advisory_xact_lock(hashtext(TG_TABLE_SCHEMA), 1);
         END IF;
         RETURN NEW;
       END $$;
-      CREATE TRIGGER pause_first_mark BEFORE INSERT ON daily_entries
+      CREATE TRIGGER pause_first_mark BEFORE INSERT ON habit_marks
       FOR EACH ROW EXECUTE FUNCTION pause_first_mark();
       SELECT pg_advisory_lock(hashtext(current_schema()), 1);
     `)
@@ -281,11 +302,12 @@ test('concurrent first habit mark preserves sleep saved while the mark is pendin
       })
       assert.equal(login.statusCode, 200)
       const headers = { authorization: `Bearer ${login.json().accessToken}` }
+      const habitId = (await client.query("INSERT INTO habits (user_id, label, start_date) VALUES ($1, 'Прогулка', '2026-01-03') RETURNING id", [login.json().user.id])).rows[0].id
       const url = '/sleep-records/2026-01-03'
       mark = app
         .inject({
           method: 'PATCH',
-          url: `${url}/habits/walk`,
+          url: `${url}/habits/${habitId}`,
           headers,
           payload: { value: true },
         })
@@ -303,7 +325,7 @@ test('concurrent first habit mark preserves sleep saved while the mark is pendin
       const entry = await app.inject({ method: 'GET', url, headers })
       assert.equal(entry.statusCode, 200)
       assert.equal(entry.json().sleep.wakeTime, '2026-01-03 07:30')
-      assert.deepEqual(entry.json().habits, [{ key: 'walk', value: true }])
+      assert.deepEqual(entry.json().habits, [{ key: habitId, value: true }])
     } finally {
       try {
         await client.query('SELECT pg_advisory_unlock(hashtext(current_schema()), 1)')
@@ -322,7 +344,7 @@ test('PostgreSQL fixtures refuse an earlier schema without applying migrations o
       .rows
     await assert.rejects(
       seedDevFixtures({ connectionString, migrationsDir, date, password }),
-      /schema 008/
+      /schema 009/
     )
     assert.deepEqual(
       (await client.query('SELECT * FROM schema_migrations ORDER BY id')).rows,
@@ -349,20 +371,21 @@ test('removing a habit mark preserves sleep committed while removal is pending',
       })
       assert.equal(login.statusCode, 200)
       const headers = { authorization: `Bearer ${login.json().accessToken}` }
+      const habitId = (await client.query("INSERT INTO habits (user_id, label, start_date) VALUES ($1, 'Прогулка', '2026-01-03') RETURNING id", [login.json().user.id])).rows[0].id
       const url = '/sleep-records/2026-01-03'
       const marked = await app.inject({
         method: 'PATCH',
-        url: `${url}/habits/walk`,
+        url: `${url}/habits/${habitId}`,
         headers,
         payload: { value: true },
       })
       assert.equal(marked.statusCode, 200)
       await client.query('BEGIN')
       await client.query(
-        "SELECT id FROM daily_entries WHERE date='2026-01-03' FOR UPDATE"
+        "SELECT habit_id FROM habit_marks WHERE date='2026-01-03' FOR UPDATE"
       )
       removal = app
-        .inject({ method: 'DELETE', url: `${url}/habits/walk`, headers })
+        .inject({ method: 'DELETE', url: `${url}/habits/${habitId}`, headers })
         .then((response) => assert.equal(response.statusCode, 200))
       await waitForBlockedRequest(client)
       await client.query(`INSERT INTO sleep_records (user_id, date, wake_time) SELECT user_id, date::date, '2026-01-03 07:45'::timestamp FROM daily_entries WHERE date='2026-01-03'`)
@@ -379,6 +402,46 @@ test('removing a habit mark preserves sleep committed while removal is pending',
       } finally {
         await app.close()
       }
+    }
+  })
+})
+
+
+test('permanent deletion serializes with marks and never touches another UUID with the same label', async (t) => {
+  await withDatabase(t, async (client, connectionString) => {
+    await runMigrations({ connectionString, migrationsDir })
+    const app = await authApp(connectionString)
+    try {
+      const registered = await app.inject({ method: 'POST', url: '/auth/register', payload: { email: 'delete@example.test', password } })
+      const headers = { authorization: `Bearer ${registered.json().accessToken}` }
+      const owner = registered.json().user.id
+      const create = async () => (await app.inject({ method: 'POST', url: '/habits', headers, payload: { label: 'Книги', creationDate: date } })).json()
+      const habit = await create(), replacement = await create()
+      assert.notEqual(habit.key, replacement.key)
+      const sleepUrl = `/sleep-records/${date}`
+      assert.equal((await app.inject({ method: 'PUT', url: sleepUrl, headers, payload: { wakeTime: `${date} 07:00`, napDuration: 15 } })).statusCode, 200)
+      await client.query('BEGIN')
+      await client.query('SELECT id FROM habits WHERE id=$1 FOR UPDATE', [habit.key])
+      const mark = app.inject({ method: 'PATCH', url: `${sleepUrl}/habits/${habit.key}`, headers, payload: { value: true } }).then(r => r)
+      await waitForBlockedRequest(client)
+      await client.query('DELETE FROM habits WHERE user_id=$1 AND id=$2', [owner, habit.key])
+      await client.query('COMMIT')
+      assert.equal((await mark).statusCode, 404)
+      assert.equal((await client.query('SELECT count(*)::int AS n FROM habit_marks')).rows[0].n, 0)
+      await client.query('BEGIN')
+      await client.query('INSERT INTO habit_marks (user_id, date, habit_id, value) VALUES ($1,$2,$3,false)', [owner, date, replacement.key])
+      const deletion = app.inject({ method: 'DELETE', url: `/habits/${replacement.key}`, headers }).then(r => r)
+      await waitForBlockedRequest(client)
+      await client.query('COMMIT')
+      assert.equal((await deletion).statusCode, 204)
+      assert.equal((await client.query('SELECT count(*)::int AS n FROM habit_marks')).rows[0].n, 0)
+      const entry = (await app.inject({ url: sleepUrl, headers })).json()
+      assert.equal(entry.sleep.wakeTime, `${date} 07:00`)
+      assert.equal(entry.sleep.napDuration, 15)
+      assert.deepEqual(entry.habits, [])
+    } finally {
+      await client.query('ROLLBACK')
+      await app.close()
     }
   })
 })

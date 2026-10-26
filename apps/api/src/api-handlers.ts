@@ -61,10 +61,19 @@ export function createApiHandlers(fastify: FastifyInstance): ApiHandlers {
       return { status: 200, body: await habitsService.getAllHabits(user.id) }
     },
     async createHabit({ user, body }) {
-      return { status: 201, body: await habitsService.createHabit(user.id, body.label) }
+      return { status: 201, body: await habitsService.createHabit(user.id, body) }
     },
     async updateHabit({ user, key, body }) {
       return { status: 200, body: await habitsService.updateHabit(user.id, key, body.label) }
+    },
+    async archiveHabit({ user, key }) {
+      return { status: 200, body: await habitsService.setArchived(user.id, key, true) }
+    },
+    async restoreHabit({ user, key }) {
+      return { status: 200, body: await habitsService.setArchived(user.id, key, false) }
+    },
+    async getHabitDeletionSummary({ user, key }) {
+      return { status: 200, body: await habitsService.getDeletionSummary(user.id, key) }
     },
     async deleteHabit({ user, key }) {
       await habitsService.deleteHabit(user.id, key)

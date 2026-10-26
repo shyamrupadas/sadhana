@@ -27,6 +27,10 @@ export class ApiClient {
     return this.request("/auth/register", { method: "POST", signal: options.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   }
 
+  archiveHabit(key: string, options: { signal?: AbortSignal } = {}): Promise<Operations["Habits_archiveHabit"]['responses'][200]['content']['application/json']> {
+    return this.request(`/habits/${encodeURIComponent(key)}/archive`, { method: "POST", signal: options.signal })
+  }
+
   createHabit(body: Operations["Habits_createHabit"]['requestBody']['content']['application/json'], options: { signal?: AbortSignal } = {}): Promise<Operations["Habits_createHabit"]['responses'][201]['content']['application/json']> {
     return this.request("/habits", { method: "POST", signal: options.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   }
@@ -35,8 +39,16 @@ export class ApiClient {
     return this.request(`/habits/${encodeURIComponent(key)}`, { method: "DELETE", signal: options.signal })
   }
 
+  getHabitDeletionSummary(key: string, options: { signal?: AbortSignal } = {}): Promise<Operations["Habits_getHabitDeletionSummary"]['responses'][200]['content']['application/json']> {
+    return this.request(`/habits/${encodeURIComponent(key)}/deletion-summary`, { method: "GET", signal: options.signal })
+  }
+
   getHabits(options: { signal?: AbortSignal } = {}): Promise<Operations["Habits_getHabits"]['responses'][200]['content']['application/json']> {
     return this.request("/habits", { method: "GET", signal: options.signal })
+  }
+
+  restoreHabit(key: string, options: { signal?: AbortSignal } = {}): Promise<Operations["Habits_restoreHabit"]['responses'][200]['content']['application/json']> {
+    return this.request(`/habits/${encodeURIComponent(key)}/restore`, { method: "POST", signal: options.signal })
   }
 
   updateHabit(key: string, body: Operations["Habits_updateHabit"]['requestBody']['content']['application/json'], options: { signal?: AbortSignal } = {}): Promise<Operations["Habits_updateHabit"]['responses'][200]['content']['application/json']> {

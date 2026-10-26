@@ -63,7 +63,7 @@ test('habit mutation client sends encoded keys, JSON bodies and accepts empty 20
       return new Response(JSON.stringify({ key: 'read', label: 'Read', createdAt: '2026-10-04T09:00:00.000Z' }), { status: init.method === 'POST' ? 201 : 200 })
     },
   })
-  assert.equal((await client.createHabit({ label: 'Read' })).key, 'read')
+  assert.equal((await client.createHabit({ label: 'Read', creationDate: '2026-10-04' })).key, 'read')
   assert.equal((await client.updateHabit('read/one', { label: 'Books' })).label, 'Read')
   assert.equal(await client.deleteHabit('read/one'), undefined)
   assert.deepEqual(calls.map(({ input, init }) => [input, init.method]), [
@@ -71,7 +71,7 @@ test('habit mutation client sends encoded keys, JSON bodies and accepts empty 20
     ['/habits/read%2Fone', 'PATCH'],
     ['/habits/read%2Fone', 'DELETE'],
   ])
-  assert.deepEqual(JSON.parse(calls[0].init.body), { label: 'Read' })
+  assert.deepEqual(JSON.parse(calls[0].init.body), { label: 'Read', creationDate: '2026-10-04' })
   assert.deepEqual(JSON.parse(calls[1].init.body), { label: 'Books' })
   assert.equal(calls[2].init.body, undefined)
 })
@@ -141,13 +141,16 @@ test('generated HTTP contract covers the inventoried operations and response sta
     'POST /auth/login': [200, 401, 500],
     'POST /auth/refresh': [200, 401, 500],
     'GET /habits': [200, 401, 500],
-    'POST /habits': [201, 401, 500],
-    'PATCH /habits/{key}': [200, 401, 404, 500],
+    'POST /habits': [201, 400, 401, 500],
+    'POST /habits/{key}/archive': [200, 401, 404, 500],
+    'POST /habits/{key}/restore': [200, 401, 404, 500],
+    'GET /habits/{key}/deletion-summary': [200, 401, 404, 500],
+    'PATCH /habits/{key}': [200, 400, 401, 404, 500],
     'DELETE /habits/{key}': [204, 401, 404, 500],
     'GET /sleep-records': [200, 401, 500],
     'GET /sleep-records/{date}': [200, 401, 404, 500],
     'PUT /sleep-records/{date}': [200, 400, 401, 500],
-    'PATCH /sleep-records/{date}/habits/{habitKey}': [200, 401, 500],
+    'PATCH /sleep-records/{date}/habits/{habitKey}': [200, 400, 401, 404, 500],
     'DELETE /sleep-records/{date}/habits/{habitKey}': [200, 401, 404, 500],
     'GET /sleep-records/yesterday/check': [200, 401, 500],
     'GET /statistics': [200, 400, 401, 500],
@@ -217,4 +220,25 @@ test('statistics client sends typed calendar query and abort signal', async () =
   assert.equal(url.pathname, '/statistics')
   assert.deepEqual(Object.fromEntries(url.searchParams), { granularity: 'week', from: '2026-10-05', toExclusive: '2026-10-12', asOfDate: '2026-10-10' })
   assert.equal(calls[0].init.signal, controller.signal)
+})
+
+
+test('habit lifecycle and statistics filters share the generated public contract', async () => {
+  const calls = []
+  const client = new ApiClient({ fetch: async (input, init) => {
+    calls.push([input, init.method])
+    return new Response('{}', { status: 200 })
+  } })
+  await client.archiveHabit('uuid/read')
+  await client.restoreHabit('uuid/read')
+  await client.getHabitDeletionSummary('uuid/read')
+  await client.getStatistics({ granularity: 'week', from: '2026-10-05', toExclusive: '2026-10-12', asOfDate: '2026-10-11', includeArchived: false, habitId: 'uuid/read' })
+  assert.deepEqual(calls.slice(0, 3), [['/habits/uuid%2Fread/archive', 'POST'], ['/habits/uuid%2Fread/restore', 'POST'], ['/habits/uuid%2Fread/deletion-summary', 'GET']])
+  const query = new URL(calls[3][0], 'https://example.test').searchParams
+  assert.equal(query.get('includeArchived'), 'false')
+  assert.equal(query.get('habitId'), 'uuid/read')
+  const document = JSON.parse(await readFile(join(packageRoot, 'generated/openapi/openapi.json'), 'utf8'))
+  assert.equal(document.components.schemas.HabitDefinition.properties.startDate.nullable, true)
+  assert.equal(document.components.schemas.HabitStatisticsValue.properties.eligibleDayCount.nullable, true)
+  assert.deepEqual(document.components.schemas.HabitDayState.enum, ['done', 'failed', 'unmarked', 'notApplicable'])
 })

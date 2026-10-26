@@ -24,13 +24,27 @@ type Row = {
 
 const emptySleep = { bedtime: null, wakeTime: null, napDuration: null, duration: null }
 
-async function makeApp(rows: Row[]) {
+async function makeApp(rows: Row[], habits: { userId: string; key: string; start_date?: string | null }[] = [{ userId: 'alice', key: 'read' }, { userId: 'alice', key: 'walk' }]) {
   const app = Fastify()
   app.decorate('pg', {
     connect: async () => ({
       query: async (sql: string, params: unknown[] = []) => {
         if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return { rows: [] }
         const userId = String(params[0])
+        if (sql.includes('FROM habits') && sql.includes('FOR KEY SHARE')) return { rows: habits.filter(h => h.userId === params[0] && h.key === params[1]) }
+        if (sql.includes('INSERT INTO habit_marks')) {
+          let row = rows.find(r => r.userId === userId && r.date === params[1])
+          if (!row) { row = { id: `${userId}-${params[1]}`, userId, date: String(params[1]), sleep_data: null, habits: [] }; rows.push(row) }
+          row.habits = [...row.habits.filter(h => h.key !== params[2]), { key: String(params[2]), value: Boolean(params[3]) }]
+          return { rows: [], rowCount: 1 }
+        }
+        if (sql.includes('DELETE FROM habit_marks')) {
+          const row = rows.find(r => r.userId === userId && r.date === params[1])
+          if (row) row.habits = row.habits.filter(h => h.key !== params[2])
+          return { rows: [], rowCount: 1 }
+        }
+        if (sql.includes('FROM habits')) return { rows: [] }
+        if (sql.includes('FROM habit_marks') && !sql.includes('FROM daily_entries d')) return { rows: [] }
         if (sql.includes('min(date)')) return { rows: [{ history_from: rows.filter(row => row.userId === userId && row.date <= String(params[1]) && (row.sleep_data?.bedtime || row.sleep_data?.wakeTime || row.sleep_data?.napDuration)).map(row => row.date).sort()[0] ?? null }] }
         if (sql.includes('FROM sleep_records s')) return { rows: rows.filter(row => row.userId === userId && row.date >= String(params[1]) && row.date < String(params[2])).map(row => ({ date: row.date, bedtime: row.sleep_data?.bedtime, wake_time: row.sleep_data?.wakeTime, nap_minutes: row.sleep_data?.napDuration })) }
 
@@ -85,23 +99,24 @@ test('sleep records list covers only five Moscow dates and each user sees their 
   assert.equal((await app.inject({ method: 'GET', url: '/sleep-records', headers: auth('bob') })).json().length, 1)
 })
 
-test('daily habit marks create a day, accept unknown keys, change values and remove marks', async (t) => {
+test('daily habit marks reject unknown or foreign habits and preserve other marks', async (t) => {
   const { app, auth } = await makeApp([])
   t.after(() => app.close())
-  const url = '/sleep-records/2026-10-02/habits/unknown'
+  const url = '/sleep-records/2026-10-02/habits/read'
+  assert.equal((await app.inject({ method: 'PATCH', url: '/sleep-records/2026-10-02/habits/unknown', headers: auth('alice'), payload: { value: true } })).statusCode, 404)
   const headers = auth('alice')
 
   assert.equal((await app.inject({ method: 'PATCH', url, payload: { value: true } })).statusCode, 401)
   const first = await app.inject({ method: 'PATCH', url, headers, payload: { value: true } })
   assert.equal(first.statusCode, 200)
-  assert.deepEqual(first.json(), { id: '2026-10-02', date: '2026-10-02', sleep: emptySleep, habits: [{ key: 'unknown', value: true }] })
+  assert.deepEqual(first.json(), { id: '2026-10-02', date: '2026-10-02', sleep: emptySleep, habits: [{ key: 'read', value: true }] })
   const changed = await app.inject({ method: 'PATCH', url, headers, payload: { value: false } })
   assert.equal(changed.statusCode, 200)
-  assert.deepEqual(changed.json().habits, [{ key: 'unknown', value: false }])
+  assert.deepEqual(changed.json().habits, [{ key: 'read', value: false }])
   assert.equal((await app.inject({ method: 'GET', url: '/sleep-records/2026-10-02', headers })).json().habits[0].value, false)
   const missingDay = await app.inject({ method: 'DELETE', url, headers: auth('bob') })
   assert.equal(missingDay.statusCode, 404)
-  assert.deepEqual(missingDay.json(), { message: 'Daily entry not found', code: 'NOT_FOUND' })
+  assert.deepEqual(missingDay.json(), { message: 'Habit not found', code: 'NOT_FOUND' })
   const removed = await app.inject({ method: 'DELETE', url, headers })
   assert.equal(removed.statusCode, 200)
   assert.deepEqual(removed.json().habits, [])
@@ -128,12 +143,12 @@ test('generated client can change and remove marks through the existing HTTP rou
     return new Response(response.body, { status: response.statusCode })
   } })
 
-  const created = await client.setDailyHabitMark(date, 'unknown', { value: true })
-  assert.deepEqual(created.habits, [{ key: 'unknown', value: true }])
+  const created = await client.setDailyHabitMark(date, 'read', { value: true })
+  assert.deepEqual(created.habits, [{ key: 'read', value: true }])
   assert.deepEqual((await client.getSleepRecords()).map((entry) => entry.date), [date])
-  assert.deepEqual((await client.setDailyHabitMark(date, 'unknown', { value: false })).habits, [{ key: 'unknown', value: false }])
-  assert.deepEqual((await client.removeDailyHabitMark(date, 'unknown')).habits, [])
-  await assert.rejects(client.removeDailyHabitMark(missingDate, 'unknown'), (error) => {
+  assert.deepEqual((await client.setDailyHabitMark(date, 'read', { value: false })).habits, [{ key: 'read', value: false }])
+  assert.deepEqual((await client.removeDailyHabitMark(date, 'read')).habits, [])
+  await assert.rejects(client.removeDailyHabitMark(missingDate, 'read'), (error) => {
     assert.ok(error instanceof ApiClientError)
     assert.equal(error.status, 404)
     return true
@@ -276,4 +291,14 @@ test('editing bedtime refreshes next month duration and preserves all habit mark
   assert.deepEqual((await app.inject({ url: '/sleep-records/2026-09-30', headers })).json().habits, [{ key: 'read', value: false }])
   await save('2026-09-30', { bedtime: null })
   assert.equal((await stats()).columns[0].duration.value, null)
+})
+
+
+test('a habit mark before its known creation date is rejected without creating a day', async (t) => {
+  const rows: Row[] = []
+  const { app, auth } = await makeApp(rows, [{ userId: 'alice', key: 'read', start_date: '2026-10-26' }])
+  t.after(() => app.close())
+  const response = await app.inject({ method: 'PATCH', url: '/sleep-records/2026-10-25/habits/read', headers: auth('alice'), payload: { value: true } })
+  assert.equal(response.statusCode, 400)
+  assert.deepEqual(rows, [])
 })

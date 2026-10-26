@@ -1,5 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import dayjs from 'dayjs'
+import type { ApiSchemas } from '@sadhana/api-contract'
+import { cn } from '@/shared/lib/utils'
 import { useSession } from '@/shared/model/session'
 import { Button } from '@/shared/components/ui/button'
 import { useStatistics } from '@/features/statistics/model/use-statistics'
@@ -21,6 +23,8 @@ const rows = [
 ] as const
 
 function StatisticsTable({ userId, asOfDate }: { userId: string; asOfDate: string }) {
+  const habitId = new URLSearchParams(window.location.search).get('habitId') ?? undefined
+  const [includeArchived, setIncludeArchived] = useState(false)
   const [granularity, setGranularity] = useState<Granularity>('day')
   const [anchor, setAnchor] = useState(asOfDate)
   const [loadAnchor, setLoadAnchor] = useState(asOfDate)
@@ -32,7 +36,9 @@ function StatisticsTable({ userId, asOfDate }: { userId: string; asOfDate: strin
     userId,
     granularity,
     asOfDate,
-    loadAnchor
+    loadAnchor,
+    includeArchived,
+    habitId
   )
   const columnWidth = 3 * viewport.rem
   const labelWidth = 5.5 * viewport.rem
@@ -53,6 +59,11 @@ function StatisticsTable({ userId, asOfDate }: { userId: string; asOfDate: strin
       .flatMap((query) => query.data?.columns ?? [])
       .map((column) => [column.from, column])
   )
+  const habits = queries.filter(query => query.data).sort((a, b) => b.dataUpdatedAt - a.dataUpdatedAt)[0]?.data?.habits ?? []
+  const tableRows = [
+    ...rows.map(([key, label]) => ({ key, label, habit: false })),
+    ...habits.map(habit => ({ key: habit.key, label: habit.label, habit: true })),
+  ]
   const loadedRanges = queries.flatMap((query, index) =>
     query.data ? [ranges[index]] : []
   )
@@ -208,11 +219,16 @@ function StatisticsTable({ userId, asOfDate }: { userId: string; asOfDate: strin
           >
             К сегодня
           </Button>
+          {!habitId && <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={includeArchived} onChange={event => setIncludeArchived(event.target.checked)} />
+            Показывать архивные
+          </label>}
+          {habitId && <a href="/" className="text-sm underline">К привычкам</a>}
         </div>
         <div
           ref={scroll}
           role="region"
-          aria-label="История сна"
+          aria-label="История сна и привычек"
           tabIndex={0}
           className={`relative overflow-x-auto overscroll-x-contain rounded border focus-visible:outline-2 ${granularity === 'year' ? 'max-w-118' : 'max-w-full'}`}
           onScroll={onScroll}
@@ -250,7 +266,7 @@ function StatisticsTable({ userId, asOfDate }: { userId: string; asOfDate: strin
         >
           <div
             role="table"
-            aria-label="Статистика сна"
+            aria-label="Статистика сна и привычек"
             aria-colcount={count + 1}
             className="relative text-xs select-none"
             style={{ width: `${5.5 + count * 3}rem`, minWidth: '100%' }}
@@ -285,39 +301,42 @@ function StatisticsTable({ userId, asOfDate }: { userId: string; asOfDate: strin
                   )
                 })}
             </div>
-            {rows.map(([key, label]) => (
-              <div role="row" key={key} className="relative h-10">
-                <div
-                  role="rowheader"
-                  className="sticky left-0 z-20 flex h-full w-22 items-center border-r border-b bg-background px-1"
-                >
-                  {label}
-                </div>
-                {indices
-                  .filter((index) =>
-                    columns.has(movePeriod(firstPeriod, index, granularity))
-                  )
-                  .map((index) => {
-                    const date = movePeriod(firstPeriod, index, granularity)
-                    const column = columns.get(date)!
-                    return (
-                      <div
-                        role="cell"
-                        aria-colindex={index + 2}
-                        key={date}
-                        className="absolute top-0 flex h-full w-12 items-center justify-center border-r border-b"
-                        style={{ left: `${5.5 + index * 3}rem` }}
-                      >
-                        {formatMinutes(
-                          key === 'nap' && column.nap.sum === 0
-                            ? null
-                            : column[key].value,
-                          key === 'bedtime' || key === 'wakeTime'
-                        )}
-                      </div>
+            {tableRows.map(({ key, label, habit }, rowIndex) => (
+              <Fragment key={key}>
+                {rowIndex === 4 && (
+                  <div aria-hidden="true" className="h-2 border-b bg-gray-100" />
+                )}
+                <div role="row" className="relative h-10">
+                  <div
+                    role="rowheader"
+                    className="sticky left-0 z-20 flex h-full w-22 items-center border-r border-b bg-background px-1"
+                  >
+                    {label}
+                  </div>
+                  {indices
+                    .filter((index) =>
+                      columns.has(movePeriod(firstPeriod, index, granularity))
                     )
-                  })}
-              </div>
+                    .map((index) => {
+                      const date = movePeriod(firstPeriod, index, granularity)
+                      const column = columns.get(date)!
+                      return (
+                        <div
+                          role="cell"
+                          aria-colindex={index + 2}
+                          key={date}
+                          className="absolute top-0 flex h-full w-12 items-center justify-center border-r border-b"
+                          style={{ left: `${5.5 + index * 3}rem` }}
+                        >
+                          {habit ? <HabitValue value={column.habits.find(value => value.habitId === key)} daily={granularity === 'day'} /> : formatMinutes(
+                            key === 'nap' && column.nap.sum === 0 ? null : column[key as 'wakeTime' | 'nap' | 'duration' | 'bedtime'].value,
+                            key === 'bedtime' || key === 'wakeTime'
+                          )}
+                        </div>
+                      )
+                    })}
+                </div>
+              </Fragment>
             ))}
             {missingGroups.map((group) => {
               const from = movePeriod(firstPeriod, group[0], granularity)
@@ -361,6 +380,15 @@ function StatisticsTable({ userId, asOfDate }: { userId: string; asOfDate: strin
       </div>
     </main>
   )
+}
+
+function HabitValue({ value, daily }: { value?: ApiSchemas['HabitStatisticsValue']; daily: boolean }) {
+  if (!daily) return value?.successRate == null ? '—' : `${Math.round(value.successRate * 100)}%`
+  if (value?.state === 'notApplicable') return 'н/а'
+  const label = value?.state === 'done' ? 'Выполнено' : value?.state === 'failed' ? 'Не выполнено' : 'Не отмечено'
+  return <span aria-label={label} className={cn('inline-flex h-6 w-6 items-center justify-center rounded border', value?.state === 'done' ? 'bg-green-400' : value?.state === 'failed' ? 'bg-red-400' : 'bg-gray-200')}>
+    {value?.state === 'done' ? '✓' : value?.state === 'failed' ? '×' : '—'}
+  </span>
 }
 
 function StatisticsPage() {

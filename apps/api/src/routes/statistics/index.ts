@@ -8,6 +8,8 @@ type Query = {
   from: string
   toExclusive: string
   asOfDate: string
+  includeArchived?: boolean
+  habitId?: string
 }
 
 const statisticsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -34,6 +36,8 @@ const statisticsRoutes: FastifyPluginAsync = async (fastify) => {
           additionalProperties: false,
           required: ['granularity', 'from', 'toExclusive', 'asOfDate'],
           properties: {
+            includeArchived: { type: 'boolean' },
+            habitId: { type: 'string' },
             granularity: { type: 'string', enum: ['day', 'week', 'month', 'year'] },
             from: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
             toExclusive: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },

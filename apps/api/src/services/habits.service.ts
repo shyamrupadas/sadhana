@@ -1,137 +1,69 @@
-import { FastifyInstance } from 'fastify'
+import { randomUUID } from 'node:crypto'
+import type { FastifyInstance } from 'fastify'
 import type { ApiSchemas } from '@sadhana/api-contract'
-import { NotFoundError } from '../utils/errors'
-import { generateHabitKey } from '../utils/habit-key'
+import { BadRequestError, NotFoundError } from '../utils/errors'
+import { calendarDate } from '../utils/calendar'
+
+export const habitProjection = `id::text AS key, label,
+  to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.US') AS "createdAt",
+  start_date::text AS "startDate", archived`
 
 export class HabitsService {
   constructor(private fastify: FastifyInstance) {}
 
   async getAllHabits(userId: string): Promise<ApiSchemas['HabitDefinition'][]> {
-    const client = await this.fastify.pg.connect()
-
-    try {
-      const result = await client.query(
-        'SELECT key, label, created_at FROM habits WHERE user_id = $1 ORDER BY created_at ASC',
-        [userId]
-      )
-
-      return result.rows.map((row) => ({
-        key: row.key,
-        label: row.label,
-        createdAt: row.created_at.toISOString(),
-      }))
-    } finally {
-      client.release()
-    }
+    const result = await this.fastify.pg.query(
+      `SELECT ${habitProjection} FROM habits WHERE user_id = $1 ORDER BY created_at ASC NULLS FIRST, id`,
+      [userId]
+    )
+    return result.rows
   }
 
-  async createHabit(
-    userId: string,
-    label: string
-  ): Promise<ApiSchemas['HabitDefinition']> {
-    const client = await this.fastify.pg.connect()
-
-    try {
-      const key = generateHabitKey(label)
-
-      const existing = await client.query(
-        'SELECT key, label, created_at FROM habits WHERE user_id = $1 AND key = $2',
-        [userId, key]
-      )
-
-      if (existing.rows.length > 0) {
-        return {
-          key: existing.rows[0].key,
-          label: existing.rows[0].label,
-          createdAt: existing.rows[0].created_at.toISOString(),
-        }
-      }
-
-      const result = await client.query(
-        'INSERT INTO habits (user_id, key, label) VALUES ($1, $2, $3) RETURNING key, label, created_at',
-        [userId, key, label]
-      )
-
-      const row = result.rows[0]
-      return {
-        key: row.key,
-        label: row.label,
-        createdAt: row.created_at.toISOString(),
-      }
-    } finally {
-      client.release()
-    }
+  async createHabit(userId: string, input: ApiSchemas['HabitCreateInput']): Promise<ApiSchemas['HabitDefinition']> {
+    calendarDate(input.creationDate)
+    if (!input.label.trim()) throw new BadRequestError('Habit label is empty')
+    const result = await this.fastify.pg.query(
+      `INSERT INTO habits (id, user_id, label, start_date) VALUES ($1, $2, $3, $4::date) RETURNING ${habitProjection}`,
+      [randomUUID(), userId, input.label.trim(), input.creationDate]
+    )
+    return result.rows[0]
   }
 
-  async updateHabit(
-    userId: string,
-    key: string,
-    label: string
-  ): Promise<ApiSchemas['HabitDefinition']> {
-    const client = await this.fastify.pg.connect()
+  async updateHabit(userId: string, key: string, label: string): Promise<ApiSchemas['HabitDefinition']> {
+    if (!label.trim()) throw new BadRequestError('Habit label is empty')
+    const result = await this.fastify.pg.query(
+      `UPDATE habits SET label = $1 WHERE user_id = $2 AND id::text = $3 RETURNING ${habitProjection}`,
+      [label.trim(), userId, key]
+    )
+    if (!result.rows.length) throw new NotFoundError('Habit not found')
+    return result.rows[0]
+  }
 
-    try {
-      const result = await client.query(
-        'UPDATE habits SET label = $1 WHERE user_id = $2 AND key = $3 RETURNING key, label, created_at',
-        [label, userId, key]
-      )
+  async setArchived(userId: string, key: string, archived: boolean): Promise<ApiSchemas['HabitDefinition']> {
+    const result = await this.fastify.pg.query(
+      `UPDATE habits SET archived = $1 WHERE user_id = $2 AND id::text = $3 RETURNING ${habitProjection}`,
+      [archived, userId, key]
+    )
+    if (!result.rows.length) throw new NotFoundError('Habit not found')
+    return result.rows[0]
+  }
 
-      if (result.rows.length === 0) {
-        throw new NotFoundError('Habit not found')
-      }
-
-      const row = result.rows[0]
-      return {
-        key: row.key,
-        label: row.label,
-        createdAt: row.created_at.toISOString(),
-      }
-    } finally {
-      client.release()
-    }
+  async getDeletionSummary(userId: string, key: string): Promise<ApiSchemas['HabitDeletionSummary']> {
+    const result = await this.fastify.pg.query(
+      `SELECT h.id::text AS key, h.label, count(m.habit_id)::int AS "markCount"
+       FROM habits h LEFT JOIN habit_marks m ON m.user_id = h.user_id AND m.habit_id = h.id
+       WHERE h.user_id = $1 AND h.id::text = $2 GROUP BY h.id`,
+      [userId, key]
+    )
+    if (!result.rows.length) throw new NotFoundError('Habit not found')
+    return result.rows[0]
   }
 
   async deleteHabit(userId: string, key: string): Promise<void> {
-    const client = await this.fastify.pg.connect()
-
-    try {
-      const result = await client.query(
-        'DELETE FROM habits WHERE user_id = $1 AND key = $2',
-        [userId, key]
-      )
-
-      if (result.rowCount === 0) {
-        throw new NotFoundError('Habit not found')
-      }
-    } finally {
-      client.release()
-    }
-  }
-
-  async getHabitByKey(
-    userId: string,
-    key: string
-  ): Promise<ApiSchemas['HabitDefinition'] | null> {
-    const client = await this.fastify.pg.connect()
-
-    try {
-      const result = await client.query(
-        'SELECT key, label, created_at FROM habits WHERE user_id = $1 AND key = $2',
-        [userId, key]
-      )
-
-      if (result.rows.length === 0) {
-        return null
-      }
-
-      const row = result.rows[0]
-      return {
-        key: row.key,
-        label: row.label,
-        createdAt: row.created_at.toISOString(),
-      }
-    } finally {
-      client.release()
-    }
+    // The composite FK cascades all marks in this statement, including concurrent commits.
+    const result = await this.fastify.pg.query(
+      'DELETE FROM habits WHERE user_id = $1 AND id::text = $2', [userId, key]
+    )
+    if (!result.rowCount) throw new NotFoundError('Habit not found')
   }
 }

@@ -3,7 +3,7 @@ import { QueryClient, useQueryClient } from '@tanstack/react-query'
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ApiSchemas } from '@sadhana/api-contract'
-import { afterEach, expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 
 import { useSession } from '@/shared/model/session'
 import { mockApi, renderWithTestProviders } from '@/shared/test/harness'
@@ -18,7 +18,7 @@ test('возвращает отметку к прежнему состоянию
   const habit = {
     key: 'reading',
     label: 'Чтение',
-    createdAt: '2026-10-01T00:00:00.000Z',
+    createdAt: '2026-10-01T00:00:00.000Z', startDate: '2026-10-01', archived: false,
   } satisfies ApiSchemas['HabitDefinition']
   const unexpected: string[] = []
   let failedMarkRequested = false
@@ -88,7 +88,7 @@ test('поздний отказ отметки не возвращает при�
     if (method === 'GET' && path === '/test-api/habits')
       return {
         status: 200,
-        body: [{ key: 'read', label: 'Чтение', createdAt: '2026-01-01T00:00:00Z' }] satisfies ApiSchemas['HabitDefinition'][],
+        body: [{ key: 'read', label: 'Чтение', createdAt: '2026-01-01T00:00:00Z', startDate: '2026-01-01', archived: false }] satisfies ApiSchemas['HabitDefinition'][],
       }
     if (method === 'GET' && path === '/test-api/sleep-records')
       return { status: 200, body: [entry(owner === 'alice' ? '06:00' : '09:00')] }
@@ -136,4 +136,52 @@ test('поздний отказ отметки не возвращает при�
   expect(cache.getQueryData(['get', '/sleep-records', 'alice'])).toBeUndefined()
   expect(screen.queryByRole('button', { name: '06:00' })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: '09:00' })).toBeVisible()
+})
+
+
+test('архив, отмена и возврат сохраняют привычку; удаление подтверждается с полным числом отметок', async () => {
+  useSession.getState().login(`header.${btoa(JSON.stringify({ exp: 4102444800, userId: 'alice' }))}.signature`)
+  let habits: ApiSchemas['HabitDefinition'][] = [{ key: 'uuid-read', label: 'Книги', createdAt: null, startDate: '2020-01-01', archived: false }]
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+  let failDelete = true
+  mockApi(({ method, path }) => {
+    if (method === 'GET' && path === '/test-api/habits') return { status: 200, body: habits }
+    if (method === 'GET' && path === '/test-api/sleep-records') return { status: 200, body: [] }
+    if (method === 'POST' && (path === '/test-api/habits/uuid-read/archive' || path === '/test-api/habits/uuid-read/restore')) {
+      habits = [{ ...habits[0], archived: path.endsWith('/archive') }]
+      return { status: 200, body: habits[0] }
+    }
+    if (method === 'GET' && path === '/test-api/habits/uuid-read/deletion-summary') return { status: 200, body: { key: 'uuid-read', label: 'Книги', markCount: 243 } }
+    if (method === 'DELETE' && path === '/test-api/habits/uuid-read') {
+      if (failDelete) return { status: 500, body: { code: 'FAIL', message: 'Failed' } }
+      habits = []
+      return { status: 204 }
+    }
+    throw new Error(`Unexpected ${method} ${path}`)
+  })
+  renderWithTestProviders(<MainPage />)
+  await screen.findByRole('row', { name: /Книги/ })
+  await userEvent.click(screen.getByRole('button', { name: 'Режим редактирования' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Меню привычки: Книги' }))
+  await userEvent.click(screen.getByRole('button', { name: 'В архив: Книги' }))
+  expect(await screen.findByText('Привычка перенесена в архив')).toBeVisible()
+  expect(screen.queryByRole('row', { name: /Книги/ })).not.toBeInTheDocument()
+  expect(confirm).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole('button', { name: 'Отменить' }))
+  await screen.findByRole('row', { name: /Книги/ })
+  await userEvent.click(screen.getByRole('button', { name: 'Меню привычки: Книги' }))
+  await userEvent.click(screen.getByRole('button', { name: 'В архив: Книги' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Архив' }))
+  const section = screen.getByRole('region', { name: 'Архив привычек' })
+  expect(await within(section).findByRole('link', { name: 'История: Книги' })).toHaveAttribute('href', '/statistics?habitId=uuid-read')
+  await userEvent.click(within(section).getByRole('button', { name: 'Вернуть: Книги' }))
+  await screen.findByRole('row', { name: /Книги/ })
+  await userEvent.click(screen.getByRole('button', { name: 'Меню привычки: Книги' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Удалить навсегда: Книги' }))
+  expect(confirm).toHaveBeenCalledWith('Удалить “Книги” и все 243 отметки? Восстановить их будет нельзя')
+  expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось изменить привычку')
+  expect(screen.getByRole('row', { name: /Книги/ })).toBeVisible()
+  failDelete = false
+  await userEvent.click(screen.getByRole('button', { name: 'Удалить навсегда: Книги' }))
+  await waitFor(() => expect(screen.queryByRole('row', { name: /Книги/ })).not.toBeInTheDocument())
 })

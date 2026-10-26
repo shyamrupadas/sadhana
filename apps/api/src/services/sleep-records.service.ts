@@ -18,7 +18,8 @@ export class SleepRecordsService {
     const client = await this.fastify.pg.connect()
     try {
       const result = await client.query<EntryRow>(
-        `SELECT d.date AS entry_date, d.habits, ${sleepProjection}
+        `SELECT d.date AS entry_date, COALESCE((SELECT jsonb_agg(jsonb_build_object('key', m.habit_id::text, 'value', m.value) ORDER BY m.habit_id)
+          FROM habit_marks m WHERE m.user_id = d.user_id AND m.date = d.date::date), '[]'::jsonb) AS habits, ${sleepProjection}
         FROM daily_entries d LEFT JOIN sleep_records s ON s.user_id = d.user_id AND s.date = d.date::date
         WHERE d.user_id = $1 AND d.date >= $2 AND d.date <= $3 ORDER BY d.date DESC`,
         [userId, addDays(from, -1), to]
@@ -96,20 +97,24 @@ export class SleepRecordsService {
     calendarDate(date)
     const client = await this.fastify.pg.connect()
     try {
-      // Only mutate the habits field. Concurrent sleep writes cannot overwrite marks.
+      await client.query('BEGIN')
+      const habit = await client.query('SELECT id, start_date::text FROM habits WHERE user_id = $1 AND id::text = $2 FOR KEY SHARE', [userId, habitKey])
+      if (!habit.rows.length) throw new NotFoundError('Habit not found')
+      if (habit.rows[0].start_date && date < habit.rows[0].start_date)
+        throw new BadRequestError('Date precedes habit start')
       await client.query(
-        `INSERT INTO daily_entries (id, user_id, date, habits) VALUES ($1, $2, $3, $4::jsonb)
-        ON CONFLICT (user_id, date) DO UPDATE SET habits =
-          COALESCE((SELECT jsonb_agg(mark) FROM jsonb_array_elements(daily_entries.habits) mark WHERE mark->>'key' <> $5), '[]'::jsonb) || $4::jsonb,
-          updated_at = NOW()`,
-        [
-          `${userId}-${date}`,
-          userId,
-          date,
-          JSON.stringify([{ key: habitKey, value }]),
-          habitKey,
-        ]
+        `INSERT INTO habit_marks (user_id, date, habit_id, value) VALUES ($1, $2::date, $3::uuid, $4)
+         ON CONFLICT (user_id, date, habit_id) DO UPDATE SET value = EXCLUDED.value`,
+        [userId, date, habitKey, value]
       )
+      await client.query(
+        `INSERT INTO daily_entries (id, user_id, date) VALUES ($1, $2, $3) ON CONFLICT (user_id, date) DO NOTHING`,
+        [`${userId}-${date}`, userId, date]
+      )
+      await client.query('COMMIT')
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
     } finally {
       client.release()
     }
@@ -124,17 +129,20 @@ export class SleepRecordsService {
     calendarDate(date)
     const client = await this.fastify.pg.connect()
     try {
-      const result = await client.query(
-        `UPDATE daily_entries SET habits = COALESCE(
-        (SELECT jsonb_agg(mark) FROM jsonb_array_elements(habits) mark WHERE mark->>'key' <> $3), '[]'::jsonb), updated_at = NOW()
-        WHERE user_id = $1 AND date = $2 RETURNING date`,
-        [userId, date, habitKey]
-      )
-      if (!result.rowCount) throw new NotFoundError('Daily entry not found')
+      await client.query('BEGIN')
+      const habit = await client.query('SELECT id FROM habits WHERE user_id = $1 AND id::text = $2 FOR KEY SHARE', [userId, habitKey])
+      if (!habit.rows.length) throw new NotFoundError('Habit not found')
+      await client.query('DELETE FROM habit_marks WHERE user_id = $1 AND date = $2::date AND habit_id = $3::uuid', [userId, date, habitKey])
+      await client.query('COMMIT')
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
     } finally {
       client.release()
     }
-    return (await this.getSleepRecordByDate(userId, date))!
+    const entry = await this.getSleepRecordByDate(userId, date)
+    if (!entry) throw new NotFoundError('Daily entry not found')
+    return entry
   }
 
   async checkYesterdayData(userId: string): Promise<boolean> {

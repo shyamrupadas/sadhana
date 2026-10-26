@@ -69,7 +69,7 @@ test('clean database applies the real chain once and preserves user data on repe
       `INSERT INTO ${schema}.users (email, password_hash) VALUES ('test@example.com', 'hash') RETURNING id`,
     )
     const userId = user.rows[0].id
-    await client.query(`INSERT INTO ${schema}.habits (user_id, key, label) VALUES ($1, 'walk', 'Walk')`, [userId])
+    await client.query(`INSERT INTO ${schema}.habits (user_id, label, start_date) VALUES ($1, 'Walk', '2026-10-04')`, [userId])
     await client.query(
       `INSERT INTO ${schema}.daily_entries (id, user_id, date) VALUES ($1, $2, '2026-10-04')`,
       [`${userId}-2026-10-04`, userId],
@@ -424,9 +424,69 @@ test('typed sleep migration preserves local facts and habits, rejects invalid so
     assert.deepEqual(before.sleep, [{ user_id: owner, date: '2026-10-04', bedtime: '2026-10-05 01:15', wake_time: '2026-10-04 08:30', nap_minutes: 30 }])
     assert.deepEqual(before.days[0].habits, [{ key: 'read', value: false }])
     assert.equal('sleep_data' in before.days[0], false)
-    await runMigrations({ connectionString, migrationsDir })
+    await runMigrations({ connectionString, migrationsDir, to: '008' })
     assert.deepEqual(await read(), before)
     await assert.rejects(client.query("INSERT INTO sleep_records (user_id, date, nap_minutes) VALUES ($1, '2026-10-04', 0)", [owner]), { code: '23505' })
     await assert.rejects(client.query("UPDATE sleep_records SET nap_minutes = -1"), { code: '23514' })
   }, true)
+})
+
+test('habit migration reconciles UUIDs, false marks, mixed history and only counted orphans', async (t) => {
+  await withDatabase(t, async ({ client, connectionString, migrationsDir, schema }) => {
+    await client.query(`SET search_path TO "${schema}"`)
+    const options = { connectionString, migrationsDir }
+    await runMigrations({ ...options, to: '008' })
+    const owners = (await client.query("INSERT INTO users (email, password_hash) VALUES ('habits@example.test', 'hash'), ('other@example.test', 'hash') RETURNING id")).rows
+    const owner = owners[0].id
+    const habit = (await client.query("INSERT INTO habits (user_id, key, label, created_at) VALUES ($1, 'read', 'Книги', '2026-10-04 00:30') RETURNING id", [owner])).rows[0].id
+    await client.query("INSERT INTO habits (user_id, key, label, created_at) VALUES ($1, 'unknown', 'Неизвестная', NULL), ($1, 'dated', 'Только создание', '2026-09-30 23:30')", [owner])
+    await client.query("INSERT INTO habits (user_id, key, label) VALUES ($1, 'other-only', 'Чужая')", [owners[1].id])
+    await client.query(`INSERT INTO daily_entries (id, user_id, date, habits) VALUES
+      ('early', $1, '2020-01-02', '[{"key":"read","value":false},{"key":"orphan","value":true},{"key":"other-only","value":false}]'),
+      ('later', $1, '2026-10-04', '[{"key":"read","value":true}]')`, [owner])
+    await client.query("INSERT INTO sleep_records (user_id, date, wake_time, nap_minutes) VALUES ($1, '2026-10-04', '2026-10-04 07:15', 25)", [owner])
+    const sleep = (await client.query('SELECT * FROM sleep_records')).rows
+    const journal = (await client.query('SELECT * FROM schema_migrations ORDER BY id')).rows
+    await runMigrations({ ...options, to: '009' })
+    assert.deepEqual((await client.query('SELECT habit_id, date::text, value FROM habit_marks ORDER BY date')).rows, [
+      { habit_id: habit, date: '2020-01-02', value: false }, { habit_id: habit, date: '2026-10-04', value: true },
+    ])
+    assert.deepEqual((await client.query("SELECT id, start_date::text, archived, to_char(created_at, 'YYYY-MM-DD HH24:MI') AS original FROM habits WHERE id = $1", [habit])).rows, [
+      { id: habit, start_date: '2020-01-02', archived: false, original: '2026-10-04 00:30' },
+    ])
+    assert.equal((await client.query("SELECT start_date FROM habits WHERE label = 'Неизвестная'")).rows[0].start_date, null)
+    assert.equal((await client.query("SELECT start_date::text FROM habits WHERE label = 'Только создание'")).rows[0].start_date, '2026-09-30')
+    assert.deepEqual((await client.query('SELECT * FROM sleep_records')).rows, sleep)
+    assert.equal((await client.query('SELECT count(*)::int AS n FROM daily_entries')).rows[0].n, 2)
+    assert.equal((await client.query("SELECT count(*)::int AS n FROM information_schema.columns WHERE table_schema = $1 AND ((table_name = 'daily_entries' AND column_name = 'habits') OR (table_name = 'habits' AND column_name = 'key'))", [schema])).rows[0].n, 0)
+    assert.deepEqual((await client.query("SELECT * FROM schema_migrations WHERE id < '009' ORDER BY id")).rows, journal)
+    const snapshot = async () => Promise.all(['habits', 'habit_marks', 'sleep_records', 'daily_entries', 'schema_migrations'].map(async table => (await client.query(`SELECT * FROM ${table} ORDER BY 1, 2`)).rows))
+    const before = await snapshot()
+    await runMigrations(options)
+    assert.deepEqual(await snapshot(), before)
+    await assert.rejects(client.query("INSERT INTO habit_marks (user_id, date, habit_id, value) VALUES ($1, '2020-01-02', $2, true)", [owner, habit]), { code: '23505' })
+    await assert.rejects(client.query("INSERT INTO habit_marks (user_id, date, habit_id, value) VALUES ($1, '2020-01-03', $2, true)", [owners[1].id, habit]), { code: '23503' })
+  }, true)
+})
+
+test('habit migration rejects malformed marks, collisions and injected mismatches before source cleanup', async (t) => {
+  for (const marks of ['[{"key":"read","value":"false"}]', '[{"key":"read","value":true},{"key":"read","value":false}]', '[{"key":"read","value":false}]']) {
+    await withDatabase(t, async ({ client, connectionString, migrationsDir, schema }) => {
+      await client.query(`SET search_path TO "${schema}"`)
+      const options = { connectionString, migrationsDir }
+      await runMigrations({ ...options, to: '008' })
+      const owner = (await client.query("INSERT INTO users (email, password_hash) VALUES ('bad@example.test', 'hash') RETURNING id")).rows[0].id
+      await client.query("INSERT INTO habits (user_id, key, label) VALUES ($1, 'read', 'Read')", [owner])
+      await client.query("INSERT INTO daily_entries (id, user_id, date, habits) VALUES ('bad', $1, '2026-10-04', $2)", [owner, marks])
+      if (marks === '[{"key":"read","value":false}]') {
+        const file = join(migrationsDir, '009_normalize_habit_marks.sql')
+        writeFileSync(file, readFileSync(file, 'utf8').replace('-- Reconcile before cleanup.', 'UPDATE habit_marks SET value = NOT value;\n-- Reconcile before cleanup.'))
+      }
+      const before = (await client.query('SELECT * FROM daily_entries')).rows
+      await assert.rejects(runMigrations(options))
+      assert.deepEqual((await client.query('SELECT * FROM daily_entries')).rows, before)
+      assert.equal((await client.query("SELECT to_regclass('habit_marks') AS name")).rows[0].name, null)
+      assert.equal((await client.query('SELECT max(id) AS id FROM schema_migrations')).rows[0].id, '008')
+    }, true)
+  }
 })

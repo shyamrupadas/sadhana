@@ -27,8 +27,8 @@ test('просматривает длинную историю с огранич
     if (new URL(request.url()).pathname === '/api/statistics') requested.push(request.url())
   })
   await page.goto('/statistics')
-  const history = page.getByRole('region', { name: 'История сна' })
-  const table = page.getByRole('table', { name: 'Статистика сна' })
+  const history = page.getByRole('region', { name: 'История сна и привычек' })
+  const table = page.getByRole('table', { name: 'Статистика сна и привычек' })
   await expect(page.getByRole('row', { name: /Подъём/ })).toContainText('07:00')
   const initialRequests = () =>
     requested.filter((url) => new URL(url).searchParams.get('toExclusive')! > today)

@@ -4,7 +4,7 @@ import Fastify, { FastifyInstance } from 'fastify'
 import fastifyJwt from '@fastify/jwt'
 import statisticsRoutes from '../../src/routes/statistics'
 import { createApiHandlers } from '../../src/api-handlers'
-import { ApiClient } from '@sadhana/api-contract'
+import { ApiClient, type ApiSchemas } from '@sadhana/api-contract'
 
 type Row = {
   userId: string
@@ -14,7 +14,9 @@ type Row = {
   nap_minutes: number | null
 }
 
-async function makeApp(rows: Row[]) {
+type Habit = ApiSchemas['HabitDefinition'] & { userId: string }
+type Mark = { userId: string; habit_id: string; date: string; value: boolean }
+async function makeApp(rows: Row[], habits: Habit[] = [], marks: Mark[] = []) {
   const app = Fastify()
   const reads: unknown[][] = []
   app.decorate('pg', {
@@ -22,7 +24,7 @@ async function makeApp(rows: Row[]) {
       query: async (sql: string, values: string[]) => {
         reads.push(values)
         const own = rows.filter((row) => row.userId === values[0])
-        if (sql.includes('min(date)'))
+        if (sql.includes('history_from'))
           return {
             rows: [
               {
@@ -32,11 +34,14 @@ async function makeApp(rows: Row[]) {
                       (row) => row.bedtime || row.wake_time || (row.nap_minutes ?? 0) > 0
                     )
                     .map((row) => row.date)
+                    .concat(habits.filter(h => h.userId === values[0]).flatMap(h => h.startDate ? [h.startDate] : []), marks.filter(m => m.userId === values[0]).map(m => m.date))
                     .filter((date) => date <= values[1])
                     .sort()[0] ?? null,
               },
             ],
           }
+        if (sql.includes('FROM habits')) return { rows: habits.filter(h => h.userId === values[0] && (values[1] || !h.archived) && (!values[2] || h.key === values[2])).map(habit => ({ key: habit.key, label: habit.label, createdAt: habit.createdAt, startDate: habit.startDate, archived: habit.archived })) }
+        if (sql.includes('FROM habit_marks')) return { rows: marks.filter(m => m.userId === values[0] && m.date >= values[1] && m.date < values[2] && habits.some(h => h.key === m.habit_id && h.userId === m.userId && (!h.startDate || m.date >= h.startDate) && (values[3] || !h.archived) && (!values[4] || h.key === values[4]))) }
         if (sql.includes('FROM sleep_records'))
           return {
             rows: own.filter((row) => row.date >= values[1] && row.date < values[2]),
@@ -108,7 +113,7 @@ test('calendar statistics calculate independent sleep samples through authentica
   assert.deepEqual(column.nap, { value: 13, sum: 90, count: 7 })
   assert.deepEqual(column.duration, { value: 825, sum: 1650, count: 2 })
   assert.deepEqual(reads[0], ['alice', '2026-10-04', '2026-10-12'])
-  assert.equal(reads.length, 2)
+  assert.equal(reads.length, 4)
 })
 
 test('statistics validate real dates, calendar alignment and each block limit before reading', async (t) => {
@@ -187,4 +192,40 @@ test('day statistics use exact previous calendar date and arithmetic wake time a
   assert.equal(months.columns[0].wakeTime.value, 360)
   assert.equal(months.columns[0].nap.value, 20)
   assert.equal(months.columns[0].bedtime.value, null)
+})
+
+
+test('habit statistics distinguish daily states, count only explicit answers and keep archive days and global history', async (t) => {
+  const habits: Habit[] = [
+    { userId: 'alice', key: 'read', label: 'Книги', createdAt: '2026-10-05T12:00:00', startDate: '2026-10-06', archived: false },
+    { userId: 'alice', key: 'archived', label: 'Архивная', createdAt: null, startDate: '2020-01-01', archived: true },
+    { userId: 'alice', key: 'unknown', label: 'Старая', createdAt: null, startDate: null, archived: false },
+    { userId: 'bob', key: 'foreign', label: 'Чужая', createdAt: null, startDate: '2010-01-01', archived: false },
+  ]
+  const marks: Mark[] = [6, 7, 8, 9, 10].map(day => ({ userId: 'alice', habit_id: 'read', date: `2026-10-${day.toString().padStart(2, '0')}`, value: day !== 10 }))
+  marks.push({ userId: 'alice', habit_id: 'read', date: '2026-10-05', value: true }, { userId: 'alice', habit_id: 'archived', date: '2026-10-06', value: false }, { userId: 'alice', habit_id: 'unknown', date: '2026-10-07', value: true }, { userId: 'bob', habit_id: 'foreign', date: '2026-10-06', value: true }, { userId: 'alice', habit_id: 'read', date: '2026-10-12', value: false })
+  const { app, client } = await makeApp([], habits, marks)
+  t.after(() => app.close())
+  const range = { from: '2026-10-05', toExclusive: '2026-10-12', asOfDate: '2026-10-11' }
+  const days = await client.getStatistics({ ...range, granularity: 'day' })
+  assert.equal(days.historyFrom, '2020-01-01')
+  assert.deepEqual(days.habits.map(h => h.key), ['read', 'unknown'])
+  assert.deepEqual(days.columns.map(c => c.habits[0].state), ['notApplicable', 'done', 'done', 'done', 'done', 'failed', 'unmarked'])
+  assert.equal(days.columns[0].habits[0].trueCount, 0)
+  const week = await client.getStatistics({ ...range, granularity: 'week' })
+  assert.deepEqual(week.columns[0].habits[0], { habitId: 'read', successRate: 0.8, completeness: 5 / 6, trueCount: 4, falseCount: 1, eligibleDayCount: 6 })
+  assert.deepEqual(week.columns[0].habits[1], { habitId: 'unknown', successRate: 1, completeness: null, trueCount: 1, falseCount: 0, eligibleDayCount: null })
+  const archived = await client.getStatistics({ ...range, granularity: 'week', includeArchived: true })
+  assert.equal(archived.historyFrom, days.historyFrom)
+  assert.deepEqual(archived.columns[0].habits[1], { habitId: 'archived', successRate: 0, completeness: 1 / 7, trueCount: 0, falseCount: 1, eligibleDayCount: 7 })
+  const single = await client.getStatistics({ ...range, granularity: 'week', habitId: 'archived' })
+  assert.deepEqual(single.habits.map(h => h.key), ['archived'])
+  const partial = await client.getStatistics({ ...range, granularity: 'week', asOfDate: '2026-10-07' })
+  assert.equal(partial.columns[0].habits[0].eligibleDayCount, 2)
+  assert.equal(partial.columns[0].habits[0].trueCount, 2)
+  const empty = await client.getStatistics({ granularity: 'month', from: '2026-09-01', toExclusive: '2026-10-01', asOfDate: '2026-10-11' })
+  assert.equal(empty.columns[0].habits[0].successRate, null)
+  assert.equal(empty.columns[0].habits[0].eligibleDayCount, 0)
+  const foreign = await client.getStatistics({ ...range, granularity: 'week', habitId: 'foreign', includeArchived: true })
+  assert.deepEqual(foreign.habits, [])
 })

@@ -25,10 +25,12 @@ function response(query: URLSearchParams): ApiSchemas['StatisticsData'] {
     toExclusive: query.get('toExclusive')!,
     asOfDate: date,
     historyFrom: date,
+    habits: [],
     columns: [
       {
         from: query.get('granularity') === 'day' ? date : date.slice(0, 7) + '-01',
         toExclusive: query.get('toExclusive')!,
+        habits: [],
         bedtime: sample(0),
         wakeTime: sample(420),
         nap: sample(0),
@@ -105,4 +107,35 @@ test('a late private response cannot replace the next account statistics', async
   })
   expect(screen.queryByText('12:00')).not.toBeInTheDocument()
   expect(screen.getByText('08:00')).toBeVisible()
+})
+
+
+test('habit rows show day states, aggregate percentages and archived filters without losing the date', async () => {
+  login()
+  const calls: URLSearchParams[] = []
+  mockApi(({ method, path }) => {
+    const url = new URL(path, 'https://example.test')
+    if (method !== 'GET' || url.pathname !== '/test-api/statistics') throw new Error(`Unexpected ${method} ${path}`)
+    calls.push(url.searchParams)
+    const body = response(url.searchParams)
+    body.habits = [{ key: 'read', label: 'Книги', createdAt: null, startDate: null, archived: false }]
+    body.columns[0].habits = [{ habitId: 'read', state: 'failed', successRate: 0.8, completeness: null, trueCount: 4, falseCount: 1, eligibleDayCount: null }]
+    if (url.searchParams.get('includeArchived') === 'true') {
+      body.habits.push({ key: 'archived', label: 'Архивная', createdAt: null, startDate: null, archived: true })
+      body.columns[0].habits.push({ habitId: 'archived', state: 'notApplicable', successRate: null, completeness: null, trueCount: 0, falseCount: 0, eligibleDayCount: null })
+    }
+    return { status: 200, body }
+  })
+  renderWithTestProviders(<StatisticsPage />)
+  const row = await screen.findByRole('row', { name: /Книги/ })
+  expect(within(row).getByLabelText('Не выполнено')).toBeVisible()
+  expect(screen.queryByRole('row', { name: /Архивная/ })).not.toBeInTheDocument()
+  const dateHeader = screen.getAllByRole('button', { name: /^\d{4}-\d{2}-\d{2}$/ }).at(-1)!.getAttribute('aria-label')!
+  await userEvent.click(screen.getByRole('checkbox', { name: 'Показывать архивные' }))
+  expect(await screen.findByRole('row', { name: /Архивная/ })).toHaveTextContent('н/а')
+  expect(calls.at(-1)?.get('includeArchived')).toBe('true')
+  expect(screen.getByRole('button', { name: dateHeader })).toBeVisible()
+  await userEvent.click(screen.getByRole('button', { name: 'Месяцы' }))
+  await waitFor(() => expect(screen.getByRole('row', { name: /Книги/ })).toHaveTextContent('80%'))
+  expect(screen.getByRole('row', { name: /Архивная/ })).toHaveTextContent('—')
 })

@@ -9,6 +9,8 @@ export const reviewedSqlPrefixes: Readonly<Record<string, string>> = {
   '007': '9346a8a45226f83b52f0e7c7461563cd34ddf565b2e126d467c11d9c55f074e5',
   // 008 validates and reconciles sleep in the current schema, using one temporary table.
   '008': 'a096d47f1cbaed3f91b58c97208b7f801982762ba92603b4b5f51078cfd81b3a',
+  // 009 normalizes habits in the current schema and reconciles three temporary tables.
+  '009': 'b120b82c22f03ded44256d9f111a74bb51c0dbf65f26770860a7058f9cbf3ce6',
 }
 
 export function requirePublicSqlScope(

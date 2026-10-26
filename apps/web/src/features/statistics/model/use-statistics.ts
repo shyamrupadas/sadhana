@@ -14,7 +14,9 @@ export function useStatistics(
   userId: string,
   granularity: Granularity,
   asOfDate: string,
-  anchor: string
+  anchor: string,
+  includeArchived = false,
+  habitId?: string
 ) {
   const queryClient = useQueryClient()
   const key = (query: { from: string; toExclusive: string }) => [
@@ -24,8 +26,8 @@ export function useStatistics(
     query.from,
     query.toExclusive,
     asOfDate,
-    false,
-    null,
+    includeArchived,
+    habitId ?? null,
   ]
   const [historyFrom, setHistoryFrom] = useState<string | null>(null)
   const end = movePeriod(periodStart(asOfDate, granularity), 1, granularity)
@@ -46,6 +48,8 @@ export function useStatistics(
   const ranges = blocks.map((index) => ({
     granularity,
     asOfDate,
+    includeArchived,
+    habitId,
     from: historyFrom
       ? [movePeriod(end, -(index + 1) * size, granularity), firstPeriod].sort().at(-1)!
       : movePeriod(end, -size, granularity),
