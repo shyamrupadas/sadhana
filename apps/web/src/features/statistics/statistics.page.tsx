@@ -255,10 +255,10 @@ function StatisticsTable({ userId, asOfDate }: { userId: string; asOfDate: strin
             className="relative text-xs select-none"
             style={{ width: `${5.5 + count * 3}rem`, minWidth: '100%' }}
           >
-            <div role="row" className="relative h-12">
+            <div role="row" className="relative h-12 bg-gray-100">
               <div
                 role="columnheader"
-                className="sticky left-0 z-20 h-full w-22 border-r bg-background"
+                className="sticky left-0 z-20 h-full w-22 border-r border-b bg-gray-100"
               />
               {indices
                 .filter((index) =>
