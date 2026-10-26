@@ -15,7 +15,11 @@ export default fp<FastifyCorsOptions>(async (fastify) => {
         return
       }
 
-      if (allowedOrigins.has(origin)) {
+      const isConfiguredDevOrigin =
+        fastify.config.DB_ENVIRONMENT === 'dev' &&
+        origin === fastify.config.CORS_ORIGIN
+
+      if (allowedOrigins.has(origin) || isConfiguredDevOrigin) {
         cb(null, true)
         return
       }

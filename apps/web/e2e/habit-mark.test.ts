@@ -11,7 +11,7 @@ test('создаёт привычку и сохраняет полный цик�
   const created = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
-      new URL(response.url()).pathname === '/habits'
+      new URL(response.url()).pathname === '/api/habits'
   )
   await page.getByRole('button', { name: 'Добавить', exact: true }).click()
   const response = await created

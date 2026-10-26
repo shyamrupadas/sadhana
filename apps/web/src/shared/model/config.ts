@@ -13,12 +13,9 @@ export function getWebConfiguration(env: WebEnvironment) {
       throw new Error('Тестовый web требует изолированный адрес /test-api без MSW.')
     }
   } else if (isDev) {
-    if (
-      env.VITE_API_BASE_URL !== 'http://localhost:8080' ||
-      env.VITE_USE_MOCKS === 'true'
-    ) {
+    if (env.VITE_API_BASE_URL !== '/api' || env.VITE_USE_MOCKS === 'true') {
       throw new Error(
-        'Для dev задайте VITE_API_BASE_URL=http://localhost:8080 и VITE_USE_MOCKS=false.'
+        'Для dev задайте VITE_API_BASE_URL=/api и VITE_USE_MOCKS=false.'
       )
     }
   }

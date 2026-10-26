@@ -24,7 +24,7 @@ test('просматривает длинную историю с огранич
   await login(page, account)
   const requested: string[] = []
   page.on('request', (request) => {
-    if (new URL(request.url()).pathname === '/statistics') requested.push(request.url())
+    if (new URL(request.url()).pathname === '/api/statistics') requested.push(request.url())
   })
   await page.goto('/statistics')
   const history = page.getByRole('region', { name: 'История сна' })

@@ -32,7 +32,7 @@ test('сохраняет вечерний отбой и утренний под�
     const saved = page.waitForResponse(
       (response) =>
         response.request().method() === 'PUT' &&
-        new URL(response.url()).pathname === `/sleep-records/${date}`
+        new URL(response.url()).pathname === `/api/sleep-records/${date}`
     )
     await page
       .getByRole('row', { name: rowName })
