@@ -1,0 +1,261 @@
+{
+  "measuredAt": "2026-10-27T05:52:53.829Z",
+  "node": "v24.16.0",
+  "system": "darwin arm64",
+  "cpu": "Apple M2",
+  "environment": "Local source API over loopback HTTP, real configured dev PostgreSQL; sequential requests, no compression",
+  "asOfDate": "2026-10-27",
+  "syntheticHistoryYears": 10,
+  "repetitions": 20,
+  "realHistoryAvailable": false,
+  "realCounts": null,
+  "limitations": [
+    "First request per window is reported separately; only the first window is the first process request, after schema verification and seeding.",
+    "SQL time includes network, PostgreSQL execution and pg row parsing; it is not server-only EXPLAIN execution time.",
+    "Calculation CPU is process CPU after the final SQL response until the service returns; serialization is included only in total HTTP time.",
+    "Local dev measurements do not establish production latency. Real profile is read-only; result contains no account identifiers or values."
+  ],
+  "windows": [
+    {
+      "profile": "synthetic-100-habits",
+      "granularity": "day",
+      "size": "ordinary",
+      "columns": 7,
+      "sourceDays": 7,
+      "coldMs": 862.8,
+      "totalMs": {
+        "min": 302.76,
+        "median": 315.46,
+        "p95": 331.66,
+        "max": 369.76
+      },
+      "sqlCount": 4,
+      "sqlRows": 809,
+      "sqlMs": {
+        "min": 295.75,
+        "median": 305.02,
+        "p95": 315.69,
+        "max": 357.86
+      },
+      "calculationCpuMs": {
+        "min": 2.87,
+        "median": 8.19,
+        "p95": 12.25,
+        "max": 13.61
+      },
+      "responseBytes": 122651,
+      "withinOneSecond": 20
+    },
+    {
+      "profile": "synthetic-100-habits",
+      "granularity": "day",
+      "size": "maximum",
+      "columns": 48,
+      "sourceDays": 48,
+      "coldMs": 556.73,
+      "totalMs": {
+        "min": 415.09,
+        "median": 465.89,
+        "p95": 571.94,
+        "max": 3894.32
+      },
+      "sqlCount": 4,
+      "sqlRows": 4950,
+      "sqlMs": {
+        "min": 374.97,
+        "median": 424.79,
+        "p95": 547.41,
+        "max": 3856.17
+      },
+      "calculationCpuMs": {
+        "min": 19.15,
+        "median": 34.71,
+        "p95": 41.22,
+        "max": 48.92
+      },
+      "responseBytes": 749828,
+      "withinOneSecond": 19
+    },
+    {
+      "profile": "synthetic-100-habits",
+      "granularity": "week",
+      "size": "ordinary",
+      "columns": 4,
+      "sourceDays": 28,
+      "coldMs": 307.19,
+      "totalMs": {
+        "min": 309.82,
+        "median": 326.76,
+        "p95": 373.19,
+        "max": 416.93
+      },
+      "sqlCount": 4,
+      "sqlRows": 530,
+      "sqlMs": {
+        "min": 303.28,
+        "median": 319.34,
+        "p95": 368.24,
+        "max": 407.48
+      },
+      "calculationCpuMs": {
+        "min": 1.58,
+        "median": 6.16,
+        "p95": 6.86,
+        "max": 7.66
+      },
+      "responseBytes": 76755,
+      "withinOneSecond": 20
+    },
+    {
+      "profile": "synthetic-100-habits",
+      "granularity": "week",
+      "size": "maximum",
+      "columns": 24,
+      "sourceDays": 168,
+      "coldMs": 435.74,
+      "totalMs": {
+        "min": 318.87,
+        "median": 397.61,
+        "p95": 447.12,
+        "max": 488.25
+      },
+      "sqlCount": 4,
+      "sqlRows": 2670,
+      "sqlMs": {
+        "min": 306.21,
+        "median": 364.06,
+        "p95": 425.6,
+        "max": 456.5
+      },
+      "calculationCpuMs": {
+        "min": 12.42,
+        "median": 26.31,
+        "p95": 32.9,
+        "max": 36.06
+      },
+      "responseBytes": 383455,
+      "withinOneSecond": 20
+    },
+    {
+      "profile": "synthetic-100-habits",
+      "granularity": "month",
+      "size": "ordinary",
+      "columns": 3,
+      "sourceDays": 92,
+      "coldMs": 320.96,
+      "totalMs": {
+        "min": 290.28,
+        "median": 306.92,
+        "p95": 380.23,
+        "max": 1601.68
+      },
+      "sqlCount": 4,
+      "sqlRows": 494,
+      "sqlMs": {
+        "min": 283.5,
+        "median": 300.01,
+        "p95": 368.75,
+        "max": 1593.14
+      },
+      "calculationCpuMs": {
+        "min": 1.67,
+        "median": 5.64,
+        "p95": 6.93,
+        "max": 7.09
+      },
+      "responseBytes": 62345,
+      "withinOneSecond": 19
+    },
+    {
+      "profile": "synthetic-100-habits",
+      "granularity": "month",
+      "size": "maximum",
+      "columns": 12,
+      "sourceDays": 365,
+      "coldMs": 341.34,
+      "totalMs": {
+        "min": 326.32,
+        "median": 346.18,
+        "p95": 382.5,
+        "max": 403.47
+      },
+      "sqlCount": 4,
+      "sqlRows": 1667,
+      "sqlMs": {
+        "min": 304.92,
+        "median": 331.87,
+        "p95": 356.45,
+        "max": 380.62
+      },
+      "calculationCpuMs": {
+        "min": 5.74,
+        "median": 16.46,
+        "p95": 20.78,
+        "max": 21.01
+      },
+      "responseBytes": 203032,
+      "withinOneSecond": 20
+    },
+    {
+      "profile": "synthetic-100-habits",
+      "granularity": "year",
+      "size": "ordinary",
+      "columns": 1,
+      "sourceDays": 365,
+      "coldMs": 313.3,
+      "totalMs": {
+        "min": 299.33,
+        "median": 310.36,
+        "p95": 328.59,
+        "max": 338.29
+      },
+      "sqlCount": 4,
+      "sqlRows": 567,
+      "sqlMs": {
+        "min": 295.1,
+        "median": 304.92,
+        "p95": 322.85,
+        "max": 327.72
+      },
+      "calculationCpuMs": {
+        "min": 2.06,
+        "median": 4.98,
+        "p95": 7.08,
+        "max": 7.13
+      },
+      "responseBytes": 31366,
+      "withinOneSecond": 20
+    },
+    {
+      "profile": "synthetic-100-habits",
+      "granularity": "year",
+      "size": "maximum",
+      "columns": 4,
+      "sourceDays": 1461,
+      "coldMs": 384.85,
+      "totalMs": {
+        "min": 359.87,
+        "median": 430.46,
+        "p95": 589.1,
+        "max": 669.89
+      },
+      "sqlCount": 4,
+      "sqlRows": 1963,
+      "sqlMs": {
+        "min": 345.1,
+        "median": 408.98,
+        "p95": 574.61,
+        "max": 650.56
+      },
+      "calculationCpuMs": {
+        "min": 6.89,
+        "median": 13.34,
+        "p95": 20.52,
+        "max": 21.03
+      },
+      "responseBytes": 79219,
+      "withinOneSecond": 20
+    }
+  ],
+  "passed": true
+}

@@ -129,7 +129,7 @@ jobs:
             node dist/db/migrate.js --help
           '
 
-      - name: Start image on Railway PORT and check GET /
+      - name: Reject image startup without a ready database
         if: steps.changes.outputs.api_changed == 'true'
         run: |
           container="$(docker run --detach --env PORT=18080 \
@@ -141,10 +141,10 @@ jobs:
             --publish 127.0.0.1::18080 sadhana-api:ci)"
           trap 'docker logs "$container"; docker rm --force "$container"' EXIT
           port="$(docker port "$container" 18080/tcp | sed 's/.*://')"
-          for attempt in $(seq 1 30); do
-            if curl --fail --silent --show-error "http://127.0.0.1:$port/"; then
-              exit 0
-            fi
-            sleep 1
-          done
-          exit 1
+          status="$(timeout 30s docker wait "$container")"
+          test "$status" = 1
+          docker logs "$container" 2>&1 | grep -F 'API startup failed'
+          if curl --fail --silent "http://127.0.0.1:$port/"; then
+            echo 'API must not serve HTTP without a verified database schema'
+            exit 1
+          fi

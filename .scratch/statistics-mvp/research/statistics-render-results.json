@@ -1,0 +1,93 @@
+{
+  "measuredAt": "2026-10-27T14:10:23.411Z",
+  "browser": "153.0.8010.12",
+  "environment": "Headless Chromium, local Vite development web and actual dev API/PostgreSQL, existing synthetic history profile, no data writes",
+  "limitations": [
+    "One observation per scale and viewport, not a percentile estimate.",
+    "Action-to-visible includes HTTP, Vite module loading, Playwright observation and two animation frames.",
+    "After-response metric is an observation until two frames after visible values; it is not isolated React render CPU.",
+    "Existing two-year profile has two active habits; this is not the 100-habit HTTP stress profile."
+  ],
+  "results": [
+    {
+      "width": 1280,
+      "granularity": "day",
+      "actionToVisibleMs": 629.02,
+      "afterLastResponseToTwoFramesMs": 82.5,
+      "domColumns": 23,
+      "pageFitsViewport": true,
+      "habits": 2,
+      "historyYears": 2
+    },
+    {
+      "width": 1280,
+      "granularity": "week",
+      "actionToVisibleMs": 950.52,
+      "afterLastResponseToTwoFramesMs": 78.7,
+      "domColumns": 23,
+      "pageFitsViewport": true,
+      "habits": 2,
+      "historyYears": 2
+    },
+    {
+      "width": 1280,
+      "granularity": "month",
+      "actionToVisibleMs": 449.19,
+      "afterLastResponseToTwoFramesMs": 35.4,
+      "domColumns": 23,
+      "pageFitsViewport": true,
+      "habits": 2,
+      "historyYears": 2
+    },
+    {
+      "width": 1280,
+      "granularity": "year",
+      "actionToVisibleMs": 416.92,
+      "afterLastResponseToTwoFramesMs": 37.3,
+      "domColumns": 3,
+      "pageFitsViewport": true,
+      "habits": 2,
+      "historyYears": 2
+    },
+    {
+      "width": 390,
+      "granularity": "day",
+      "actionToVisibleMs": 506.84,
+      "afterLastResponseToTwoFramesMs": 70,
+      "domColumns": 9,
+      "pageFitsViewport": true,
+      "habits": 2,
+      "historyYears": 2
+    },
+    {
+      "width": 390,
+      "granularity": "week",
+      "actionToVisibleMs": 416.05,
+      "afterLastResponseToTwoFramesMs": 39.2,
+      "domColumns": 9,
+      "pageFitsViewport": true,
+      "habits": 2,
+      "historyYears": 2
+    },
+    {
+      "width": 390,
+      "granularity": "month",
+      "actionToVisibleMs": 550.21,
+      "afterLastResponseToTwoFramesMs": 107.4,
+      "domColumns": 9,
+      "pageFitsViewport": true,
+      "habits": 2,
+      "historyYears": 2
+    },
+    {
+      "width": 390,
+      "granularity": "year",
+      "actionToVisibleMs": 399.16,
+      "afterLastResponseToTwoFramesMs": 31.6,
+      "domColumns": 3,
+      "pageFitsViewport": true,
+      "habits": 2,
+      "historyYears": 2
+    }
+  ]
+}

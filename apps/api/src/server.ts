@@ -13,8 +13,9 @@ export async function startServer(context?: DatabaseEnvironment) {
       },
     },
   })
-  server.register(app, { dbEnvironment: context })
+  server.register(app, { dbEnvironment: context, verifySchema: true })
   try {
+    await server.ready()
     const port = Number(process.env.PORT || 8080)
     await server.listen({ port, host: '0.0.0.0' })
   } catch (error) {

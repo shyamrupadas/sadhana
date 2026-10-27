@@ -60,12 +60,16 @@ export class StatisticsService {
         `SELECT ${habitProjection} FROM habits WHERE user_id = $1 AND ($2::boolean OR NOT archived) AND ($3::text IS NULL OR id::text = $3) ORDER BY created_at ASC NULLS FIRST, id`,
         [userId, Boolean(query.includeArchived || query.habitId), query.habitId ?? null]
       )
-      const marks = await client.query<{ habit_id: string; date: string; value: boolean }>(
-        `SELECT m.habit_id::text, m.date::text, m.value FROM habit_marks m JOIN habits h ON h.user_id = m.user_id AND h.id = m.habit_id
+      const marks = await client.query<{ habit_id: string; date: string; true_count: number; false_count: number }>(
+        `SELECT m.habit_id::text, date_trunc($6::text, m.date::timestamp)::date::text AS date,
+         count(*) FILTER (WHERE m.value)::int AS true_count,
+         count(*) FILTER (WHERE NOT m.value)::int AS false_count
+         FROM habit_marks m JOIN habits h ON h.user_id = m.user_id AND h.id = m.habit_id
          WHERE m.user_id = $1 AND m.date >= $2::date AND m.date < $3::date
          AND (h.start_date IS NULL OR m.date >= h.start_date)
-         AND ($4::boolean OR NOT h.archived) AND ($5::text IS NULL OR h.id::text = $5)`,
-        [userId, from, end, Boolean(query.includeArchived || query.habitId), query.habitId ?? null]
+         AND ($4::boolean OR NOT h.archived) AND ($5::text IS NULL OR h.id::text = $5)
+         GROUP BY m.habit_id, date_trunc($6::text, m.date::timestamp)::date`,
+        [userId, from, end, Boolean(query.includeArchived || query.habitId), query.habitId ?? null, granularity]
       )
       const history = await client.query<{ history_from: string | null }>(
         `SELECT min(history_date)::text AS history_from FROM (
@@ -80,10 +84,10 @@ export class StatisticsService {
       for (const mark of marks.rows) {
         const key = `${periodStart(mark.date, granularity)}:${mark.habit_id}`
         const count = counts.get(key) ?? { trueCount: 0, falseCount: 0 }
-        if (mark.value) count.trueCount++
-        else count.falseCount++
+        count.trueCount += mark.true_count
+        count.falseCount += mark.false_count
         counts.set(key, count)
-        if (granularity === 'day') dayStates.set(`${mark.date}:${mark.habit_id}`, mark.value)
+        if (granularity === 'day') dayStates.set(`${mark.date}:${mark.habit_id}`, mark.true_count > 0)
       }
       const byDate = new Map(records.rows.map((row) => [row.date, row]))
       const columns: ApiSchemas['SleepStatisticsColumn'][] = []

@@ -41,7 +41,7 @@ async function makeApp(rows: Row[], habits: Habit[] = [], marks: Mark[] = []) {
             ],
           }
         if (sql.includes('FROM habits')) return { rows: habits.filter(h => h.userId === values[0] && (values[1] || !h.archived) && (!values[2] || h.key === values[2])).map(habit => ({ key: habit.key, label: habit.label, createdAt: habit.createdAt, startDate: habit.startDate, archived: habit.archived })) }
-        if (sql.includes('FROM habit_marks')) return { rows: marks.filter(m => m.userId === values[0] && m.date >= values[1] && m.date < values[2] && habits.some(h => h.key === m.habit_id && h.userId === m.userId && (!h.startDate || m.date >= h.startDate) && (values[3] || !h.archived) && (!values[4] || h.key === values[4]))) }
+        if (sql.includes('FROM habit_marks')) return { rows: marks.filter(m => m.userId === values[0] && m.date >= values[1] && m.date < values[2] && habits.some(h => h.key === m.habit_id && h.userId === m.userId && (!h.startDate || m.date >= h.startDate) && (values[3] || !h.archived) && (!values[4] || h.key === values[4]))).map(m => ({ ...m, true_count: m.value ? 1 : 0, false_count: m.value ? 0 : 1 })) }
         if (sql.includes('FROM sleep_records'))
           return {
             rows: own.filter((row) => row.date >= values[1] && row.date < values[2]),

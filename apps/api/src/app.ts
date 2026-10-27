@@ -4,9 +4,11 @@ import { FastifyPluginAsync, FastifyServerOptions } from 'fastify'
 import { createApiHandlers } from './api-handlers'
 import envPlugin from './plugins/env'
 import type { DatabaseEnvironment } from './config/environment'
+import { verifyApplicationSchema } from './db/application-schema'
 
 export interface AppOptions extends FastifyServerOptions, Partial<AutoloadPluginOptions> {
   dbEnvironment?: DatabaseEnvironment
+  verifySchema?: boolean
 }
 // Pass --options via CLI arguments in command to enable these options.
 const options: AppOptions = {
@@ -15,6 +17,10 @@ const options: AppOptions = {
 
 const app: FastifyPluginAsync<AppOptions> = async (fastify, opts): Promise<void> => {
   await fastify.register(envPlugin, { dbEnvironment: opts.dbEnvironment })
+
+  if (opts.verifySchema) {
+    fastify.addHook('onReady', () => verifyApplicationSchema(fastify.pg.pool))
+  }
 
   // Do not touch the following lines
 

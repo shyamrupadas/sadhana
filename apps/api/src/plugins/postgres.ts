@@ -5,6 +5,7 @@ import fastifyPostgres from '@fastify/postgres'
 const postgresPlugin: FastifyPluginAsync = async (fastify) => {
   await fastify.register(fastifyPostgres, {
     connectionString: fastify.config.DATABASE_URL,
+    connectionTimeoutMillis: 10_000,
   })
 
   fastify.pg.pool.on('error', () => fastify.log.error('Database connection failed'))
