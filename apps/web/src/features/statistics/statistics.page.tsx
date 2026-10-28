@@ -22,6 +22,8 @@ const rows = [
   ['bedtime', 'Отбой'],
 ] as const
 
+const shortMonths = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
+
 function StatisticsTable({ userId, asOfDate }: { userId: string; asOfDate: string }) {
   const habitId = new URLSearchParams(window.location.search).get('habitId') ?? undefined
   const [includeArchived, setIncludeArchived] = useState(false)
@@ -282,6 +284,7 @@ function StatisticsTable({ userId, asOfDate }: { userId: string; asOfDate: strin
                 )
                 .map((index) => {
                   const date = movePeriod(firstPeriod, index, granularity)
+                  const weekEnd = dayjs(date).add(6, 'day')
                   return (
                     <div
                       role="columnheader"
@@ -291,11 +294,22 @@ function StatisticsTable({ userId, asOfDate }: { userId: string; asOfDate: strin
                       style={{ left: `${5.5 + index * 3}rem` }}
                     >
                       <button
-                        className="h-full w-full"
+                        className="h-full w-full tabular-nums"
                         aria-label={date}
                         onClick={() => setAnchor([date, asOfDate].sort()[0])}
                       >
-                        {periodLabel(date, granularity)}
+                        {granularity === 'week' ? <>
+                          <span className="block font-medium">{dayjs(date).format('D')}–{weekEnd.format('D')}</span>
+                          {' '}
+                          <span className="block text-muted-foreground">
+                            {shortMonths[dayjs(date).month()]}
+                            {weekEnd.month() !== dayjs(date).month() && '*'}
+                          </span>
+                        </> : granularity === 'month' ? <>
+                          <span className="block font-medium">{shortMonths[dayjs(date).month()]}</span>
+                          {' '}
+                          <span className="block text-muted-foreground">{dayjs(date).format('YYYY')}</span>
+                        </> : periodLabel(date, granularity)}
                       </button>
                     </div>
                   )

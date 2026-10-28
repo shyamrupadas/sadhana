@@ -1,12 +1,16 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, expect, test } from 'vitest'
+import dayjs from 'dayjs'
+import { afterEach, expect, test, vi } from 'vitest'
 import type { ApiSchemas } from '@sadhana/api-contract'
 import { useSession } from '@/shared/model/session'
 import { mockApi, renderWithTestProviders } from '@/shared/test/harness'
 import { Component as StatisticsPage } from '@/features/statistics/statistics.page'
 
-afterEach(() => useSession.getState().logout())
+afterEach(() => {
+  useSession.getState().logout()
+  vi.useRealTimers()
+})
 const login = (userId = 'alice') =>
   useSession
     .getState()
@@ -28,7 +32,9 @@ function response(query: URLSearchParams): ApiSchemas['StatisticsData'] {
     habits: [],
     columns: [
       {
-        from: query.get('granularity') === 'day' ? date : date.slice(0, 7) + '-01',
+        from: query.get('granularity') === 'week'
+          ? dayjs(date).subtract((dayjs(date).day() + 6) % 7, 'day').format('YYYY-MM-DD')
+          : query.get('granularity') === 'day' ? date : date.slice(0, 7) + '-01',
         toExclusive: query.get('toExclusive')!,
         habits: [],
         bedtime: sample(0),
@@ -41,6 +47,8 @@ function response(query: URLSearchParams): ApiSchemas['StatisticsData'] {
 }
 
 test('statistics retries an HTTP error, formats sleep and switches calendar scales', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-10-28T12:00:00Z'))
   login()
   let fail = true
   const calls: string[] = []
@@ -68,10 +76,15 @@ test('statistics retries an HTTP error, formats sleep and switches calendar scal
   expect(
     within(screen.getByRole('row', { name: /Дневной сон/ })).getByText('—')
   ).toBeVisible()
+  await userEvent.click(screen.getByRole('button', { name: 'Недели' }))
+  const weekStart = dayjs().subtract((dayjs().day() + 6) % 7, 'day')
+  const weekHeader = await screen.findByRole('button', { name: weekStart.format('YYYY-MM-DD') })
+  expect(weekHeader).toHaveTextContent('26–1 окт*')
   await userEvent.click(screen.getByRole('button', { name: 'Месяцы' }))
   await waitFor(() =>
     expect(calls.some((path) => path.includes('granularity=month'))).toBe(true)
   )
+  expect(await screen.findByRole('button', { name: '2026-10-01' })).toHaveTextContent('окт 2026')
 })
 
 test('a late private response cannot replace the next account statistics', async () => {

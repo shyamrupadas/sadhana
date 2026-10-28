@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import dayjs from 'dayjs'
-import { MoreHorizontalIcon, PenIcon } from 'lucide-react'
+import { ChevronDownIcon, HistoryIcon, MoreHorizontalIcon, PenIcon, RotateCcwIcon, Trash2Icon } from 'lucide-react'
 
 import { useHabits } from '@/features/main/model/use-habits'
 import { useSleepRecords } from '@/features/main/model/use-sleep-records'
@@ -369,16 +369,6 @@ const MainPage = () => {
           <span>Привычка перенесена в архив</span>
           <Button variant="outline" size="sm" disabled={restoreHabit.isPending} onClick={() => restoreHabit.mutate(archivedKey, { onSuccess: () => setArchivedKey(null) })}>Отменить</Button>
         </div>}
-        <Button className="mt-3" size="sm" variant="outline" aria-expanded={showArchive} onClick={() => setShowArchive(!showArchive)}>Архив</Button>
-        {showArchive && <section aria-label="Архив привычек" className="mt-3 space-y-3">
-          {archivedHabits.length === 0 && <p className="text-sm">Архив пуст</p>}
-          {archivedHabits.map(habit => <div key={habit.key} className="flex flex-wrap items-center gap-2 text-sm">
-            <span>{habit.label}</span>
-            <a className="underline" aria-label={`История: ${habit.label}`} href={`/statistics?habitId=${encodeURIComponent(habit.key)}`}>История</a>
-            <Button size="sm" variant="outline" aria-label={`Вернуть: ${habit.label}`} disabled={restoreHabit.isPending} onClick={() => restoreHabit.mutate(habit.key, { onSuccess: () => setArchivedKey(null) })}>Вернуть</Button>
-            <Button size="sm" variant="ghost" aria-label={`Удалить навсегда: ${habit.label}`} disabled={loadingDeletion} onClick={() => void handleDeleteHabit(habit.key)}>Удалить навсегда</Button>
-          </div>)}
-        </section>}
         {editMode && (
           <div className="mt-6 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <input
@@ -400,6 +390,32 @@ const MainPage = () => {
             </Button>
           </div>
         )}
+        {archivedHabits.length > 0 && <Button className="mt-3" size="sm" variant="outline" aria-expanded={showArchive} onClick={() => setShowArchive(!showArchive)}>
+          Архив
+          <ChevronDownIcon className={cn('size-4 transition-transform', showArchive && 'rotate-180')} />
+        </Button>}
+        {archivedHabits.length > 0 && showArchive && <section aria-label="Архив привычек" className="mt-3">
+          <ul className="space-y-2">
+            {archivedHabits.map(habit => <li key={habit.key} className="min-w-0 rounded-lg border bg-muted/30 p-3">
+              <p className="wrap-anywhere text-sm leading-snug font-medium">{habit.label}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <a aria-label={`История: ${habit.label}`} href={`/statistics?habitId=${encodeURIComponent(habit.key)}`}>
+                    <HistoryIcon />
+                    История
+                  </a>
+                </Button>
+                <Button size="sm" variant="outline" aria-label={`Вернуть: ${habit.label}`} disabled={restoreHabit.isPending} onClick={() => restoreHabit.mutate(habit.key, { onSuccess: () => setArchivedKey(null) })}>
+                  <RotateCcwIcon />
+                  Вернуть
+                </Button>
+                <Button size="icon" variant="ghost" className="ml-auto size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" title="Удалить навсегда" aria-label={`Удалить навсегда: ${habit.label}`} disabled={loadingDeletion} onClick={() => void handleDeleteHabit(habit.key)}>
+                  <Trash2Icon />
+                </Button>
+              </div>
+            </li>)}
+          </ul>
+        </section>}
       </div>
     </main>
   )
