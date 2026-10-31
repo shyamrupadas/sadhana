@@ -54,7 +54,9 @@ jobs:
         run: pnpm exec turbo run typecheck --filter=@sadhana/web
 
       - name: Build web
-        run: pnpm build:web
+        run: |
+          export VITE_BUILD_ID="$(date -u +%F)-${GITHUB_SHA:0:8}"
+          pnpm build:web
 
       - name: Verify production artifact and API URL
         run: |

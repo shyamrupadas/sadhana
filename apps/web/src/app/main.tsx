@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router'
 import './index.css'
 
+document.documentElement.dataset.buildVersion = import.meta.env.VITE_BUILD_ID
+
 const root = createRoot(document.getElementById('root')!)
 
 // Validate configuration before constructing the router (its loaders can issue API requests).

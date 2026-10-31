@@ -4,6 +4,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "env": ["VITE_BUILD_ID"],
       "outputs": ["dist/**"]
     },
     "dev": {

@@ -1,19 +1,39 @@
 import path from 'path'
+import { randomUUID } from 'node:crypto'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
+const version = process.env.VITE_BUILD_ID || randomUUID()
+
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_BUILD_ID': JSON.stringify(version),
+  },
   optimizeDeps: {
     exclude: ['@sadhana/api-contract'],
   },
   plugins: [
+    {
+      name: 'release-artifact',
+      generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'release.json',
+          source: JSON.stringify({ version }),
+        })
+      },
+    },
     react(),
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        globIgnores: ['**/release.json'],
+        navigateFallbackDenylist: [/^\/release\.json$/],
+      },
       manifest: {
         name: 'SadhanaTracker',
         short_name: 'Sadhana',
