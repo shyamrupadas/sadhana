@@ -11,6 +11,7 @@ import { Button } from '@/shared/components/ui/button'
 import { apiClient } from '@/shared/api/instance'
 import { getSessionVersion, useSession } from '@/shared/model/session'
 import { cn } from '@/shared/lib/utils'
+import { reportApiError } from '@/shared/lib/unexpected-error'
 
 const getLastNDays = (n = 5): string[] => {
   return Array.from({ length: n })
@@ -85,8 +86,11 @@ const MainPage = () => {
       if (window.confirm(`Удалить “${summary.label}” и все ${summary.markCount} отметки? Восстановить их будет нельзя`)) {
         await deleteHabit.mutateAsync(habitKey)
       }
-    } catch {
-      if (version === getSessionVersion()) setDeletionError(true)
+    } catch (error) {
+      if (version === getSessionVersion()) {
+        reportApiError(error)
+        setDeletionError(true)
+      }
     } finally {
       if (version === getSessionVersion()) setLoadingDeletion(false)
     }

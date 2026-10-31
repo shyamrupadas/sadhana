@@ -4,13 +4,17 @@ import { useQuery } from '@tanstack/react-query'
 import { afterEach, beforeEach, expect, onTestFinished, test, vi } from 'vitest'
 
 import { mockApi } from '@/shared/test/harness'
-import { App } from './app'
 import { queryClient } from '@/shared/api/query-client'
 import { Component as MainPage } from '@/features/main/main.page'
 import { useSession } from '@/shared/model/session'
 import userEvent from '@testing-library/user-event'
 import { within } from '@testing-library/react'
 import type { ApiSchemas } from '@sadhana/api-contract'
+import { StrictMode, useState } from 'react'
+import { createApplicationRoute } from './application-route'
+import { transferableAbortController } from 'node:util'
+import { Component as LoginPage } from '@/features/auth/login.page'
+import { protectedLoader } from './protected-loader'
 
 const interval = 10 * 60 * 1000
 const unexpectedRequests: string[] = []
@@ -49,6 +53,10 @@ beforeEach(() => {
   queryClient.clear()
   useSession.getState().logout()
   unexpectedRequests.length = 0
+  vi.stubGlobal(
+    'ResizeObserver',
+    vi.fn(() => ({ observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() }))
+  )
 })
 
 afterEach(() => {
@@ -61,7 +69,7 @@ afterEach(() => {
 
 async function openApp(page = <h1>Рабочая страница</h1>) {
   const router = createMemoryRouter(
-    [{ Component: App, children: [{ path: '*', element: page }] }],
+    [createApplicationRoute([{ path: '*', element: page }])],
     { initialEntries: ['/statistics?period=month#habits'] }
   )
   const view = render(<RouterProvider router={router} />)
@@ -69,6 +77,529 @@ async function openApp(page = <h1>Рабочая страница</h1>) {
   await act(async () => {})
   return { ...view, router }
 }
+
+const errorMessage = 'Что-то идёт не так, обновите страницу или попробуйте позже'
+
+function BrokenPage() {
+  const [broken, setBroken] = useState(false)
+  if (broken) throw new Error('Ошибка отображения')
+  return <button onClick={() => setBroken(true)}>Сломать страницу</button>
+}
+
+test('после ошибки интерфейса проверяет обновление и даёт ручной повтор без новой сборки', async () => {
+  vi.useRealTimers()
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  let resolveRelease!: (value: Response) => void
+  const fetchMock = vi.fn(async (input) => {
+    if (input !== '/release.json') return unexpectedRequest(String(input))
+    return new Promise<Response>((resolve) => {
+      resolveRelease = resolve
+    })
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  const reload = vi.fn()
+  vi.stubGlobal('location', { href: location.href, origin: location.origin, reload })
+  await openApp(<BrokenPage />)
+  await userEvent.click(screen.getByRole('button', { name: 'Сломать страницу' }))
+  expect(screen.getByText('Проверяем обновление…')).toBeVisible()
+  await act(async () => {
+    resolveRelease(new Response(JSON.stringify({ version: 'build-a' })))
+  })
+  expect(
+    screen.getByText('Что-то идёт не так, обновите страницу или попробуйте позже')
+  ).toBeVisible()
+  expect(reload).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole('button', { name: 'Обновить страницу' }))
+  await act(async () => {
+    resolveRelease(new Response(JSON.stringify({ version: 'build-a' })))
+  })
+  expect(reload).toHaveBeenCalledTimes(1)
+})
+
+test('ошибка удалённого чанка при первом открытии восстанавливается и в StrictMode', async () => {
+  vi.stubGlobal(
+    'AbortController',
+    vi.fn(() => transferableAbortController())
+  )
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+  browserWorker()
+  const reload = vi.fn()
+  vi.stubGlobal('location', { href: location.href, origin: location.origin, reload })
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input) => {
+      if (input === '/release.json')
+        return new Response(JSON.stringify({ version: 'build-b' }))
+      if (input === '/index.html')
+        return new Response('<meta name="app-version" content="build-b">')
+      return unexpectedRequest(String(input))
+    })
+  )
+  const router = createMemoryRouter([
+    createApplicationRoute([
+      {
+        path: '*',
+        lazy: async () => {
+          throw new TypeError(
+            'Failed to fetch dynamically imported module: /assets/old.js'
+          )
+        },
+      },
+    ]),
+  ])
+  onTestFinished(() => router.dispose())
+  render(
+    <StrictMode>
+      <RouterProvider router={router} />
+    </StrictMode>
+  )
+  await act(async () => {})
+  expect(reload).toHaveBeenCalledTimes(1)
+})
+
+test.each([10_000, 16_000])(
+  'ошибка маршрута через %s мс не заменяет общую попытку восстановления',
+  async (delay) => {
+    vi.stubGlobal(
+      'AbortController',
+      vi.fn(() => transferableAbortController())
+    )
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input) => {
+        if (input === '/release.json') return new Promise<Response>(() => {})
+        return unexpectedRequest(String(input))
+      })
+    )
+    let rejectRoute!: (error: Error) => void
+    const lazyRoute = new Promise<never>((_resolve, reject) => {
+      rejectRoute = reject
+    })
+    const router = createMemoryRouter([
+      createApplicationRoute([
+        { path: '/', element: <h1>Рабочая страница</h1> },
+        { path: '/broken', lazy: () => lazyRoute },
+      ]),
+    ])
+    onTestFinished(() => router.dispose())
+    render(<RouterProvider router={router} />)
+    await act(async () => {
+      void router.navigate('/broken')
+      window.dispatchEvent(
+        new ErrorEvent('error', { error: new Error('Сбой API во время навигации') })
+      )
+    })
+    expect(screen.getByText('Проверяем обновление…')).toBeVisible()
+    await act(() => vi.advanceTimersByTimeAsync(delay))
+    await act(async () => {
+      rejectRoute(new Error('Loading chunk failed'))
+    })
+    if (delay < 15_000) await act(() => vi.advanceTimersByTimeAsync(15_000 - delay))
+    expect(screen.getByText(errorMessage)).toBeVisible()
+  }
+)
+
+test('общий бюджет 15 секунд не продлевается параллельным сбоем, поздний worker ждёт ручного повтора', async () => {
+  const { registration, serviceWorker } = browserWorker()
+  const worker = new Worker()
+  worker.state = 'installing'
+  registration.installing = worker
+  let resolveRelease!: (response: Response) => void
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input) => {
+      if (input === '/release.json')
+        return new Promise<Response>((resolve) => {
+          resolveRelease = resolve
+        })
+      if (input === '/index.html')
+        return new Response('<meta name="app-version" content="build-b">')
+      return unexpectedRequest(String(input))
+    })
+  )
+  const reload = vi.fn()
+  vi.stubGlobal('location', { href: location.href, origin: location.origin, reload })
+  await openApp()
+  const fail = () =>
+    window.dispatchEvent(
+      new ErrorEvent('error', { error: new Error('Сбой обработчика') })
+    )
+  await act(async () => {
+    fail()
+  })
+  expect(screen.getByText('Проверяем обновление…')).toBeVisible()
+  await act(() => vi.advanceTimersByTimeAsync(10_000))
+  await act(async () => {
+    resolveRelease(new Response(JSON.stringify({ version: 'build-b' })))
+  })
+  await act(() => vi.advanceTimersByTimeAsync(4_999))
+  await act(async () => {
+    fail()
+  })
+  expect(screen.getByText('Проверяем обновление…')).toBeVisible()
+  await act(() => vi.advanceTimersByTimeAsync(1))
+  expect(screen.getByText(errorMessage)).toBeVisible()
+  await act(async () => {
+    registration.installing = null
+    registration.active = worker
+    serviceWorker.controller = worker
+    worker.state = 'activated'
+    worker.dispatchEvent(new Event('statechange'))
+    serviceWorker.dispatchEvent(new Event('controllerchange'))
+  })
+  await act(() => vi.advanceTimersByTimeAsync(interval))
+  expect(reload).not.toHaveBeenCalled()
+  vi.useRealTimers()
+  await userEvent.click(screen.getByRole('button', { name: 'Обновить страницу' }))
+  await act(async () => {
+    resolveRelease(new Response(JSON.stringify({ version: 'build-b' })))
+  })
+  expect(reload).toHaveBeenCalledTimes(1)
+})
+
+test.each(['build-a', 'build-b'])(
+  'сбой после reload сборки %s до загрузки данных сразу даёт ошибку без второй попытки',
+  async (version) => {
+    browserWorker()
+    let published = 'build-a'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input) => {
+        if (input === '/release.json')
+          return new Response(JSON.stringify({ version: published }))
+        if (input === '/index.html')
+          return new Response('<meta name="app-version" content="build-b">')
+        return unexpectedRequest(String(input))
+      })
+    )
+    const reload = vi.fn()
+    vi.stubGlobal('location', { href: location.href, origin: location.origin, reload })
+    const oldPage = await openApp()
+    published = 'build-b'
+    await act(async () => {
+      window.dispatchEvent(new ErrorEvent('error', { error: new Error('Первый сбой') }))
+    })
+    expect(reload).toHaveBeenCalledTimes(1)
+    oldPage.unmount()
+    queryClient.clear()
+    vi.stubEnv('VITE_BUILD_ID', version)
+    let rejectData!: (error: Error) => void
+    const data = new Promise<string>((_resolve, reject) => {
+      rejectData = reject
+    })
+    function Page() {
+      const query = useQuery({ queryKey: ['necessary-data'], queryFn: () => data })
+      return <h1>{query.data ?? 'Загрузка данных'}</h1>
+    }
+    await openApp(<Page />)
+    await act(async () => {
+      rejectData(new Error('Данные не восстановлены'))
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(screen.getByText(errorMessage)).toBeVisible()
+    await act(() => vi.advanceTimersByTimeAsync(interval))
+    expect(reload).toHaveBeenCalledTimes(1)
+  }
+)
+
+test('неожиданная ошибка API чтения проходит через общий экран восстановления', async () => {
+  vi.useRealTimers()
+  await act(async () => {
+    useSession
+      .getState()
+      .login(
+        `header.${btoa(JSON.stringify({ exp: 4102444800, userId: 'recovery-user' }))}.signature`
+      )
+  })
+  mockApi(({ method, path }) => {
+    if (method === 'GET' && path === '/release.json')
+      return { status: 200, body: { version: 'build-a' } }
+    if (method === 'GET' && path === '/test-api/sleep-records')
+      return { status: 500, body: { code: 'INTERNAL_ERROR' } }
+    if (method === 'GET' && path === '/test-api/habits') return { status: 200, body: [] }
+    return unexpectedRequest(`${method} ${path}`)
+  })
+  const reload = vi.fn()
+  vi.stubGlobal('location', { href: location.href, origin: location.origin, reload })
+  await openApp(<MainPage />)
+  expect(
+    await screen.findByText('Что-то идёт не так, обновите страницу или попробуйте позже')
+  ).toBeVisible()
+  expect(reload).not.toHaveBeenCalled()
+})
+
+test.each(['отметка', 'сон'])(
+  'отказ сохранения: %s запускает обновление и не повторяет команду после reload',
+  async (kind) => {
+    vi.useRealTimers()
+    browserWorker()
+    const scrollIntoView = Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      'scrollIntoView'
+    )
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
+    })
+    onTestFinished(() => {
+      if (scrollIntoView)
+        Object.defineProperty(Element.prototype, 'scrollIntoView', scrollIntoView)
+      else Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+    })
+    await act(async () => {
+      useSession
+        .getState()
+        .login(
+          `header.${btoa(JSON.stringify({ exp: 4102444800, userId: 'save-user' }))}.signature`
+        )
+    })
+    let published = 'build-a'
+    let commands = 0
+    const fetchMock = mockApi(({ method, path }) => {
+      if (method === 'GET' && path === '/release.json')
+        return { status: 200, body: { version: published } }
+      if (method === 'GET' && path === '/test-api/habits')
+        return {
+          status: 200,
+          body: [
+            {
+              key: 'reading',
+              label: 'Чтение',
+              createdAt: '2026-10-01T00:00:00Z',
+              startDate: '2026-10-01',
+              archived: false,
+            },
+          ] satisfies ApiSchemas['HabitDefinition'][],
+        }
+      if (method === 'GET' && path === '/test-api/sleep-records')
+        return { status: 200, body: [] }
+      if (
+        (kind === 'отметка' &&
+          method === 'PATCH' &&
+          /^\/test-api\/sleep-records\/\d{4}-\d{2}-\d{2}\/habits\/reading$/.test(path)) ||
+        (kind === 'сон' &&
+          method === 'PUT' &&
+          /^\/test-api\/sleep-records\/\d{4}-\d{2}-\d{2}$/.test(path))
+      ) {
+        commands++
+        return {
+          status: 500,
+          body: { code: 'SAVE_FAILED', message: 'Не удалось сохранить' },
+        }
+      }
+      return unexpectedRequest(`${method} ${path}`)
+    })
+    const http = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((input, init) =>
+      input === '/index.html'
+        ? Promise.resolve(new Response('<meta name="app-version" content="build-b">'))
+        : http(input, init)
+    )
+    const reload = vi.fn()
+    vi.stubGlobal('location', { href: location.href, origin: location.origin, reload })
+    const oldPage = await openApp(<MainPage />)
+    const row = await screen.findByRole('row', { name: /Чтение/ })
+    published = 'build-b'
+    const user = userEvent.setup()
+    if (kind === 'отметка') {
+      await user.click(
+        within(row).getAllByRole('button', { name: 'Не отмечено' }).at(-1)!
+      )
+    } else {
+      await user.click(
+        within(screen.getByRole('row', { name: /Дневной сон/ }))
+          .getAllByRole('button')
+          .at(-1)!
+      )
+      await user.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: '0:30' })
+      )
+    }
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1))
+    expect(commands).toBe(1)
+    oldPage.unmount()
+    queryClient.clear()
+    vi.stubEnv('VITE_BUILD_ID', 'build-b')
+    await openApp(<MainPage />)
+    await screen.findByRole('row', { name: /Чтение/ })
+    expect(commands).toBe(1)
+  }
+)
+
+test.each(['авторизация', 'ввод', 'сеть'])(
+  'штатная ошибка: %s сохраняет форму входа',
+  async (kind) => {
+    vi.useRealTimers()
+    mockApi(({ method, path }) => {
+      if (method === 'GET' && path === '/release.json')
+        return { status: 200, body: { version: 'build-a' } }
+      if (method === 'POST' && path === '/test-api/auth/login') {
+        if (kind === 'сеть') throw new TypeError('Failed to fetch')
+        return {
+          status: kind === 'ввод' ? 400 : 401,
+          body: {
+            code: kind === 'ввод' ? 'BAD_REQUEST' : 'UNAUTHORIZED',
+            message: 'Проверьте данные входа',
+          },
+        }
+      }
+      return unexpectedRequest(`${method} ${path}`)
+    })
+    await openApp(<LoginPage />)
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Email', { exact: true }), 'user@example.test')
+    await user.type(screen.getByLabelText('Пароль', { exact: true }), 'password123')
+    await user.click(screen.getByRole('button', { name: 'Войти' }))
+    expect(
+      await screen.findByText(
+        kind === 'сеть' ? 'Failed to fetch' : 'Проверьте данные входа'
+      )
+    ).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Войти' })).toBeVisible()
+    expect(screen.queryByText(errorMessage)).not.toBeInTheDocument()
+  }
+)
+
+test.each(['проверка', 'подготовка', 'хранилище'])(
+  'ошибка восстановления: %s оставляет ручной повтор доступным',
+  async (stage) => {
+    vi.useRealTimers()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { registration } = browserWorker()
+    const reload = vi.fn()
+    vi.stubGlobal('location', { href: location.href, origin: location.origin, reload })
+    let failed = true
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input) => {
+        if (input === '/release.json')
+          return new Response(
+            JSON.stringify({
+              version: failed && stage !== 'проверка' ? 'build-b' : 'build-a',
+            }),
+            { status: failed && stage === 'проверка' ? 503 : 200 }
+          )
+        if (input === '/index.html')
+          return new Response('<meta name="app-version" content="build-b">')
+        return unexpectedRequest(String(input))
+      })
+    )
+    if (stage === 'подготовка')
+      registration.update.mockRejectedValue(new Error('Не удалось установить'))
+    const storage =
+      stage === 'хранилище'
+        ? vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+            throw new Error('Storage blocked')
+          })
+        : undefined
+    await openApp(<BrokenPage />)
+    await userEvent.click(screen.getByRole('button', { name: 'Сломать страницу' }))
+    expect(await screen.findByText(errorMessage)).toBeVisible()
+    expect(reload).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Обновить страницу' }))
+    expect(await screen.findByText(errorMessage)).toBeVisible()
+    expect(reload).not.toHaveBeenCalled()
+    failed = false
+    storage?.mockRestore()
+    await userEvent.click(screen.getByRole('button', { name: 'Обновить страницу' }))
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1))
+  }
+)
+
+test('неожиданный отказ обновления токена до монтирования оболочки достигает экрана ошибки', async () => {
+  vi.useRealTimers()
+  vi.stubGlobal(
+    'AbortController',
+    vi.fn(() => transferableAbortController())
+  )
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+  await act(async () => {
+    useSession
+      .getState()
+      .login(
+        `header.${btoa(JSON.stringify({ exp: 1, userId: 'expired-user' }))}.signature`
+      )
+  })
+  mockApi(({ method, path }) => {
+    if (method === 'GET' && path === '/release.json')
+      return { status: 200, body: { version: 'build-a' } }
+    if (method === 'POST' && path === '/test-api/auth/refresh')
+      return { status: 500, body: { code: 'INTERNAL_ERROR' } }
+    return unexpectedRequest(`${method} ${path}`)
+  })
+  const router = createMemoryRouter([
+    createApplicationRoute([
+      { path: '*', loader: protectedLoader, element: <h1>Рабочая страница</h1> },
+    ]),
+  ])
+  onTestFinished(() => router.dispose())
+  render(<RouterProvider router={router} />)
+  expect(await screen.findByText(errorMessage)).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Обновить страницу' })).toBeVisible()
+})
+
+test('поздний отказ мутации прежней сессии не закрывает интерфейс нового пользователя', async () => {
+  vi.useRealTimers()
+  const login = (userId: string) =>
+    useSession
+      .getState()
+      .login(`header.${btoa(JSON.stringify({ exp: 4102444800, userId }))}.signature`)
+  await act(async () => {
+    login('alice')
+  })
+  let rejectMark!: (response: { status: number; body: ApiSchemas['ApiError'] }) => void
+  const mark = new Promise<{ status: number; body: ApiSchemas['ApiError'] }>(
+    (resolve) => {
+      rejectMark = resolve
+    }
+  )
+  mockApi(({ method, path }) => {
+    if (method === 'GET' && path === '/release.json')
+      return { status: 200, body: { version: 'build-a' } }
+    if (method === 'GET' && path === '/test-api/habits')
+      return {
+        status: 200,
+        body: [
+          {
+            key: 'reading',
+            label: 'Чтение',
+            createdAt: '2026-10-01T00:00:00Z',
+            startDate: '2026-10-01',
+            archived: false,
+          },
+        ] satisfies ApiSchemas['HabitDefinition'][],
+      }
+    if (method === 'GET' && path === '/test-api/sleep-records')
+      return { status: 200, body: [] }
+    if (
+      method === 'PATCH' &&
+      /^\/test-api\/sleep-records\/\d{4}-\d{2}-\d{2}\/habits\/reading$/.test(path)
+    )
+      return mark
+    return unexpectedRequest(`${method} ${path}`)
+  })
+  await openApp(<MainPage />)
+  const row = await screen.findByRole('row', { name: /Чтение/ })
+  await userEvent.click(
+    within(row).getAllByRole('button', { name: 'Не отмечено' }).at(-1)!
+  )
+  await act(async () => {
+    useSession.getState().logout()
+    login('bob')
+  })
+  await screen.findByRole('row', { name: /Чтение/ })
+  await act(async () => {
+    rejectMark({
+      status: 500,
+      body: { code: 'SAVE_FAILED', message: 'Ошибка старого запроса' },
+    })
+  })
+  expect(screen.getByRole('row', { name: /Чтение/ })).toBeVisible()
+  expect(screen.queryByText(errorMessage)).not.toBeInTheDocument()
+})
 
 test('проверяет версию при запуске и раз в десять минут, сохраняя интерфейс при ошибке', async () => {
   const fetchMock = mockApi(({ method, path }) => {
@@ -127,7 +658,6 @@ test.each([
     await openApp()
     expect(screen.getByRole('heading')).toBeVisible()
     expect(reload).not.toHaveBeenCalled()
-    expect(screen.queryByText('Приложение обновлено')).not.toBeInTheDocument()
   }
 )
 
@@ -203,20 +733,20 @@ test('ожидает подготовленный HTML нового worker и п
   })
   await act(() => vi.advanceTimersByTimeAsync(interval))
   expect(reload).toHaveBeenCalledTimes(1)
-  expect(screen.queryByText('Приложение обновлено')).not.toBeInTheDocument()
 })
 
-test('подтверждает смену выполняемой сборки только после загрузки данных страницы', async () => {
+test('снимает защиту от повторного перезапуска только после смены сборки и загрузки данных страницы', async () => {
   browserWorker()
   const reload = vi.fn()
   vi.stubGlobal('location', { href: location.href, origin: location.origin, reload })
+  let published = 'build-b'
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input) => {
       if (input === '/release.json')
-        return new Response(JSON.stringify({ version: 'build-b' }))
+        return new Response(JSON.stringify({ version: published }))
       if (input === '/index.html')
-        return new Response('<meta name="app-version" content="build-b">')
+        return new Response(`<meta name="app-version" content="${published}">`)
       return unexpectedRequest(String(input))
     })
   )
@@ -224,9 +754,8 @@ test('подтверждает смену выполняемой сборки т
   expect(reload).toHaveBeenCalledTimes(1)
   oldPage.unmount()
 
-  // Reloading the same JavaScript never confirms an update or permits another reload.
+  // Reloading the same JavaScript must not permit another automatic reload.
   const sameBuild = await openApp()
-  expect(screen.queryByText('Приложение обновлено')).not.toBeInTheDocument()
   expect(reload).toHaveBeenCalledTimes(1)
   sameBuild.unmount()
 
@@ -241,13 +770,16 @@ test('подтверждает смену выполняемой сборки т
   vi.stubEnv('VITE_BUILD_ID', 'build-b')
   await openApp(<Page />)
   expect(screen.getByRole('heading')).toHaveTextContent('Загружаем данные')
-  expect(screen.queryByText('Приложение обновлено')).not.toBeInTheDocument()
+  published = 'build-c'
+  await act(() => vi.advanceTimersByTimeAsync(interval))
+  expect(reload).toHaveBeenCalledTimes(1)
   await act(async () => {
     resolveData('Данные восстановлены')
     await vi.advanceTimersByTimeAsync(0)
   })
   expect(screen.getByRole('heading')).toHaveTextContent('Данные восстановлены')
-  expect(screen.getByText('Приложение обновлено')).toBeVisible()
+  await act(() => vi.advanceTimersByTimeAsync(interval))
+  expect(reload).toHaveBeenCalledTimes(2)
 })
 
 test('ожидающий worker и событие другой вкладки используют одну подготовку', async () => {
@@ -394,5 +926,5 @@ test('после обновления заново читает данные д�
   expect(reads).toBe(2)
   expect(commands).toBe(1)
   expect(screen.getByRole('row', { name: /Чтение/ })).toBeVisible()
-  expect(await screen.findByText('Приложение обновлено')).toBeVisible()
+  expect(screen.queryByRole('status')).not.toBeInTheDocument()
 })

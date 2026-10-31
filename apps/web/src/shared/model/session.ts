@@ -4,6 +4,7 @@ import { createGStore } from 'create-gstore'
 import { ApiClientError } from '@sadhana/api-contract'
 import { publicApiClient } from '../api/instance'
 import { queryClient } from '@/shared/api/query-client'
+import { isUnexpectedApiError } from '@/shared/lib/unexpected-error'
 
 type Session = {
   userId: string
@@ -73,6 +74,9 @@ export const useSession = createGStore(() => {
       return null
     } catch (error) {
       if (version !== sessionVersion) return null
+      // Router loaders can refresh before the application shell is mounted.
+      // Propagate unexpected failures to its route error boundary as well.
+      if (isUnexpectedApiError(error)) throw error
       if (error instanceof ApiClientError && isInvalidRefreshStatus(error.status)) {
         logout()
       }

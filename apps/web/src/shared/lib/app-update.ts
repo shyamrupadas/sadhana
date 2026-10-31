@@ -3,16 +3,15 @@ import { preparePwaUpdate } from './pwa-update'
 const CHECK_INTERVAL = 10 * 60 * 1000
 const ATTEMPT_KEY = 'app:update-attempt'
 
-type UpdateAttempt = { fromVersion: string; targetVersion: string }
+type UpdateAttempt = { fromVersion: string }
+type RecoveryState = 'working' | 'checking' | 'error'
+export type AppUpdater = ReturnType<typeof createAppUpdater>
 
 function readAttempt(): UpdateAttempt | null {
   const value = sessionStorage.getItem(ATTEMPT_KEY)
   if (!value) return null
   const attempt: UpdateAttempt = JSON.parse(value)
-  if (
-    typeof attempt.fromVersion !== 'string' ||
-    typeof attempt.targetVersion !== 'string'
-  ) {
+  if (!attempt || typeof attempt.fromVersion !== 'string') {
     throw new Error('Некорректная запись перезапуска')
   }
   return attempt
@@ -20,11 +19,19 @@ function readAttempt(): UpdateAttempt | null {
 
 export function createAppUpdater() {
   const version = import.meta.env.VITE_BUILD_ID
-  let pending: Promise<void> | undefined
+  let pending: Promise<'current' | 'ready'> | undefined
   let lastCheck = -Infinity
   let registration: Promise<ServiceWorkerRegistration> | undefined
   let controller: AbortController | undefined
   let stopped = true
+  let state: RecoveryState = 'working'
+  let recoveryTimer: ReturnType<typeof setTimeout> | undefined
+  let recoveryId = 0
+  const listeners = new Set<() => void>()
+  const setState = (next: RecoveryState) => {
+    state = next
+    listeners.forEach((listener) => listener())
+  }
 
   const register = () => {
     if (!('serviceWorker' in navigator)) return undefined
@@ -37,14 +44,19 @@ export function createAppUpdater() {
     return registration
   }
 
+  const cancelCheck = () => {
+    controller?.abort()
+    pending = undefined
+  }
+
   const check = () => {
     if (pending) return pending
     lastCheck = Date.now()
-    controller = new AbortController()
-    const signal = controller.signal
-    const timeout = setTimeout(() => controller?.abort(), 60_000)
-    pending = (async () => {
-      if (readAttempt()) return
+    const checking = new AbortController()
+    controller = checking
+    const signal = checking.signal
+    const timeout = setTimeout(() => checking.abort(), 60_000)
+    const result = (async () => {
       const response = await fetch('/release.json', { cache: 'no-store', signal })
       if (!response.ok) throw new Error('Не удалось проверить версию')
       const release: unknown = await response.json()
@@ -57,72 +69,131 @@ export function createAppUpdater() {
       ) {
         throw new Error('Некорректная версия приложения')
       }
-      if (release.version === version) return
+      signal.throwIfAborted()
+      if (release.version === version) return 'current' as const
       const worker = register()
-      if (!worker) return
+      if (!worker) throw new Error('Обновление PWA недоступно')
       await preparePwaUpdate(worker, release.version, signal)
-      if (signal.aborted || stopped || readAttempt()) return
-      const attempt: UpdateAttempt = {
-        fromVersion: version,
-        targetVersion: release.version,
+      signal.throwIfAborted()
+      return 'ready' as const
+    })().finally(() => {
+      clearTimeout(timeout)
+      if (pending === result) pending = undefined
+    })
+    pending = result
+    return result
+  }
+
+  const reload = () => {
+    const attempt: UpdateAttempt = { fromVersion: version }
+    const value = JSON.stringify(attempt)
+    sessionStorage.setItem(ATTEMPT_KEY, value)
+    if (sessionStorage.getItem(ATTEMPT_KEY) !== value) {
+      throw new Error('Не удалось сохранить защиту от цикла')
+    }
+    location.reload()
+  }
+
+  const backgroundCheck = async () => {
+    if (stopped || state !== 'working') return
+    try {
+      if (readAttempt()) return
+      const result = await check()
+      if (result === 'ready' && !stopped && state === 'working' && !readAttempt()) {
+        reload()
       }
-      sessionStorage.setItem(ATTEMPT_KEY, JSON.stringify(attempt))
-      // Do not navigate if durable protection could not be recorded.
-      if (sessionStorage.getItem(ATTEMPT_KEY) !== JSON.stringify(attempt)) return
-      location.reload()
-    })()
-      .catch(() => {
-        // A background failure leaves the current application usable.
-      })
-      .finally(() => {
-        clearTimeout(timeout)
-        pending = undefined
-      })
-    return pending
+    } catch {
+      // A background failure leaves the current application usable.
+    }
+  }
+
+  const recover = (manual = false) => {
+    if (state === 'checking' || (state === 'error' && !manual)) return
+    const id = ++recoveryId
+    const deadline = Date.now() + 15_000
+    const fail = () => {
+      if (id !== recoveryId || stopped) return
+      clearTimeout(recoveryTimer)
+      setState('error')
+      cancelCheck()
+    }
+    try {
+      if (!manual && readAttempt()) {
+        setState('error')
+        cancelCheck()
+        return
+      }
+      setState('checking')
+      recoveryTimer = setTimeout(fail, 15_000)
+      void check()
+        .then((result) => {
+          if (id !== recoveryId || stopped || state !== 'checking') return
+          if (Date.now() >= deadline) {
+            fail()
+            return
+          }
+          clearTimeout(recoveryTimer)
+          // Only an explicit user action permits reloading the current build.
+          if (result === 'ready' || manual) reload()
+          else fail()
+        })
+        .catch(fail)
+    } catch {
+      clearTimeout(recoveryTimer)
+      setState('error')
+      cancelCheck()
+    }
   }
 
   return {
-    confirmRecovery() {
-      try {
-        const attempt = readAttempt()
-        if (!attempt || attempt.fromVersion === version) return false
-        sessionStorage.removeItem(ATTEMPT_KEY)
-        return true
-      } catch {
-        return false
+    subscribe(listener: () => void) {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
       }
     },
-    start() {
-      stopped = false
-      if ('serviceWorker' in navigator) {
-        // Registration also installs the PWA on first visit, without a new release.
-        register()
-        navigator.serviceWorker.addEventListener('controllerchange', check)
+    getSnapshot: () => state,
+    recover,
+    confirmRecovery() {
+      if (state !== 'working') return
+      try {
+        const attempt = readAttempt()
+        if (!attempt || attempt.fromVersion === version) return
+        sessionStorage.removeItem(ATTEMPT_KEY)
+      } catch {
+        // Keep protection when storage is unavailable.
       }
-      // StrictMode may restart the effect while the aborted check is settling.
-      if (pending)
-        void pending.then(() => {
-          if (!stopped) void check()
-        })
-      else void check()
-      const timer = setInterval(() => {
-        void check()
-      }, CHECK_INTERVAL)
+    },
+    start(background = true) {
+      stopped = false
+      if (background) {
+        register()
+        navigator.serviceWorker?.addEventListener('controllerchange', backgroundCheck)
+        void backgroundCheck()
+      }
+      const timer = background ? setInterval(backgroundCheck, CHECK_INTERVAL) : undefined
       const resume = () => {
         if (
           document.visibilityState === 'visible' &&
           Date.now() - lastCheck >= CHECK_INTERVAL
         ) {
-          void check()
+          void backgroundCheck()
         }
       }
-      document.addEventListener('visibilitychange', resume)
+      if (background) document.addEventListener('visibilitychange', resume)
       return () => {
         stopped = true
-        controller?.abort()
+        // StrictMode immediately reconnects the same updater. Keep its attempt
+        // and deadline; a real unmount still cancels before any later reload.
+        void Promise.resolve().then(() => {
+          if (!stopped) return
+          recoveryId++
+          cancelCheck()
+          clearTimeout(recoveryTimer)
+        })
         clearInterval(timer)
         document.removeEventListener('visibilitychange', resume)
-        navigator.serviceWorker?.removeEventListener('controllerchange', check)
+        navigator.serviceWorker?.removeEventListener('controllerchange', backgroundCheck)
       }
     },
   }
