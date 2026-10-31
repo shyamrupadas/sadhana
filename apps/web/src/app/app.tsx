@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router'
 import { Providers } from './providers'
 import { CONFIG } from '@/shared/model/config'
+import { ApplicationUpdates } from './application-updates'
 
 export const App = () => {
   return (
@@ -16,6 +17,7 @@ export const App = () => {
         )}
         <Outlet />
       </div>
+      <ApplicationUpdates />
     </Providers>
   )
 }

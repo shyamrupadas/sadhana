@@ -18,6 +18,15 @@ export default defineConfig({
   plugins: [
     {
       name: 'release-artifact',
+      transformIndexHtml() {
+        return [
+          {
+            tag: 'meta',
+            attrs: { name: 'app-version', content: version },
+            injectTo: 'head',
+          },
+        ]
+      },
       generateBundle() {
         this.emitFile({
           type: 'asset',
@@ -30,6 +39,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: null,
       workbox: {
         globIgnores: ['**/release.json'],
         navigateFallbackDenylist: [/^\/release\.json$/],
