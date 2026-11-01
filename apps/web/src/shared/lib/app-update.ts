@@ -101,7 +101,7 @@ export function createAppUpdater() {
   }
 
   const backgroundCheck = async () => {
-    if (stopped || state !== 'working') return
+    if (stopped || state !== 'working' || document.visibilityState !== 'visible') return
     try {
       if (readAttempt()) return
       const result = await check()

@@ -669,6 +669,7 @@ test('поздний отказ мутации прежней сессии не 
 })
 
 test('проверяет версию при запуске и раз в десять минут, сохраняя интерфейс при ошибке', async () => {
+  const { serviceWorker } = browserWorker()
   const fetchMock = mockApi(({ method, path }) => {
     if (method === 'GET' && path === '/release.json') {
       return { status: 200, body: { version: 'build-a' } }
@@ -690,7 +691,9 @@ test('проверяет версию при запуске и раз в дес�
   expect(screen.getByRole('heading')).toBeVisible()
   await act(() => vi.advanceTimersByTimeAsync(interval))
   expect(fetchMock).toHaveBeenCalledTimes(3)
-  vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+  const visibility = vi
+    .spyOn(document, 'visibilityState', 'get')
+    .mockReturnValue('visible')
   await act(async () => {
     document.dispatchEvent(new Event('visibilitychange'))
   })
@@ -701,6 +704,24 @@ test('проверяет версию при запуске и раз в дес�
     document.dispatchEvent(new Event('visibilitychange'))
   })
   expect(fetchMock).toHaveBeenCalledTimes(4)
+  visibility.mockReturnValue('hidden')
+  await act(() => vi.advanceTimersByTimeAsync(interval / 2))
+  visibility.mockReturnValue('visible')
+  await act(async () => {
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  expect(fetchMock).toHaveBeenCalledTimes(4)
+  visibility.mockReturnValue('hidden')
+  await act(() => vi.advanceTimersByTimeAsync(interval / 2))
+  await act(async () => {
+    serviceWorker.dispatchEvent(new Event('controllerchange'))
+  })
+  expect(fetchMock).toHaveBeenCalledTimes(4)
+  visibility.mockReturnValue('visible')
+  await act(async () => {
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  expect(fetchMock).toHaveBeenCalledTimes(5)
   expect(reload).not.toHaveBeenCalled()
   router.dispose()
 })
