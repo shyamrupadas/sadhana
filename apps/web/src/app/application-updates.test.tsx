@@ -462,24 +462,25 @@ test.each(['авторизация', 'ввод', 'сеть'])(
   }
 )
 
-test.each(['проверка', 'подготовка', 'хранилище'])(
-  'ошибка восстановления: %s оставляет ручной повтор доступным',
+test.each(['проверка', 'подготовка', 'хранилище', 'JSON'])(
+  'ошибка восстановления: %s блокирует автоматический reload, но разрешает ручной',
   async (stage) => {
     vi.useRealTimers()
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const { registration } = browserWorker()
     const reload = vi.fn()
     vi.stubGlobal('location', { href: location.href, origin: location.origin, reload })
-    let failed = true
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input) => {
         if (input === '/release.json')
           return new Response(
-            JSON.stringify({
-              version: failed && stage !== 'проверка' ? 'build-b' : 'build-a',
-            }),
-            { status: failed && stage === 'проверка' ? 503 : 200 }
+            stage === 'JSON'
+              ? '<!doctype html><title>Dev server</title>'
+              : JSON.stringify({
+                  version: stage !== 'проверка' ? 'build-b' : 'build-a',
+                }),
+            { status: stage === 'проверка' ? 503 : 200 }
           )
         if (input === '/index.html')
           return new Response('<meta name="app-version" content="build-b">')
@@ -488,23 +489,89 @@ test.each(['проверка', 'подготовка', 'хранилище'])(
     )
     if (stage === 'подготовка')
       registration.update.mockRejectedValue(new Error('Не удалось установить'))
-    const storage =
-      stage === 'хранилище'
-        ? vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-            throw new Error('Storage blocked')
-          })
-        : undefined
+    if (stage === 'хранилище')
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('Storage blocked')
+      })
     await openApp(<BrokenPage />)
     await userEvent.click(screen.getByRole('button', { name: 'Сломать страницу' }))
     expect(await screen.findByText(errorMessage)).toBeVisible()
     expect(reload).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: 'Обновить страницу' }))
-    expect(await screen.findByText(errorMessage)).toBeVisible()
-    expect(reload).not.toHaveBeenCalled()
-    failed = false
-    storage?.mockRestore()
-    await userEvent.click(screen.getByRole('button', { name: 'Обновить страницу' }))
     await waitFor(() => expect(reload).toHaveBeenCalledTimes(1))
+  }
+)
+
+test.each(['проверка', 'worker'])(
+  'ручной reload после таймаута: %s не вызывает поздний или повторный автоматический reload',
+  async (stage) => {
+    vi.useRealTimers()
+    const { registration, serviceWorker } = browserWorker()
+    let published = false
+    let resolveRelease!: (response: Response) => void
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input) => {
+        if (input === '/release.json') {
+          if (published && stage === 'проверка')
+            return new Promise<Response>((resolve) => {
+              resolveRelease = resolve
+            })
+          return new Response(
+            JSON.stringify({ version: published ? 'build-b' : 'build-a' })
+          )
+        }
+        if (input === '/index.html')
+          return new Response('<meta name="app-version" content="build-b">')
+        return unexpectedRequest(String(input))
+      })
+    )
+    const reload = vi.fn()
+    vi.stubGlobal('location', { href: location.href, origin: location.origin, reload })
+    const page = await openApp()
+    await act(async () => {
+      window.dispatchEvent(new ErrorEvent('error', { error: new Error('Сбой UI') }))
+    })
+    expect(screen.getByText(errorMessage)).toBeVisible()
+    published = true
+    const worker = new Worker()
+    worker.state = 'installing'
+    registration.installing = worker
+
+    vi.useFakeTimers()
+    const started = Date.now()
+    const click = userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole('button', { name: 'Обновить страницу' }))
+    await vi.advanceTimersByTimeAsync(1)
+    await click
+    expect(screen.getByText('Проверяем обновление…')).toBeVisible()
+    await act(() => vi.advanceTimersByTimeAsync(14_999 - (Date.now() - started)))
+    expect(reload).not.toHaveBeenCalled()
+    await act(() => vi.advanceTimersByTimeAsync(1))
+    expect(reload).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      if (stage === 'проверка')
+        resolveRelease(new Response(JSON.stringify({ version: 'build-b' })))
+      registration.installing = null
+      registration.active = worker
+      serviceWorker.controller = worker
+      worker.state = 'activated'
+      serviceWorker.dispatchEvent(new Event('controllerchange'))
+    })
+    await act(() => vi.advanceTimersByTimeAsync(interval))
+    expect(reload).toHaveBeenCalledTimes(1)
+
+    page.unmount()
+    queryClient.clear()
+    await openApp()
+    await act(async () => {
+      window.dispatchEvent(
+        new ErrorEvent('error', { error: new Error('Сбой после ручного reload') })
+      )
+    })
+    expect(screen.getByText(errorMessage)).toBeVisible()
+    expect(reload).toHaveBeenCalledTimes(1)
   }
 )
 

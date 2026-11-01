@@ -84,12 +84,18 @@ export function createAppUpdater() {
     return result
   }
 
-  const reload = () => {
+  const reload = (manual = false) => {
     const attempt: UpdateAttempt = { fromVersion: version }
     const value = JSON.stringify(attempt)
-    sessionStorage.setItem(ATTEMPT_KEY, value)
-    if (sessionStorage.getItem(ATTEMPT_KEY) !== value) {
-      throw new Error('Не удалось сохранить защиту от цикла')
+    try {
+      sessionStorage.setItem(ATTEMPT_KEY, value)
+      if (sessionStorage.getItem(ATTEMPT_KEY) !== value) {
+        throw new Error('Не удалось сохранить защиту от цикла')
+      }
+    } catch (error) {
+      // Explicit navigation remains available when storage is blocked.
+      // Automatic navigation still requires durable protection.
+      if (!manual) throw error
     }
     location.reload()
   }
@@ -111,11 +117,21 @@ export function createAppUpdater() {
     if (state === 'checking' || (state === 'error' && !manual)) return
     const id = ++recoveryId
     const deadline = Date.now() + 15_000
-    const fail = () => {
-      if (id !== recoveryId || stopped) return
+    let finished = false
+    const finish = (ready = false) => {
+      if (id !== recoveryId || stopped || finished) return
+      finished = true
       clearTimeout(recoveryTimer)
-      setState('error')
       cancelCheck()
+      if (ready || manual) {
+        try {
+          reload(manual)
+          return
+        } catch {
+          // Automatic navigation is unsafe without durable protection.
+        }
+      }
+      setState('error')
     }
     try {
       if (!manual && readAttempt()) {
@@ -124,21 +140,17 @@ export function createAppUpdater() {
         return
       }
       setState('checking')
-      recoveryTimer = setTimeout(fail, 15_000)
+      recoveryTimer = setTimeout(() => finish(), 15_000)
       void check()
         .then((result) => {
-          if (id !== recoveryId || stopped || state !== 'checking') return
-          if (Date.now() >= deadline) {
-            fail()
-            return
-          }
-          clearTimeout(recoveryTimer)
-          // Only an explicit user action permits reloading the current build.
-          if (result === 'ready' || manual) reload()
-          else fail()
+          finish(result === 'ready' && Date.now() < deadline)
         })
-        .catch(fail)
+        .catch(() => finish())
     } catch {
+      if (manual) {
+        finish()
+        return
+      }
       clearTimeout(recoveryTimer)
       setState('error')
       cancelCheck()
